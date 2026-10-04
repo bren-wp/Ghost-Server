@@ -20,7 +20,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly ProfileStore _profileStore = new();
     private readonly SettingsStore _settingsStore = new();
-    private readonly SshServerClient _ssh = new();
     private AppSettings _settings = new();
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
@@ -32,7 +31,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _rawLogs = string.Empty;
     private Button? _activeNavButton;
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
-    private readonly SemaphoreSlim _mutationGate = new(1, 1);
+    private int _mutationActive;
     private bool _autoRefreshBusy;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
@@ -285,7 +284,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             FilesStatusText.Text = "Loading…";
             StatusText.Text = "Loading remote files…";
 
-            var files = await _ssh.GetRemoteFilesAsync(
+            var files = await SshServerClient.GetRemoteFilesAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 path);
@@ -368,7 +367,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             FilesStatusText.Text = $"Uploading {Path.GetFileName(dialog.FileName)}…";
-            await _ssh.UploadFileAsync(
+            await SshServerClient.UploadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 dialog.FileName,
@@ -423,7 +422,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             FilesStatusText.Text = $"Downloading {item.Name}…";
-            await _ssh.DownloadFileAsync(
+            await SshServerClient.DownloadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 item.FullPath,
@@ -473,7 +472,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (string.IsNullOrWhiteSpace(SelectedProfile.HostKeyFingerprint))
             {
-                var probe = await _ssh.ProbeAsync(SelectedProfile, SessionSecretBox.Password);
+                var probe = await SshServerClient.ProbeAsync(SelectedProfile, SessionSecretBox.Password);
                 if (probe.RequiresTrust && !string.IsNullOrWhiteSpace(probe.PresentedFingerprint))
                 {
                     _pendingFingerprint = probe.PresentedFingerprint;
@@ -487,7 +486,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
             }
 
-            var snapshot = await _ssh.GetSnapshotAsync(SelectedProfile, SessionSecretBox.Password);
+            var snapshot = await SshServerClient.GetSnapshotAsync(SelectedProfile, SessionSecretBox.Password);
             ApplySnapshot(snapshot);
             SelectedProfile.LastConnectedUtc = DateTimeOffset.UtcNow;
             await _profileStore.SaveAsync(Profiles);
@@ -555,7 +554,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             SetBusy("Loading services…");
-            ServicesList.ItemsSource = await _ssh.GetRunningServicesAsync(
+            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
                 SelectedProfile, SessionSecretBox.Password);
             StatusText.Text = "Service list refreshed";
         }
@@ -580,7 +579,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading services…";
-            ServicesManagerList.ItemsSource = await _ssh.GetServicesAsync(
+            ServicesManagerList.ItemsSource = await SshServerClient.GetServicesAsync(
                 SelectedProfile, SessionSecretBox.Password);
             SelectedServiceText.Text = "Select a service to manage it.";
             StatusText.Text = "Services refreshed";
@@ -631,7 +630,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!await TryAcquireMutationAsync($"Preparing service {action}…"))
+        if (!TryAcquireMutation($"Preparing service {action}…"))
         {
             return;
         }
@@ -639,7 +638,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"{char.ToUpperInvariant(action[0])}{action[1..]}ing {service.Name}…";
-            var output = await _ssh.ServiceActionAsync(
+            var output = await SshServerClient.ServiceActionAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 service.Name,
@@ -655,7 +654,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         finally
         {
-            _mutationGate.Release();
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -676,7 +675,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Loading logs for {service.Name}…";
-            _rawLogs = await _ssh.GetServiceLogsAsync(
+            _rawLogs = await SshServerClient.GetServiceLogsAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 service.Name);
@@ -708,7 +707,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading Docker containers…";
-            DockerList.ItemsSource = await _ssh.GetDockerContainersAsync(
+            DockerList.ItemsSource = await SshServerClient.GetDockerContainersAsync(
                 SelectedProfile, SessionSecretBox.Password);
             SelectedDockerText.Text = "Select a Docker container.";
             StatusText.Text = "Docker containers refreshed";
@@ -759,7 +758,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!await TryAcquireMutationAsync($"Preparing Docker {action}…"))
+        if (!TryAcquireMutation($"Preparing Docker {action}…"))
         {
             return;
         }
@@ -767,7 +766,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Docker {action}: {container.Name}…";
-            var output = await _ssh.DockerActionAsync(
+            var output = await SshServerClient.DockerActionAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 container.Id,
@@ -782,7 +781,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         finally
         {
-            _mutationGate.Release();
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -803,7 +802,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Loading logs for {container.Name}…";
-            _rawLogs = await _ssh.GetDockerLogsAsync(
+            _rawLogs = await SshServerClient.GetDockerLogsAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 container.Id);
@@ -834,7 +833,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading network state…";
-            NetworkOutput.Text = await _ssh.GetNetworkOverviewAsync(
+            NetworkOutput.Text = await SshServerClient.GetNetworkOverviewAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             NetworkOutput.ScrollToHome();
@@ -875,7 +874,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!await TryAcquireMutationAsync("Preparing firewall change…"))
+        if (!TryAcquireMutation("Preparing firewall change…"))
         {
             return;
         }
@@ -883,7 +882,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Allowing firewall port {port}/{protocol}…";
-            var output = await _ssh.AllowFirewallPortAsync(
+            var output = await SshServerClient.AllowFirewallPortAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 port,
@@ -899,7 +898,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         finally
         {
-            _mutationGate.Release();
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -917,7 +916,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Checking package updates…";
-            var output = await _ssh.GetUpdateOverviewAsync(
+            var output = await SshServerClient.GetUpdateOverviewAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             UpdatesOutput.Text = string.IsNullOrWhiteSpace(output)
@@ -968,7 +967,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!await TryAcquireMutationAsync("Preparing configuration snapshot…"))
+        if (!TryAcquireMutation("Preparing configuration snapshot…"))
         {
             return;
         }
@@ -978,14 +977,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             BackupOutput.Text = "Creating remote configuration snapshot…";
             StatusText.Text = "Creating configuration snapshot…";
-            remoteArchive = await _ssh.CreateConfigurationSnapshotAsync(
+            remoteArchive = await SshServerClient.CreateConfigurationSnapshotAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
 
             BackupOutput.AppendText($"{Environment.NewLine}Remote archive: {remoteArchive}");
             BackupOutput.AppendText($"{Environment.NewLine}Downloading securely over SFTP…");
 
-            await _ssh.DownloadFileAsync(
+            await SshServerClient.DownloadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 remoteArchive,
@@ -1007,7 +1006,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 try
                 {
-                    await _ssh.DeleteRemoteFileAsync(
+                    await SshServerClient.DeleteRemoteFileAsync(
                         SelectedProfile,
                         SessionSecretBox.Password,
                         remoteArchive);
@@ -1021,7 +1020,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             BackupOutput.ScrollToEnd();
-            _mutationGate.Release();
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -1040,7 +1039,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading recent logs…";
-            _rawLogs = await _ssh.GetRecentLogsAsync(
+            _rawLogs = await SshServerClient.GetRecentLogsAsync(
                 SelectedProfile, SessionSecretBox.Password);
             ApplyLogFilter();
             LogsOutput.ScrollToEnd();
@@ -1144,7 +1143,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Running command…";
-            var output = await _ssh.RunCommandAsync(SelectedProfile, SessionSecretBox.Password, command);
+            var output = await SshServerClient.RunCommandAsync(SelectedProfile, SessionSecretBox.Password, command);
             TerminalOutput.AppendText($"> {command}{Environment.NewLine}");
             TerminalOutput.AppendText(string.IsNullOrWhiteSpace(output) ? "(no output)" : output);
             TerminalOutput.AppendText(Environment.NewLine + Environment.NewLine);
@@ -1207,7 +1206,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Running read-only security scan…";
-            SecurityOutput.Text = await _ssh.RunSecurityScanAsync(
+            SecurityOutput.Text = await SshServerClient.RunSecurityScanAsync(
                 SelectedProfile, SessionSecretBox.Password);
             StatusText.Text = "Security scan completed";
         }
@@ -1540,7 +1539,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            await _profileStore.ExportAsync(dialog.FileName, Profiles);
+            await ProfileStore.ExportAsync(dialog.FileName, Profiles);
             SettingsStatusText.Text = $"Exported {Profiles.Count} profile(s). No passwords or passphrases were included.";
             StatusText.Text = "Profiles exported";
         }
@@ -1568,7 +1567,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            var imported = await _profileStore.ImportAsync(dialog.FileName);
+            var imported = await ProfileStore.ImportAsync(dialog.FileName);
             var confirmed = MessageBox.Show(
                 this,
                 $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
@@ -1702,11 +1701,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _autoRefreshBusy = true;
         try
         {
-            var snapshot = await _ssh.GetSnapshotAsync(
+            var snapshot = await SshServerClient.GetSnapshotAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             ApplySnapshot(snapshot);
-            ServicesList.ItemsSource = await _ssh.GetRunningServicesAsync(
+            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             ConnectionStatus.Text = "Connected • auto-refreshed";
@@ -1738,9 +1737,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                    MessageBoxResult.No) == MessageBoxResult.Yes;
     }
 
-    private async Task<bool> TryAcquireMutationAsync(string message)
+    private bool TryAcquireMutation(string message)
     {
-        if (!await _mutationGate.WaitAsync(0))
+        if (Interlocked.CompareExchange(ref _mutationActive, 1, 0) != 0)
         {
             StatusText.Text = "Another administrative action is already running.";
             return false;
