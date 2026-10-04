@@ -8,7 +8,7 @@ namespace GhostServer.Services;
 
 public static class SshServerClient
 {
-    public static TaskConnectionProbe> ProbeAsync(
+    public static Task<ConnectionProbe> ProbeAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -41,7 +41,7 @@ public static class SshServerClient
         }, cancellationToken);
     }
 
-    public static TaskServerSnapshot> GetSnapshotAsync(
+    public static Task<ServerSnapshot> GetSnapshotAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -74,7 +74,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static TaskIReadOnlyList<ServiceStatus>> GetRunningServicesAsync(
+    public static Task<IReadOnlyList<ServiceStatus>> GetRunningServicesAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -111,7 +111,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static TaskIReadOnlyList<ServiceStatus>> GetServicesAsync(
+    public static Task<IReadOnlyList<ServiceStatus>> GetServicesAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -138,7 +138,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static Taskstring> ServiceActionAsync(
+    public static Task<string> ServiceActionAsync(
         ServerProfile profile,
         string? secret,
         string serviceName,
@@ -160,7 +160,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             cancellationToken);
     }
 
-    public static TaskIReadOnlyList<DockerContainerStatus>> GetDockerContainersAsync(
+    public static Task<IReadOnlyList<DockerContainerStatus>> GetDockerContainersAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -206,7 +206,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static Taskstring> DockerActionAsync(
+    public static Task<string> DockerActionAsync(
         ServerProfile profile,
         string? secret,
         string container,
@@ -228,7 +228,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             cancellationToken);
     }
 
-    public static Taskstring> GetNetworkOverviewAsync(
+    public static Task<string> GetNetworkOverviewAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -274,7 +274,7 @@ fi
         return RunCommandAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Taskstring> AllowFirewallPortAsync(
+    public static Task<string> AllowFirewallPortAsync(
         ServerProfile profile,
         string? secret,
         int port,
@@ -307,7 +307,7 @@ fi
         return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Taskstring> GetUpdateOverviewAsync(
+    public static Task<string> GetUpdateOverviewAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -345,7 +345,7 @@ fi
         return RunCommandAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Taskstring> CreateConfigurationSnapshotAsync(
+    public static Task<string> CreateConfigurationSnapshotAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -376,7 +376,7 @@ printf '%s' "$archive"
         return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
     }
 
-    public Task DeleteRemoteFileAsync(
+    public static Task DeleteRemoteFileAsync(
         ServerProfile profile,
         string? secret,
         string remotePath,
@@ -396,7 +396,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Taskstring> GetRecentLogsAsync(
+    public static Task<string> GetRecentLogsAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -407,7 +407,7 @@ printf '%s' "$archive"
         return RunCommandAsync(profile, secret, command, cancellationToken);
     }
 
-    public static TaskIReadOnlyList<RemoteFileItem>> GetRemoteFilesAsync(
+    public static Task<IReadOnlyList<RemoteFileItem>> GetRemoteFilesAsync(
         ServerProfile profile,
         string? secret,
         string remotePath,
@@ -436,7 +436,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public Task UploadFileAsync(
+    public static Task UploadFileAsync(
         ServerProfile profile,
         string? secret,
         string localPath,
@@ -465,7 +465,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public Task DownloadFileAsync(
+    public static Task DownloadFileAsync(
         ServerProfile profile,
         string? secret,
         string remotePath,
@@ -483,7 +483,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Taskstring> GetServiceLogsAsync(
+    public static Task<string> GetServiceLogsAsync(
         ServerProfile profile,
         string? secret,
         string serviceName,
@@ -497,7 +497,7 @@ printf '%s' "$archive"
             cancellationToken);
     }
 
-    public static Taskstring> GetDockerLogsAsync(
+    public static Task<string> GetDockerLogsAsync(
         ServerProfile profile,
         string? secret,
         string container,
@@ -511,7 +511,7 @@ printf '%s' "$archive"
             cancellationToken);
     }
 
-    public static Taskstring> RunCommandAsync(
+    public static Task<string> RunCommandAsync(
         ServerProfile profile,
         string? secret,
         string command,
@@ -540,7 +540,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Taskstring> RunSecurityScanAsync(
+    public static Task<string> RunSecurityScanAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
