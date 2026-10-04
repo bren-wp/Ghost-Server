@@ -608,35 +608,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
             throw new SecurityException("Host key has not been approved for this server.");
         }
 
-        AuthenticationMethod authentication;
-        if (string.Equals(profile.Authentication, "PrivateKey", StringComparison.OrdinalIgnoreCase))
-        {
-            if (string.IsNullOrWhiteSpace(profile.PrivateKeyPath))
-            {
-                throw new InvalidOperationException("Private key path is required.");
-            }
-
-            var key = string.IsNullOrEmpty(secret)
-                ? new PrivateKeyFile(profile.PrivateKeyPath)
-                : new PrivateKeyFile(profile.PrivateKeyPath, secret);
-
-            authentication = new PrivateKeyAuthenticationMethod(profile.Username, key);
-        }
-        else
-        {
-            authentication = new PasswordAuthenticationMethod(profile.Username, secret ?? string.Empty);
-        }
-
-        var connection = new ConnectionInfo(
-            profile.Host,
-            profile.Port,
-            profile.Username,
-            authentication)
-        {
-            Timeout = TimeSpan.FromSeconds(15)
-        };
-
-        var client = new SftpClient(connection)
+        var client = new SftpClient(CreateConnectionInfo(profile, secret))
         {
             KeepAliveInterval = TimeSpan.FromSeconds(20),
             OperationTimeout = TimeSpan.FromSeconds(45)
@@ -665,37 +637,8 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         string? secret,
         out HostKeyState hostKeyState)
     {
-        AuthenticationMethod authentication;
-
-        if (string.Equals(profile.Authentication, "PrivateKey", StringComparison.OrdinalIgnoreCase))
-        {
-            if (string.IsNullOrWhiteSpace(profile.PrivateKeyPath))
-            {
-                throw new InvalidOperationException("Private key path is required.");
-            }
-
-            var key = string.IsNullOrEmpty(secret)
-                ? new PrivateKeyFile(profile.PrivateKeyPath)
-                : new PrivateKeyFile(profile.PrivateKeyPath, secret);
-
-            authentication = new PrivateKeyAuthenticationMethod(profile.Username, key);
-        }
-        else
-        {
-            authentication = new PasswordAuthenticationMethod(profile.Username, secret ?? string.Empty);
-        }
-
-        var connection = new ConnectionInfo(
-            profile.Host,
-            profile.Port,
-            profile.Username,
-            authentication)
-        {
-            Timeout = TimeSpan.FromSeconds(15)
-        };
-
         var state = new HostKeyState();
-        var client = new SshClient(connection)
+        var client = new SshClient(CreateConnectionInfo(profile, secret))
         {
             KeepAliveInterval = TimeSpan.FromSeconds(20)
         };
@@ -710,6 +653,52 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
 
         hostKeyState = state;
         return client;
+    }
+
+    private static ConnectionInfo CreateConnectionInfo(
+        ServerProfile profile,
+        string? secret)
+    {
+        var authentication = CreateAuthenticationMethod(profile, secret);
+
+        return new ConnectionInfo(
+            profile.Host,
+            profile.Port,
+            profile.Username,
+            authentication)
+        {
+            Timeout = TimeSpan.FromSeconds(15)
+        };
+    }
+
+    private static AuthenticationMethod CreateAuthenticationMethod(
+        ServerProfile profile,
+        string? secret)
+    {
+        if (!string.Equals(profile.Authentication, "PrivateKey", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PasswordAuthenticationMethod(
+                profile.Username,
+                secret ?? string.Empty);
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.PrivateKeyPath))
+        {
+            throw new InvalidOperationException("Private key path is required.");
+        }
+
+        if (!File.Exists(profile.PrivateKeyPath))
+        {
+            throw new FileNotFoundException(
+                "Private key file was not found.",
+                profile.PrivateKeyPath);
+        }
+
+        var key = string.IsNullOrEmpty(secret)
+            ? new PrivateKeyFile(profile.PrivateKeyPath)
+            : new PrivateKeyFile(profile.PrivateKeyPath, secret);
+
+        return new PrivateKeyAuthenticationMethod(profile.Username, key);
     }
 
     private static bool CryptographicEquals(string expected, string presented)
