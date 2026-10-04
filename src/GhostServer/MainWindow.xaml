@@ -196,8 +196,8 @@
                                                         <TextBlock Text="{Binding Endpoint}" Foreground="{StaticResource GhostMuted}"
                                                                    FontSize="11" Margin="0,4,0,0"/>
                                                     </StackPanel>
-                                                    <Ellipse Grid.Column="1" Width="8" Height="8" Fill="{StaticResource GhostBlue}"
-                                                             VerticalAlignment="Center"/>
+                                                    <Ellipse Grid.Column="1" Width="8" Height="8" Fill="{StaticResource GhostMuted}"
+                                                             VerticalAlignment="Center" ToolTip="Saved server profile"/>
                                                 </Grid>
                                             </Border>
                                             <DataTemplate.Triggers>
@@ -258,21 +258,21 @@
                                         </StackPanel>
                                     </Grid>
 
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                        <Button Style="{StaticResource AccentButton}" Click="Connect_Click" Margin="0,0,8,0" ToolTip="Connect and refresh dashboard (F5)">
+                                    <WrapPanel Margin="0,0,0,16">
+                                        <Button Style="{StaticResource AccentButton}" Click="Connect_Click" Margin="0,0,8,8" ToolTip="Connect and refresh dashboard (F5)">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Connect &amp; refresh" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                                         </Button>
-                                        <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" ToolTip="Refresh dashboard service list">
+                                        <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" Margin="0,0,8,8" ToolTip="Refresh dashboard service list">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Refresh services" Margin="7,0,0,0"/></StackPanel>
                                         </Button>
                                         <CheckBox x:Name="AutoRefreshToggle" Content="Auto refresh • 30s"
                                                   Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
-                                                  Margin="14,0,0,0" Checked="AutoRefresh_Changed" Unchecked="AutoRefresh_Changed"
+                                                  Margin="6,0,10,8" Checked="AutoRefresh_Changed" Unchecked="AutoRefresh_Changed"
                                                   ToolTip="Refresh server health and running services every 30 seconds"/>
                                         <TextBlock x:Name="ConnectionStatus" Text="Not connected"
                                                    Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
-                                                   Margin="14,0,0,0"/>
-                                    </StackPanel>
+                                                   Margin="6,0,0,8"/>
+                                    </WrapPanel>
 
                                     <Border x:Name="HostKeyPanel" Visibility="Collapsed" Style="{StaticResource CardBorder}"
                                             Margin="0,0,0,16" BorderBrush="{StaticResource GhostWarning}">
@@ -421,15 +421,15 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,0"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,0"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,0"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,0"/>
-                            <Button Style="{StaticResource GhostButton}" Click="ServiceLogs_Click" ToolTip="Open recent logs for the selected service">
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,8"/>
+                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,8"/>
+                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,8"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,8"/>
+                            <Button Style="{StaticResource GhostButton}" Click="ServiceLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected service">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock Grid.Row="1" x:Name="SelectedServiceText" Text="Select a service."
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
@@ -452,15 +452,15 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,0"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,0"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,0"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,0"/>
-                            <Button Style="{StaticResource GhostButton}" Click="DockerLogs_Click" ToolTip="Open recent logs for the selected container">
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,8"/>
+                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,8"/>
+                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,8"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,8"/>
+                            <Button Style="{StaticResource GhostButton}" Click="DockerLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected container">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock Grid.Row="1" x:Name="SelectedDockerText" Text="Select a Docker container."
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
