@@ -7,13 +7,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>GhostServer</AssemblyName>
     <RootNamespace>GhostServer</RootNamespace>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Authors>Brendigo</Authors>
     <Product>Ghost Server</Product>
     <Description>Secure Windows server management for SSH-connected Linux servers.</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\GhostServer.ico</ApplicationIcon>
+    <FileVersion>0.3.0.0</FileVersion>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
+  <Target Name="GenerateApplicationIcon" BeforeTargets="CoreCompile" Condition="'$(OS)' == 'Windows_NT'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\build\GenerateIcon.ps1&quot; -OutputPath &quot;$(MSBuildProjectDirectory)\Assets\GhostServer.ico&quot;" />
+  </Target>
 </Project>
+
