@@ -1,0 +1,416 @@
+<Window x:Class="GhostServer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Ghost Server"
+        Width="1290" Height="852"
+        MinWidth="900" MinHeight="620"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="{StaticResource GhostNavy}"
+        Foreground="{StaticResource GhostIce}"
+        Loaded="Window_Loaded">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="51"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="38"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#08182B" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,0,0,1"
+                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="46"/>
+                    <ColumnDefinition Width="46"/>
+                    <ColumnDefinition Width="46"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Border Width="28" Height="28" CornerRadius="8" Background="{StaticResource GhostBlue}">
+                        <TextBlock Text="G" Foreground="#06121E" FontWeight="Bold" FontSize="16"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Ghost Server" FontWeight="SemiBold" FontSize="15" Margin="10,0,0,0"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="0.1.0" Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="10,2,0,0"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <Button Grid.Column="1" Content="—" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Minimize_Click"/>
+                <Button Grid.Column="2" Content="□" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Maximize_Click"/>
+                <Button Grid.Column="3" Content="×" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Close_Click"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="216"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="#0A1A2E" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,0,1,0">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="11" FontWeight="SemiBold"
+                                   Margin="12,8,0,10"/>
+                        <Button Content="▦   Dashboard" Style="{StaticResource NavButton}" Click="DashboardNav_Click"/>
+                        <Button Content="⌁   Terminal" Style="{StaticResource NavButton}" Click="TerminalNav_Click"/>
+                        <Button Content="◇   Security" Style="{StaticResource NavButton}" Click="SecurityNav_Click"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="2" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
+                            BorderThickness="1" CornerRadius="10" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="SSH-first" FontWeight="SemiBold"/>
+                            <TextBlock Text="Passwords stay in memory only. Host keys are pinned after explicit approval."
+                                       Foreground="{StaticResource GhostMuted}" FontSize="11" TextWrapping="Wrap"
+                                       Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="1" Background="{StaticResource GhostNavy}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="84"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,0,0,1">
+                    <Grid Margin="24,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="PageTitle" Text="Dashboard" FontSize="24" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="PageSubtitle" Text="Server health, services and connection state."
+                                       Foreground="{StaticResource GhostMuted}" Margin="0,5,0,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="+  Add server" Style="{StaticResource AccentButton}"
+                                VerticalAlignment="Center" Click="OpenAddServer_Click"/>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1">
+                    <Grid x:Name="DashboardPage">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="300"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Background="#0A1A2E" BorderBrush="{StaticResource GhostBorder}"
+                                BorderThickness="0,0,1,0">
+                            <Grid Margin="14">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="SERVERS" Foreground="{StaticResource GhostMuted}" FontWeight="SemiBold"
+                                           FontSize="11" Margin="8,6,0,10"/>
+                                <ListBox x:Name="ServerList" Grid.Row="1" ItemsSource="{Binding Profiles}"
+                                         Background="Transparent" BorderThickness="0"
+                                         Foreground="{StaticResource GhostIce}"
+                                         SelectionChanged="ServerList_SelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
+                                                    BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8"
+                                                    Width="258">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Endpoint}" Foreground="{StaticResource GhostMuted}"
+                                                                   FontSize="11" Margin="0,4,0,0"/>
+                                                    </StackPanel>
+                                                    <Ellipse Grid.Column="1" Width="8" Height="8" Fill="{StaticResource GhostBlue}"
+                                                             VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Border>
+
+                        <Grid Grid.Column="1" Margin="24">
+                            <Border x:Name="EmptyState" Style="{StaticResource CardBorder}" MaxWidth="620"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <StackPanel Margin="20" HorizontalAlignment="Center">
+                                    <TextBlock Text="No server selected" FontSize="22" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Add an SSH server, approve its host key, then Ghost Server can read live health and service data."
+                                               TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource GhostMuted}"
+                                               Margin="0,10,0,18" MaxWidth="440"/>
+                                    <Button Content="Add first server" Style="{StaticResource AccentButton}"
+                                            HorizontalAlignment="Center" Click="OpenAddServer_Click"/>
+                                </StackPanel>
+                            </Border>
+
+                            <ScrollViewer x:Name="ServerDetail" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="260"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock x:Name="SelectedName" FontSize="22" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="SelectedEndpoint" Foreground="{StaticResource GhostMuted}" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <Label Content="Session password / key passphrase"/>
+                                            <PasswordBox x:Name="SessionSecretBox" Style="{StaticResource GhostPasswordBox}"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                        <Button Content="Connect &amp; refresh" Style="{StaticResource AccentButton}"
+                                                Click="Connect_Click" Margin="0,0,8,0"/>
+                                        <Button Content="Refresh services" Style="{StaticResource GhostButton}"
+                                                Click="RefreshServices_Click"/>
+                                        <TextBlock x:Name="ConnectionStatus" Text="Not connected"
+                                                   Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
+                                                   Margin="14,0,0,0"/>
+                                    </StackPanel>
+
+                                    <Border x:Name="HostKeyPanel" Visibility="Collapsed" Style="{StaticResource CardBorder}"
+                                            Margin="0,0,0,16" BorderBrush="{StaticResource GhostWarning}">
+                                        <StackPanel>
+                                            <TextBlock Text="Host key approval required" Foreground="{StaticResource GhostWarning}"
+                                                       FontWeight="SemiBold" FontSize="16"/>
+                                            <TextBlock Text="Verify this SHA-256 fingerprint with your server provider or administrator before trusting it."
+                                                       TextWrapping="Wrap" Foreground="{StaticResource GhostMuted}" Margin="0,6,0,8"/>
+                                            <TextBlock x:Name="HostKeyFingerprint" FontFamily="Cascadia Code, Consolas"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="HostKeyAlgorithm" Foreground="{StaticResource GhostMuted}" Margin="0,5,0,10"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="Trust fingerprint" Style="{StaticResource AccentButton}"
+                                                        Click="TrustHostKey_Click" Margin="0,0,8,0"/>
+                                                <Button Content="Reject" Style="{StaticResource GhostButton}" Click="RejectHostKey_Click"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <WrapPanel Margin="0,0,0,16">
+                                        <Border Style="{StaticResource CardBorder}" Width="180" Height="106" Margin="0,0,10,10">
+                                            <StackPanel>
+                                                <TextBlock Text="CPU" Foreground="{StaticResource GhostMuted}" FontSize="11"/>
+                                                <TextBlock x:Name="CpuValue" Text="—" FontSize="24" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource CardBorder}" Width="180" Height="106" Margin="0,0,10,10">
+                                            <StackPanel>
+                                                <TextBlock Text="MEMORY" Foreground="{StaticResource GhostMuted}" FontSize="11"/>
+                                                <TextBlock x:Name="MemoryValue" Text="—" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource CardBorder}" Width="180" Height="106" Margin="0,0,10,10">
+                                            <StackPanel>
+                                                <TextBlock Text="DISK /" Foreground="{StaticResource GhostMuted}" FontSize="11"/>
+                                                <TextBlock x:Name="DiskValue" Text="—" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource CardBorder}" Width="180" Height="106" Margin="0,0,10,10">
+                                            <StackPanel>
+                                                <TextBlock Text="LOAD" Foreground="{StaticResource GhostMuted}" FontSize="11"/>
+                                                <TextBlock x:Name="LoadValue" Text="—" FontSize="24" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </WrapPanel>
+
+                                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="SYSTEM" Foreground="{StaticResource GhostMuted}" FontSize="11"/>
+                                                <TextBlock Text="Hostname" Margin="0,12,0,0"/>
+                                                <TextBlock Text="OS" Margin="0,7,0,0"/>
+                                                <TextBlock Text="Kernel" Margin="0,7,0,0"/>
+                                                <TextBlock Text="Uptime" Margin="0,7,0,0"/>
+                                                <TextBlock Text="Docker" Margin="0,7,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text=" " FontSize="11"/>
+                                                <TextBlock x:Name="HostnameValue" Text="—" Margin="0,12,0,0"/>
+                                                <TextBlock x:Name="OsValue" Text="—" Margin="0,7,0,0"/>
+                                                <TextBlock x:Name="KernelValue" Text="—" Margin="0,7,0,0"/>
+                                                <TextBlock x:Name="UptimeValue" Text="—" Margin="0,7,0,0"/>
+                                                <TextBlock x:Name="DockerValue" Text="—" Margin="0,7,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Style="{StaticResource CardBorder}">
+                                        <StackPanel>
+                                            <TextBlock Text="RUNNING SERVICES" Foreground="{StaticResource GhostMuted}"
+                                                       FontSize="11" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                            <ListView x:Name="ServicesList" Background="Transparent" BorderThickness="0"
+                                                      Foreground="{StaticResource GhostIce}" MaxHeight="280">
+                                                <ListView.View>
+                                                    <GridView>
+                                                        <GridViewColumn Header="Service" DisplayMemberBinding="{Binding Name}" Width="190"/>
+                                                        <GridViewColumn Header="State" DisplayMemberBinding="{Binding State}" Width="120"/>
+                                                        <GridViewColumn Header="Description" DisplayMemberBinding="{Binding Description}" Width="360"/>
+                                                    </GridView>
+                                                </ListView.View>
+                                            </ListView>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+
+                    <Grid x:Name="TerminalPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Command" Foreground="{StaticResource GhostMuted}" FontSize="11"/>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="CommandInput" Style="{StaticResource GhostTextBox}"
+                                             FontFamily="Cascadia Code, Consolas" KeyDown="CommandInput_KeyDown"/>
+                                    <Button Grid.Column="1" Content="Run" Style="{StaticResource AccentButton}"
+                                            Margin="8,0,0,0" Click="RunCommand_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Grid.Row="1" x:Name="TerminalServerLabel" Foreground="{StaticResource GhostMuted}"
+                                   Margin="2,0,0,8"/>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+                            <TextBox x:Name="TerminalOutput" IsReadOnly="True" TextWrapping="NoWrap"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas" Padding="14" AcceptsReturn="True"/>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="SecurityPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button Content="Run read-only security scan" Style="{StaticResource AccentButton}"
+                                    Click="SecurityScan_Click"/>
+                            <TextBlock Text="No changes are made to the server." Foreground="{StaticResource GhostMuted}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
+                            <TextBox x:Name="SecurityOutput" IsReadOnly="True" AcceptsReturn="True"
+                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas" Padding="14"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="2" Background="#08182B" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,1,0,0">
+            <Grid Margin="14,0">
+                <TextBlock x:Name="StatusText" Text="Ready" Foreground="{StaticResource GhostMuted}"
+                           VerticalAlignment="Center" FontSize="11"/>
+                <TextBlock Text="Ghost Server • SSH.NET 2026.0.0" Foreground="{StaticResource GhostMuted}"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11"/>
+            </Grid>
+        </Border>
+
+        <Grid x:Name="AddServerOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed">
+            <Border Width="560" MaxHeight="710" Style="{StaticResource CardBorder}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,18">
+                            <TextBlock Text="Add server" FontSize="22" FontWeight="SemiBold"/>
+                            <Button Content="×" Style="{StaticResource NavButton}" HorizontalAlignment="Right"
+                                    Width="40" Click="CloseAddServer_Click"/>
+                        </Grid>
+
+                        <Label Content="Display name"/>
+                        <TextBox x:Name="AddName" Style="{StaticResource GhostTextBox}" Margin="0,0,0,12"/>
+
+                        <Label Content="Host or IP"/>
+                        <TextBox x:Name="AddHost" Style="{StaticResource GhostTextBox}" Margin="0,0,0,12"/>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="120"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,10,0">
+                                <Label Content="Username"/>
+                                <TextBox x:Name="AddUsername" Style="{StaticResource GhostTextBox}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <Label Content="Port"/>
+                                <TextBox x:Name="AddPort" Style="{StaticResource GhostTextBox}" Text="22"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Label Content="Authentication"/>
+                        <ComboBox x:Name="AddAuthentication" Style="{StaticResource GhostComboBox}" SelectedIndex="0"
+                                  SelectionChanged="AddAuthentication_SelectionChanged" Margin="0,0,0,12">
+                            <ComboBoxItem Content="Password" Tag="Password"/>
+                            <ComboBoxItem Content="Private key" Tag="PrivateKey"/>
+                        </ComboBox>
+
+                        <StackPanel x:Name="PrivateKeyPanel" Visibility="Collapsed" Margin="0,0,0,12">
+                            <Label Content="Private key path"/>
+                            <TextBox x:Name="AddPrivateKeyPath" Style="{StaticResource GhostTextBox}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Passwords and private-key passphrases are never stored in the profile. Enter the session secret after selecting the server."
+                                   Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,14"/>
+
+                        <TextBlock x:Name="AddError" Foreground="{StaticResource GhostDanger}" TextWrapping="Wrap"
+                                   Visibility="Collapsed" Margin="0,0,0,10"/>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                    Click="CloseAddServer_Click"/>
+                            <Button Content="Save server" Style="{StaticResource AccentButton}" Click="SaveServer_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
