@@ -37,7 +37,7 @@ public sealed class ProfileStore
             cancellationToken);
     }
 
-    public Task ExportAsync(
+    public static Task ExportAsync(
         string destinationPath,
         IEnumerable<ServerProfile> profiles,
         CancellationToken cancellationToken = default)
@@ -49,7 +49,7 @@ public sealed class ProfileStore
             cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ServerProfile>> ImportAsync(
+    public static async Task<IReadOnlyList<ServerProfile>> ImportAsync(
         string sourcePath,
         CancellationToken cancellationToken = default)
     {
