@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using GhostServer.Models;
 using GhostServer.Services;
 using Microsoft.Win32;
@@ -27,6 +28,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _commandHistoryIndex;
     private string _rawLogs = string.Empty;
     private Button? _activeNavButton;
+    private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private bool _autoRefreshBusy;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
 
@@ -51,6 +54,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         InitializeComponent();
         DataContext = this;
+        _dashboardTimer.Tick += DashboardTimer_Tick;
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -117,6 +121,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CommandInput.Focus();
     }
 
+    private async void NetworkNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(NetworkNavButton);
+        ShowPage(NetworkPage, "Network", "Interfaces, routes, listening sockets and firewall state.");
+        await RefreshNetworkAsync();
+    }
+
+    private async void UpdatesNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(UpdatesNavButton);
+        ShowPage(UpdatesPage, "Updates", "Read-only package update discovery for supported Linux distributions.");
+        await RefreshUpdatesAsync();
+    }
+
+    private void BackupNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(BackupNavButton);
+        ShowPage(BackupPage, "Backup", "Create and download a temporary configuration snapshot.");
+    }
+
     private void SecurityNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(SecurityNavButton);
@@ -131,6 +155,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                      FilesNavButton,
                      ServicesNavButton,
                      DockerNavButton,
+                     NetworkNavButton,
+                     UpdatesNavButton,
+                     BackupNavButton,
                      LogsNavButton,
                      TerminalNavButton,
                      SecurityNavButton
@@ -151,6 +178,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FilesPage.Visibility = Visibility.Collapsed;
         ServicesPage.Visibility = Visibility.Collapsed;
         DockerPage.Visibility = Visibility.Collapsed;
+        NetworkPage.Visibility = Visibility.Collapsed;
+        UpdatesPage.Visibility = Visibility.Collapsed;
+        BackupPage.Visibility = Visibility.Collapsed;
         LogsPage.Visibility = Visibility.Collapsed;
         TerminalPage.Visibility = Visibility.Collapsed;
         SecurityPage.Visibility = Visibility.Collapsed;
@@ -193,6 +223,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LogsOutput.Clear();
         SelectedServiceText.Text = "Select a service.";
         SelectedDockerText.Text = "Select a Docker container.";
+        NetworkOutput.Clear();
+        UpdatesOutput.Clear();
+        BackupOutput.Text = "Ready. Select a server, unlock the session, then create a configuration snapshot.";
         UpdateSelectedLabels();
     }
 
@@ -722,6 +755,193 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void RefreshNetwork_Click(object sender, RoutedEventArgs e) =>
+        await RefreshNetworkAsync();
+
+    private async Task RefreshNetworkAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            NetworkOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Loading network state…";
+            NetworkOutput.Text = await _ssh.GetNetworkOverviewAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+            NetworkOutput.ScrollToHome();
+            StatusText.Text = "Network state refreshed";
+        }
+        catch (Exception ex)
+        {
+            NetworkOutput.Text = SafeError(ex);
+            StatusText.Text = "Network refresh failed";
+        }
+    }
+
+    private async void AllowFirewallPort_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            NetworkOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (!int.TryParse(FirewallPortBox.Text.Trim(), out var port) || port is < 1 or > 65535)
+        {
+            NetworkOutput.Text = "Enter a valid port between 1 and 65535.";
+            return;
+        }
+
+        var protocol = (FirewallProtocolBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "tcp";
+        var confirmed = MessageBox.Show(
+            this,
+            $"Allow inbound {protocol.ToUpperInvariant()} port {port} on {SelectedProfile.Name}?\n\nThis changes the remote firewall and requires passwordless sudo for the connected account.",
+            "Confirm firewall change",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (confirmed != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"Allowing firewall port {port}/{protocol}…";
+            var output = await _ssh.AllowFirewallPortAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                port,
+                protocol);
+            NetworkOutput.Text = output;
+            StatusText.Text = $"Firewall rule added: {port}/{protocol}";
+            await RefreshNetworkAsync();
+        }
+        catch (Exception ex)
+        {
+            NetworkOutput.Text = SafeError(ex);
+            StatusText.Text = "Firewall change failed";
+        }
+    }
+
+    private async void RefreshUpdates_Click(object sender, RoutedEventArgs e) =>
+        await RefreshUpdatesAsync();
+
+    private async Task RefreshUpdatesAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            UpdatesOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Checking package updates…";
+            var output = await _ssh.GetUpdateOverviewAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+            UpdatesOutput.Text = string.IsNullOrWhiteSpace(output)
+                ? "No pending updates were reported."
+                : output;
+            UpdatesOutput.ScrollToHome();
+            StatusText.Text = "Update check completed";
+        }
+        catch (Exception ex)
+        {
+            UpdatesOutput.Text = SafeError(ex);
+            StatusText.Text = "Update check failed";
+        }
+    }
+
+    private async void CreateConfigBackup_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            BackupOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var safeServerName = new string(
+            SelectedProfile.Name
+                .Select(ch => invalid.Contains(ch) ? '_' : ch)
+                .ToArray());
+
+        if (string.IsNullOrWhiteSpace(safeServerName))
+        {
+            safeServerName = "server";
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save Ghost Server configuration snapshot",
+            FileName = $"ghost-server-{safeServerName}-config-{DateTime.Now:yyyyMMdd-HHmmss}.tar.gz",
+            Filter = "GZip archive (*.tar.gz)|*.tar.gz|All files|*.*",
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        string? remoteArchive = null;
+        try
+        {
+            BackupOutput.Text = "Creating remote configuration snapshot…";
+            StatusText.Text = "Creating configuration snapshot…";
+            remoteArchive = await _ssh.CreateConfigurationSnapshotAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            BackupOutput.AppendText($"{Environment.NewLine}Remote archive: {remoteArchive}");
+            BackupOutput.AppendText($"{Environment.NewLine}Downloading securely over SFTP…");
+
+            await _ssh.DownloadFileAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                remoteArchive,
+                dialog.FileName);
+
+            var size = new FileInfo(dialog.FileName).Length;
+            BackupOutput.AppendText($"{Environment.NewLine}Saved: {dialog.FileName}");
+            BackupOutput.AppendText($"{Environment.NewLine}Size: {size:N0} bytes");
+            StatusText.Text = "Configuration snapshot downloaded";
+        }
+        catch (Exception ex)
+        {
+            BackupOutput.AppendText($"{Environment.NewLine}[error] {SafeError(ex)}");
+            StatusText.Text = "Configuration snapshot failed";
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(remoteArchive))
+            {
+                try
+                {
+                    await _ssh.DeleteRemoteFileAsync(
+                        SelectedProfile,
+                        SessionSecretBox.Password,
+                        remoteArchive);
+                    BackupOutput.AppendText($"{Environment.NewLine}Temporary remote archive removed.");
+                }
+                catch (Exception cleanupEx)
+                {
+                    BackupOutput.AppendText(
+                        $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                }
+            }
+
+            BackupOutput.ScrollToEnd();
+        }
+    }
+
     private async void RefreshLogs_Click(object sender, RoutedEventArgs e) =>
         await RefreshLogsAsync();
 
@@ -1171,9 +1391,67 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void LockSession_Click(object sender, RoutedEventArgs e)
     {
         SessionSecretBox.Clear();
+        _dashboardTimer.Stop();
+        if (AutoRefreshToggle is not null)
+        {
+            AutoRefreshToggle.IsChecked = false;
+        }
+
         StatusText.Text = "Session secret cleared from memory";
         ConnectionStatus.Text = SelectedProfile is null ? "Not connected" : "Session locked";
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
+    }
+
+    private void AutoRefresh_Changed(object sender, RoutedEventArgs e)
+    {
+        if (AutoRefreshToggle.IsChecked == true)
+        {
+            _dashboardTimer.Start();
+            StatusText.Text = "Dashboard auto-refresh enabled (30 seconds)";
+        }
+        else
+        {
+            _dashboardTimer.Stop();
+            StatusText.Text = "Dashboard auto-refresh disabled";
+        }
+    }
+
+    private async void DashboardTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_autoRefreshBusy ||
+            SelectedProfile is null ||
+            string.IsNullOrWhiteSpace(SelectedProfile.HostKeyFingerprint) ||
+            AutoRefreshToggle.IsChecked != true)
+        {
+            return;
+        }
+
+        _autoRefreshBusy = true;
+        try
+        {
+            var snapshot = await _ssh.GetSnapshotAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+            ApplySnapshot(snapshot);
+            ServicesList.ItemsSource = await _ssh.GetRunningServicesAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+            ConnectionStatus.Text = "Connected • auto-refreshed";
+            ConnectionStatus.Foreground = (Brush)FindResource("GhostSuccess");
+            StatusText.Text = $"Auto-refreshed {SelectedProfile.Name} at {DateTime.Now:HH:mm:ss}";
+        }
+        catch (Exception ex)
+        {
+            _dashboardTimer.Stop();
+            AutoRefreshToggle.IsChecked = false;
+            ConnectionStatus.Text = "Auto-refresh stopped";
+            ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
+            StatusText.Text = SafeError(ex);
+        }
+        finally
+        {
+            _autoRefreshBusy = false;
+        }
     }
 
     private void ShowAddError(string message)
@@ -1250,6 +1528,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else if (_activeNavButton == DockerNavButton)
         {
             await RefreshDockerAsync();
+        }
+        else if (_activeNavButton == NetworkNavButton)
+        {
+            await RefreshNetworkAsync();
+        }
+        else if (_activeNavButton == UpdatesNavButton)
+        {
+            await RefreshUpdatesAsync();
         }
         else if (_activeNavButton == LogsNavButton)
         {

@@ -228,6 +228,174 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             cancellationToken);
     }
 
+    public Task<string> GetNetworkOverviewAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+printf 'Addresses
+---------
+'
+(hostname -I 2>/dev/null || true)
+printf '
+Interfaces
+----------
+'
+(ip -brief address 2>/dev/null || ifconfig 2>/dev/null || true)
+printf '
+Routes
+------
+'
+(ip route 2>/dev/null || route -n 2>/dev/null || true)
+printf '
+Listening sockets
+-----------------
+'
+(ss -lntup 2>/dev/null | head -n 100 || netstat -lntup 2>/dev/null | head -n 100 || true)
+printf '
+Firewall
+--------
+'
+if command -v ufw >/dev/null 2>&1; then
+  printf 'Backend: UFW
+'
+  sudo -n ufw status numbered 2>/dev/null || ufw status 2>/dev/null || echo 'UFW status requires elevated privileges.'
+elif command -v firewall-cmd >/dev/null 2>&1; then
+  printf 'Backend: firewalld
+'
+  firewall-cmd --state 2>/dev/null || true
+  firewall-cmd --list-all 2>/dev/null || echo 'firewalld details require elevated privileges.'
+else
+  echo 'No supported firewall backend detected.'
+fi
+""";
+
+        return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    public Task<string> AllowFirewallPortAsync(
+        ServerProfile profile,
+        string? secret,
+        int port,
+        string protocol,
+        CancellationToken cancellationToken = default)
+    {
+        if (port is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(port), "Port must be between 1 and 65535.");
+        }
+
+        var normalizedProtocol = protocol.Trim().ToLowerInvariant();
+        if (normalizedProtocol is not ("tcp" or "udp"))
+        {
+            throw new ArgumentOutOfRangeException(nameof(protocol), "Protocol must be TCP or UDP.");
+        }
+
+        var command = $"""
+if command -v ufw >/dev/null 2>&1; then
+  sudo -n ufw allow {port}/{normalizedProtocol}
+elif command -v firewall-cmd >/dev/null 2>&1; then
+  sudo -n firewall-cmd --permanent --add-port={port}/{normalizedProtocol}
+  sudo -n firewall-cmd --reload
+else
+  echo 'No supported firewall backend detected.' >&2
+  exit 127
+fi
+""";
+
+        return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
+    }
+
+    public Task<string> GetUpdateOverviewAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+if command -v apt >/dev/null 2>&1; then
+  echo 'Package manager: APT'
+  echo
+  apt list --upgradable 2>/dev/null | sed '1d' | head -n 200
+elif command -v dnf >/dev/null 2>&1; then
+  echo 'Package manager: DNF'
+  echo
+  dnf -q check-update 2>/dev/null || true
+elif command -v yum >/dev/null 2>&1; then
+  echo 'Package manager: YUM'
+  echo
+  yum -q check-update 2>/dev/null || true
+elif command -v zypper >/dev/null 2>&1; then
+  echo 'Package manager: Zypper'
+  echo
+  zypper --non-interactive list-updates 2>/dev/null || true
+elif command -v pacman >/dev/null 2>&1; then
+  echo 'Package manager: pacman'
+  echo
+  if command -v checkupdates >/dev/null 2>&1; then
+    checkupdates 2>/dev/null || true
+  else
+    pacman -Qu 2>/dev/null || true
+  fi
+else
+  echo 'No supported package manager detected.'
+fi
+""";
+
+        return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    public Task<string> CreateConfigurationSnapshotAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        var remotePath =
+            $"/tmp/ghost-server-config-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.tar.gz";
+
+        var command = $"""
+set -eu
+archive='{remotePath}'
+paths=''
+for p in /etc/ssh /etc/nginx /etc/apache2 /etc/systemd/system /etc/docker /etc/fail2ban /etc/ufw; do
+  if [ -e "$p" ]; then
+    paths="$paths $p"
+  fi
+done
+
+if [ -z "$paths" ]; then
+  echo 'No supported configuration directories were found.' >&2
+  exit 2
+fi
+
+sudo -n tar -czf "$archive" --ignore-failed-read $paths
+sudo -n chown "$(id -u):$(id -g)" "$archive"
+printf '%s' "$archive"
+""";
+
+        return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
+    }
+
+    public Task DeleteRemoteFileAsync(
+        ServerProfile profile,
+        string? secret,
+        string remotePath,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedSftpClient(profile, secret);
+            client.Connect();
+
+            var target = NormalizeRemotePath(remotePath);
+            if (client.Exists(target))
+            {
+                client.DeleteFile(target);
+            }
+        }, cancellationToken);
+    }
+
     public Task<string> GetRecentLogsAsync(
         ServerProfile profile,
         string? secret,

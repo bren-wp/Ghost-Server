@@ -47,7 +47,7 @@
                                VerticalAlignment="Center"/>
                     <Border Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
                             BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="10,0,0,0">
-                        <TextBlock Text="0.3.0" Foreground="{StaticResource GhostMuted}" FontSize="10"/>
+                        <TextBlock Text="0.4.0" Foreground="{StaticResource GhostMuted}" FontSize="10"/>
                     </Border>
                 </StackPanel>
 
@@ -80,31 +80,44 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel>
-                        <TextBlock Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="11" FontWeight="SemiBold"
-                                   Margin="12,8,0,10"/>
-                        <Button x:Name="DashboardNavButton" Style="{StaticResource NavButton}" Click="DashboardNav_Click" ToolTip="Dashboard">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Dashboard" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        </Button>
-                        <Button x:Name="FilesNavButton" Style="{StaticResource NavButton}" Click="FilesNav_Click" ToolTip="SFTP files">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Files" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        </Button>
-                        <Button x:Name="ServicesNavButton" Style="{StaticResource NavButton}" Click="ServicesNav_Click" ToolTip="Services">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Services" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        </Button>
-                        <Button x:Name="DockerNavButton" Style="{StaticResource NavButton}" Click="DockerNav_Click" ToolTip="Docker">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7B8;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Docker" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        </Button>
-                        <Button x:Name="LogsNavButton" Style="{StaticResource NavButton}" Click="LogsNav_Click" ToolTip="Logs">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Logs" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        </Button>
-                        <Button x:Name="TerminalNavButton" Style="{StaticResource NavButton}" Click="TerminalNav_Click" ToolTip="Terminal">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Terminal" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        </Button>
-                        <Button x:Name="SecurityNavButton" Style="{StaticResource NavButton}" Click="SecurityNav_Click" ToolTip="Security">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA18;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Security" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        </Button>
-                    </StackPanel>
+                    <TextBlock Grid.Row="0" Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="11"
+                               FontWeight="SemiBold" Margin="12,8,0,10"/>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  Margin="0,0,0,10">
+                        <StackPanel>
+                            <Button x:Name="DashboardNavButton" Style="{StaticResource NavButton}" Click="DashboardNav_Click" ToolTip="Dashboard">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Dashboard" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="FilesNavButton" Style="{StaticResource NavButton}" Click="FilesNav_Click" ToolTip="SFTP files">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Files" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="ServicesNavButton" Style="{StaticResource NavButton}" Click="ServicesNav_Click" ToolTip="Services">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Services" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="DockerNavButton" Style="{StaticResource NavButton}" Click="DockerNav_Click" ToolTip="Docker">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7B8;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Docker" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="NetworkNavButton" Style="{StaticResource NavButton}" Click="NetworkNav_Click" ToolTip="Network and firewall">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE774;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Network" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="UpdatesNavButton" Style="{StaticResource NavButton}" Click="UpdatesNav_Click" ToolTip="Package updates">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Updates" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="BackupNavButton" Style="{StaticResource NavButton}" Click="BackupNav_Click" ToolTip="Configuration backup">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Backup" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="LogsNavButton" Style="{StaticResource NavButton}" Click="LogsNav_Click" ToolTip="Logs">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Logs" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="TerminalNavButton" Style="{StaticResource NavButton}" Click="TerminalNav_Click" ToolTip="Terminal">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Terminal" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="SecurityNavButton" Style="{StaticResource NavButton}" Click="SecurityNav_Click" ToolTip="Security">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA18;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Security" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
 
                     <Border Grid.Row="2" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
                             BorderThickness="1" CornerRadius="10" Padding="12">
@@ -249,6 +262,10 @@
                                         <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" ToolTip="Refresh dashboard service list">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Refresh services" Margin="7,0,0,0"/></StackPanel>
                                         </Button>
+                                        <CheckBox x:Name="AutoRefreshToggle" Content="Auto refresh • 30s"
+                                                  Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
+                                                  Margin="14,0,0,0" Checked="AutoRefresh_Changed" Unchecked="AutoRefresh_Changed"
+                                                  ToolTip="Refresh server health and running services every 30 seconds"/>
                                         <TextBlock x:Name="ConnectionStatus" Text="Not connected"
                                                    Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
                                                    Margin="14,0,0,0"/>
@@ -524,6 +541,107 @@
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                      Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
                                      FontFamily="Cascadia Code, Consolas" Padding="14" AcceptsReturn="True"/>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="NetworkPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button Style="{StaticResource AccentButton}" Click="RefreshNetwork_Click" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Refresh network" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                            </Button>
+                            <TextBlock Text="Network discovery is read-only. Firewall changes require an explicit action and elevated remote privileges."
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="650"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Allow firewall port" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Supports UFW and firewalld. Ghost Server never creates deny rules or disables the firewall."
+                                               Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="0,5,12,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <TextBox x:Name="FirewallPortBox" Grid.Column="1" Style="{StaticResource GhostTextBox}"
+                                         Margin="8,0" ToolTip="Port 1-65535"/>
+                                <ComboBox x:Name="FirewallProtocolBox" Grid.Column="2" Style="{StaticResource GhostComboBox}"
+                                          SelectedIndex="0" Margin="0,0,8,0">
+                                    <ComboBoxItem Content="TCP" Tag="tcp"/>
+                                    <ComboBoxItem Content="UDP" Tag="udp"/>
+                                </ComboBox>
+                                <Button Grid.Column="3" Style="{StaticResource GhostButton}" Click="AllowFirewallPort_Click">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8FB;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Allow port" Margin="7,0,0,0"/></StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+                            <TextBox x:Name="NetworkOutput" IsReadOnly="True" AcceptsReturn="True"
+                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas" Padding="14"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="UpdatesPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button Style="{StaticResource AccentButton}" Click="RefreshUpdates_Click">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Check updates" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                            </Button>
+                            <TextBlock Text="Read-only package discovery. No packages are installed or upgraded automatically."
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
+                            <TextBox x:Name="UpdatesOutput" IsReadOnly="True" AcceptsReturn="True"
+                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas" Padding="14"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="BackupPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Configuration snapshot" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Creates a temporary .tar.gz containing detected SSH, web server, systemd, Docker, Fail2ban and firewall configuration, downloads it over SFTP, then removes the temporary remote archive."
+                                               Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,7,18,0" MaxWidth="720"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Style="{StaticResource AccentButton}" Click="CreateConfigBackup_Click" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C7;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Create &amp; download" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
+                            <TextBox x:Name="BackupOutput" IsReadOnly="True" AcceptsReturn="True"
+                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas" Padding="14"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                     Text="Ready. Select a server, unlock the session, then create a configuration snapshot."/>
                         </Border>
                     </Grid>
 

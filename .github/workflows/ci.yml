@@ -23,6 +23,20 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Verify version metadata
+        shell: pwsh
+        run: |
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          [xml]$project = Get-Content src/GhostServer/GhostServer.csproj -Raw
+          $projectVersion = [string]$project.Project.PropertyGroup.Version
+          if ([string]::IsNullOrWhiteSpace($metadata.version)) {
+            throw "version.json does not contain a version."
+          }
+          if ($metadata.version -ne $projectVersion) {
+            throw "Version mismatch: version.json=$($metadata.version), project=$projectVersion"
+          }
+          Write-Host "Version metadata verified: $projectVersion"
+
       - name: Restore
         run: dotnet restore GhostServer.sln
 
