@@ -34,3 +34,16 @@ Use blue emphasis selectively. Dark navy surfaces remain dominant and thin blue 
 ## Ghost FTP parity targets
 
 Ghost Server should feel like a member of the same product family: title-bar geometry, sidebar density, card radius, restrained glow, typography and spacing should remain aligned with Ghost FTP. Server-management content is allowed to diverge where the workflow requires it.
+
+
+## v0.3 interaction polish
+
+- navigation uses Segoe Fluent Icons with a visible active state;
+- the executable and installer use the Ghost Server branded icon;
+- destructive profile deletion always requires an in-app confirmation;
+- server cards expose Edit, Reset trust and Delete without hiding critical actions in context menus;
+- session secrets have an explicit Lock session control;
+- keyboard shortcuts: Ctrl+N adds a server, Ctrl+L clears the session secret, F5 refreshes the active workspace;
+- Files uses SFTP and separates path navigation from transfer actions;
+- log search filters the currently loaded output locally without issuing extra remote commands;
+- terminal Up/Down recalls the latest local command history.
