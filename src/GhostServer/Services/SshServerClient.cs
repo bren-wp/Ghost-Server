@@ -496,9 +496,9 @@ fi
                 nameof(remotePath));
         }
 
-        var command = $"""
+        var command = $$"""
 set -eu
-archive='{remotePath}'
+archive='{{remotePath}}'
 
 if [ ! -f "$archive" ]; then
   echo "Restore archive is missing." >&2
@@ -516,22 +516,22 @@ if ! tar -tzf "$archive" >/dev/null 2>&1; then
 fi
 
 if ! tar -tzf "$archive" | awk '
-  $0 ~ /^// || $0 ~ /(^|[/])[.][.]([/]|$)/ {{ exit 1 }}
-  /^etc[/]ssh([/]|$)/ {{ next }}
-  /^etc[/]nginx([/]|$)/ {{ next }}
-  /^etc[/]apache2([/]|$)/ {{ next }}
-  /^etc[/]systemd[/]system([/]|$)/ {{ next }}
-  /^etc[/]docker([/]|$)/ {{ next }}
-  /^etc[/]fail2ban([/]|$)/ {{ next }}
-  /^etc[/]ufw([/]|$)/ {{ next }}
-  {{ exit 1 }}
+  substr($0, 1, 1) == "/" || $0 ~ /(^|[/])[.][.]([/]|$)/ { exit 1 }
+  /^etc[/]ssh([/]|$)/ { next }
+  /^etc[/]nginx([/]|$)/ { next }
+  /^etc[/]apache2([/]|$)/ { next }
+  /^etc[/]systemd[/]system([/]|$)/ { next }
+  /^etc[/]docker([/]|$)/ { next }
+  /^etc[/]fail2ban([/]|$)/ { next }
+  /^etc[/]ufw([/]|$)/ { next }
+  { exit 1 }
 '; then
   echo "Restore blocked: archive contains paths outside the Ghost Server configuration allowlist." >&2
   exit 33
 fi
 
 if ! tar -tvzf "$archive" | awk '
-  {{ type = substr($1, 1, 1); if (type != "-" && type != "d") exit 1 }}
+  { type = substr($1, 1, 1); if (type != "-" && type != "d") exit 1 }
 '; then
   echo "Restore blocked: links or special filesystem entries are not accepted." >&2
   exit 34
