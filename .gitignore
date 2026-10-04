@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.pdb
+artifacts/
+publish/
+TestResults/
+.DS_Store
