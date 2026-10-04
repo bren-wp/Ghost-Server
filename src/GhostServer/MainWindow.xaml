@@ -159,12 +159,12 @@
                                 <ListBox x:Name="ServerList" Grid.Row="1" ItemsSource="{Binding Profiles}"
                                          Background="Transparent" BorderThickness="0"
                                          Foreground="{StaticResource GhostIce}"
+                                         ItemContainerStyle="{StaticResource ServerListItemStyle}"
                                          SelectionChanged="ServerList_SelectionChanged">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
-                                                    BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8"
-                                                    Width="258">
+                                            <Border x:Name="ServerCard" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
+                                                    BorderThickness="1" CornerRadius="10" Padding="12" Width="258">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
@@ -179,6 +179,12 @@
                                                              VerticalAlignment="Center"/>
                                                 </Grid>
                                             </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                    <Setter TargetName="ServerCard" Property="Background" Value="{StaticResource GhostSelectedSurface}"/>
+                                                    <Setter TargetName="ServerCard" Property="BorderBrush" Value="{StaticResource GhostBlue}"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
@@ -204,23 +210,40 @@
                                     <Grid Margin="0,0,0,14">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="260"/>
+                                            <ColumnDefinition Width="290"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Name="SelectedName" FontSize="22" FontWeight="SemiBold"/>
                                             <TextBlock x:Name="SelectedEndpoint" Foreground="{StaticResource GhostMuted}" Margin="0,4,0,0"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="OpenEditServer_Click" Margin="0,0,7,0" ToolTip="Edit selected server">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE70F;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Edit" Margin="6,0,0,0"/></StackPanel>
+                                                </Button>
+                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,0" ToolTip="Forget pinned SSH host key">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Reset trust" Margin="6,0,0,0"/></StackPanel>
+                                                </Button>
+                                                <Button Style="{StaticResource DangerButton}" Padding="10,6" Click="DeleteServer_Click" ToolTip="Delete selected server">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" FontSize="13" Foreground="{StaticResource GhostDanger}"/><TextBlock Text="Delete" Margin="6,0,0,0"/></StackPanel>
+                                                </Button>
+                                            </StackPanel>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1">
                                             <Label Content="Session password / key passphrase"/>
                                             <PasswordBox x:Name="SessionSecretBox" Style="{StaticResource GhostPasswordBox}"/>
+                                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Padding="10,5"
+                                                    Margin="0,7,0,0" Click="LockSession_Click" ToolTip="Clear the in-memory session secret (Ctrl+L)">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="12"/><TextBlock Text="Lock session" Margin="6,0,0,0"/></StackPanel>
+                                            </Button>
                                         </StackPanel>
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                        <Button Content="Connect &amp; refresh" Style="{StaticResource AccentButton}"
-                                                Click="Connect_Click" Margin="0,0,8,0"/>
-                                        <Button Content="Refresh services" Style="{StaticResource GhostButton}"
-                                                Click="RefreshServices_Click"/>
+                                        <Button Style="{StaticResource AccentButton}" Click="Connect_Click" Margin="0,0,8,0" ToolTip="Connect and refresh dashboard (F5)">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Connect &amp; refresh" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" ToolTip="Refresh dashboard service list">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Refresh services" Margin="7,0,0,0"/></StackPanel>
+                                        </Button>
                                         <TextBlock x:Name="ConnectionStatus" Text="Not connected"
                                                    Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
                                                    Margin="14,0,0,0"/>
