@@ -184,6 +184,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ServicesList.ItemsSource = null;
         ServicesManagerList.ItemsSource = null;
         DockerList.ItemsSource = null;
+        RemoteFilesList.ItemsSource = null;
+        RemotePathBox.Text = "/";
+        FilesStatusText.Text = string.Empty;
+        _rawLogs = string.Empty;
+        LogsFilterBox.Clear();
         LogsOutput.Clear();
         SelectedServiceText.Text = "Select a service.";
         SelectedDockerText.Text = "Select a Docker container.";
@@ -195,6 +200,198 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TerminalServerLabel.Text = SelectedProfile is null
             ? "Select a server on Dashboard before running commands."
             : $"Target: {SelectedProfile.Username}@{SelectedProfile.Endpoint}";
+    }
+
+    private async void RefreshFiles_Click(object sender, RoutedEventArgs e) =>
+        await RefreshFilesAsync();
+
+    private async Task RefreshFilesAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            RemoteFilesList.ItemsSource = null;
+            FilesStatusText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "/" : RemotePathBox.Text.Trim();
+            FilesStatusText.Text = "Loading…";
+            StatusText.Text = "Loading remote files…";
+
+            var files = await _ssh.GetRemoteFilesAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                path);
+
+            RemoteFilesList.ItemsSource = files;
+            RemotePathBox.Text = NormalizeUiRemotePath(path);
+            FilesStatusText.Text = $"{files.Count} item(s)";
+            StatusText.Text = "Remote files refreshed";
+        }
+        catch (Exception ex)
+        {
+            RemoteFilesList.ItemsSource = null;
+            FilesStatusText.Text = SafeError(ex);
+            StatusText.Text = "Remote file refresh failed";
+        }
+    }
+
+    private async void RemoteFiles_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (RemoteFilesList.SelectedItem is not RemoteFileItem item)
+        {
+            return;
+        }
+
+        if (item.IsDirectory)
+        {
+            RemotePathBox.Text = item.FullPath;
+            await RefreshFilesAsync();
+            return;
+        }
+
+        await DownloadSelectedRemoteFileAsync(item);
+    }
+
+    private async void RemoteUp_Click(object sender, RoutedEventArgs e)
+    {
+        var current = NormalizeUiRemotePath(RemotePathBox.Text);
+        if (current == "/")
+        {
+            return;
+        }
+
+        var trimmed = current.TrimEnd('/');
+        var index = trimmed.LastIndexOf('/');
+        RemotePathBox.Text = index <= 0 ? "/" : trimmed[..index];
+        await RefreshFilesAsync();
+    }
+
+    private async void RemotePathBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await RefreshFilesAsync();
+    }
+
+    private async void UploadFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            FilesStatusText.Text = "Select a server first.";
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Upload file to Ghost Server",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            FilesStatusText.Text = $"Uploading {Path.GetFileName(dialog.FileName)}…";
+            await _ssh.UploadFileAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                dialog.FileName,
+                RemotePathBox.Text);
+            StatusText.Text = $"Uploaded {Path.GetFileName(dialog.FileName)}";
+            await RefreshFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            FilesStatusText.Text = SafeError(ex);
+            StatusText.Text = "Upload failed";
+        }
+    }
+
+    private async void DownloadFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (RemoteFilesList.SelectedItem is not RemoteFileItem item)
+        {
+            FilesStatusText.Text = "Select a file to download.";
+            return;
+        }
+
+        if (item.IsDirectory)
+        {
+            FilesStatusText.Text = "Select a file, not a folder.";
+            return;
+        }
+
+        await DownloadSelectedRemoteFileAsync(item);
+    }
+
+    private async Task DownloadSelectedRemoteFileAsync(RemoteFileItem item)
+    {
+        if (SelectedProfile is null)
+        {
+            FilesStatusText.Text = "Select a server first.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Download file from Ghost Server",
+            FileName = item.Name,
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            FilesStatusText.Text = $"Downloading {item.Name}…";
+            await _ssh.DownloadFileAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                item.FullPath,
+                dialog.FileName);
+            FilesStatusText.Text = $"Downloaded {item.Name}";
+            StatusText.Text = $"Downloaded {item.Name}";
+        }
+        catch (Exception ex)
+        {
+            FilesStatusText.Text = SafeError(ex);
+            StatusText.Text = "Download failed";
+        }
+    }
+
+    private static string NormalizeUiRemotePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "/";
+        }
+
+        var normalized = path.Replace('\\', '/').Trim();
+        if (!normalized.StartsWith('/'))
+        {
+            normalized = "/" + normalized;
+        }
+
+        while (normalized.Contains("//", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+        }
+
+        return normalized;
     }
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
