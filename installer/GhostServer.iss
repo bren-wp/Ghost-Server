@@ -1,5 +1,5 @@
 #define MyAppName "Ghost Server"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion GetEnv("GHOST_SERVER_VERSION")
 #define MyAppPublisher "Brendigo"
 #define MyAppExeName "GhostServer.exe"
 
