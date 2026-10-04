@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>GhostServer</AssemblyName>
     <RootNamespace>GhostServer</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Brendigo</Authors>
     <Product>Ghost Server</Product>
     <Description>Secure Windows server management for SSH-connected Linux servers.</Description>
