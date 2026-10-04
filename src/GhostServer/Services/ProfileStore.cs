@@ -1,51 +1,120 @@
 using System.IO;
-using System.Text.Json;
 using GhostServer.Models;
 
 namespace GhostServer.Services;
 
 public sealed class ProfileStore
 {
-    private readonly string _directory;
     private readonly string _path;
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true
-    };
 
     public ProfileStore()
     {
-        _directory = Path.Combine(
+        var directory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "GhostServer");
-        _path = Path.Combine(_directory, "servers.json");
+
+        _path = Path.Combine(directory, "servers.json");
     }
 
-    public async Task<IReadOnlyList<ServerProfile>> LoadAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ServerProfile>> LoadAsync(
+        CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(_path))
-        {
-            return Array.Empty<ServerProfile>();
-        }
+        var profiles = await JsonFileStore.LoadAsync<List<ServerProfile>>(
+            _path,
+            cancellationToken) ?? [];
 
-        await using var stream = File.OpenRead(_path);
-        var profiles = await JsonSerializer.DeserializeAsync<List<ServerProfile>>(
-            stream, JsonOptions, cancellationToken);
-        return profiles ?? [];
+        return NormalizeAndValidate(profiles);
     }
 
-    public async Task SaveAsync(IEnumerable<ServerProfile> profiles, CancellationToken cancellationToken = default)
+    public Task SaveAsync(
+        IEnumerable<ServerProfile> profiles,
+        CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(_directory);
+        var validated = NormalizeAndValidate(profiles);
+        return JsonFileStore.SaveAsync(
+            _path,
+            validated,
+            cancellationToken);
+    }
 
-        var temporary = _path + ".tmp";
-        await using (var stream = File.Create(temporary))
+    public Task ExportAsync(
+        string destinationPath,
+        IEnumerable<ServerProfile> profiles,
+        CancellationToken cancellationToken = default)
+    {
+        var validated = NormalizeAndValidate(profiles);
+        return JsonFileStore.SaveExternalAsync(
+            destinationPath,
+            validated,
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ServerProfile>> ImportAsync(
+        string sourcePath,
+        CancellationToken cancellationToken = default)
+    {
+        var imported = await JsonFileStore.LoadExternalAsync<List<ServerProfile>>(
+            sourcePath,
+            cancellationToken) ?? [];
+
+        return NormalizeAndValidate(imported);
+    }
+
+    private static List<ServerProfile> NormalizeAndValidate(
+        IEnumerable<ServerProfile> profiles)
+    {
+        var result = new List<ServerProfile>();
+        var seenIds = new HashSet<Guid>();
+
+        foreach (var source in profiles)
         {
-            await JsonSerializer.SerializeAsync(stream, profiles, JsonOptions, cancellationToken);
-            await stream.FlushAsync(cancellationToken);
+            var profile = new ServerProfile
+            {
+                Id = source.Id == Guid.Empty ? Guid.NewGuid() : source.Id,
+                Name = source.Name?.Trim() ?? string.Empty,
+                Host = source.Host?.Trim() ?? string.Empty,
+                Port = source.Port,
+                Username = source.Username?.Trim() ?? string.Empty,
+                Authentication = string.Equals(
+                    source.Authentication,
+                    "PrivateKey",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "PrivateKey"
+                    : "Password",
+                PrivateKeyPath = string.IsNullOrWhiteSpace(source.PrivateKeyPath)
+                    ? null
+                    : source.PrivateKeyPath.Trim(),
+                HostKeyFingerprint = string.IsNullOrWhiteSpace(source.HostKeyFingerprint)
+                    ? null
+                    : source.HostKeyFingerprint.Trim(),
+                LastConnectedUtc = source.LastConnectedUtc
+            };
+
+            if (string.IsNullOrWhiteSpace(profile.Name) ||
+                string.IsNullOrWhiteSpace(profile.Host) ||
+                string.IsNullOrWhiteSpace(profile.Username) ||
+                profile.Port is < 1 or > 65535)
+            {
+                throw new InvalidDataException(
+                    "A server profile contains an invalid name, host, username or port.");
+            }
+
+            if (profile.Authentication == "PrivateKey" &&
+                string.IsNullOrWhiteSpace(profile.PrivateKeyPath))
+            {
+                throw new InvalidDataException(
+                    $"Private-key profile '{profile.Name}' does not contain a key path.");
+            }
+
+            if (!seenIds.Add(profile.Id))
+            {
+                profile.Id = Guid.NewGuid();
+                seenIds.Add(profile.Id);
+            }
+
+            result.Add(profile);
         }
 
-        File.Move(temporary, _path, true);
+        return result;
     }
 }
