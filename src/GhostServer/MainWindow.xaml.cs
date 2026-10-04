@@ -577,6 +577,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void ServiceLogs_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            SelectedServiceText.Text = "Select a server first.";
+            return;
+        }
+
+        if (ServicesManagerList.SelectedItem is not ServiceStatus service)
+        {
+            SelectedServiceText.Text = "Select a service first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"Loading logs for {service.Name}…";
+            _rawLogs = await _ssh.GetServiceLogsAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                service.Name);
+            LogsFilterBox.Clear();
+            ApplyLogFilter();
+            SetActiveNavigation(LogsNavButton);
+            ShowPage(LogsPage, "Logs", $"Recent logs for {service.Name}");
+            StatusText.Text = $"Loaded logs for {service.Name}";
+        }
+        catch (Exception ex)
+        {
+            SelectedServiceText.Text = SafeError(ex);
+            StatusText.Text = "Service log load failed";
+        }
+    }
+
     private async void RefreshDocker_Click(object sender, RoutedEventArgs e) =>
         await RefreshDockerAsync();
 
@@ -653,6 +687,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void DockerLogs_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            SelectedDockerText.Text = "Select a server first.";
+            return;
+        }
+
+        if (DockerList.SelectedItem is not DockerContainerStatus container)
+        {
+            SelectedDockerText.Text = "Select a Docker container first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"Loading logs for {container.Name}…";
+            _rawLogs = await _ssh.GetDockerLogsAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                container.Id);
+            LogsFilterBox.Clear();
+            ApplyLogFilter();
+            SetActiveNavigation(LogsNavButton);
+            ShowPage(LogsPage, "Logs", $"Recent logs for Docker container {container.Name}");
+            StatusText.Text = $"Loaded Docker logs for {container.Name}";
+        }
+        catch (Exception ex)
+        {
+            SelectedDockerText.Text = SafeError(ex);
+            StatusText.Text = "Docker log load failed";
+        }
+    }
+
     private async void RefreshLogs_Click(object sender, RoutedEventArgs e) =>
         await RefreshLogsAsync();
 
@@ -660,6 +728,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (SelectedProfile is null)
         {
+            _rawLogs = string.Empty;
             LogsOutput.Text = "Select a server on Dashboard first.";
             return;
         }
@@ -667,17 +736,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading recent logs…";
-            var logs = await _ssh.GetRecentLogsAsync(
+            _rawLogs = await _ssh.GetRecentLogsAsync(
                 SelectedProfile, SessionSecretBox.Password);
-            LogsOutput.Text = string.IsNullOrWhiteSpace(logs) ? "(no log output)" : logs;
+            ApplyLogFilter();
             LogsOutput.ScrollToEnd();
             StatusText.Text = "Logs refreshed";
         }
         catch (Exception ex)
         {
+            _rawLogs = string.Empty;
             LogsOutput.Text = SafeError(ex);
             StatusText.Text = "Log refresh failed";
         }
+    }
+
+    private void LogsFilter_TextChanged(object sender, TextChangedEventArgs e) =>
+        ApplyLogFilter();
+
+    private void ApplyLogFilter()
+    {
+        if (LogsOutput is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_rawLogs))
+        {
+            LogsOutput.Text = "(no log output)";
+            return;
+        }
+
+        var filter = LogsFilterBox?.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            LogsOutput.Text = _rawLogs;
+            return;
+        }
+
+        var visible = _rawLogs
+            .Split('\n')
+            .Where(line => line.Contains(filter, StringComparison.OrdinalIgnoreCase));
+
+        LogsOutput.Text = string.Join(Environment.NewLine, visible);
     }
 
     private void ApplySnapshot(ServerSnapshot snapshot)
@@ -725,6 +825,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (_commandHistory.Count == 0 ||
+            !string.Equals(_commandHistory[^1], command, StringComparison.Ordinal))
+        {
+            _commandHistory.Add(command);
+            if (_commandHistory.Count > 100)
+            {
+                _commandHistory.RemoveAt(0);
+            }
+        }
+
+        _commandHistoryIndex = _commandHistory.Count;
+
         try
         {
             StatusText.Text = "Running command…";
@@ -750,7 +862,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             RunCommand_Click(sender, e);
             e.Handled = true;
+            return;
         }
+
+        if (e.Key == Key.Up && _commandHistory.Count > 0)
+        {
+            _commandHistoryIndex = Math.Max(0, _commandHistoryIndex - 1);
+            CommandInput.Text = _commandHistory[_commandHistoryIndex];
+            CommandInput.CaretIndex = CommandInput.Text.Length;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Down && _commandHistory.Count > 0)
+        {
+            _commandHistoryIndex = Math.Min(_commandHistory.Count, _commandHistoryIndex + 1);
+            CommandInput.Text = _commandHistoryIndex >= _commandHistory.Count
+                ? string.Empty
+                : _commandHistory[_commandHistoryIndex];
+            CommandInput.CaretIndex = CommandInput.Text.Length;
+            e.Handled = true;
+        }
+    }
+
+    private void ClearTerminal_Click(object sender, RoutedEventArgs e)
+    {
+        TerminalOutput.Clear();
+        StatusText.Text = "Terminal output cleared";
+        CommandInput.Focus();
     }
 
     private async void SecurityScan_Click(object sender, RoutedEventArgs e)
