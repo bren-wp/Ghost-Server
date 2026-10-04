@@ -32,6 +32,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _rawLogs = string.Empty;
     private Button? _activeNavButton;
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly SemaphoreSlim _mutationGate = new(1, 1);
     private bool _autoRefreshBusy;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
@@ -622,6 +623,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!await TryAcquireMutationAsync($"Preparing service {action}…"))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"{char.ToUpperInvariant(action[0])}{action[1..]}ing {service.Name}…";
@@ -638,6 +644,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             SelectedServiceText.Text = SafeError(ex);
             StatusText.Text = $"Service {action} failed";
+        }
+        finally
+        {
+            _mutationGate.Release();
         }
     }
 
@@ -733,6 +743,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!await TryAcquireMutationAsync($"Preparing Docker {action}…"))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"Docker {action}: {container.Name}…";
@@ -748,6 +763,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             SelectedDockerText.Text = SafeError(ex);
             StatusText.Text = $"Docker {action} failed";
+        }
+        finally
+        {
+            _mutationGate.Release();
         }
     }
 
@@ -840,6 +859,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!await TryAcquireMutationAsync("Preparing firewall change…"))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"Allowing firewall port {port}/{protocol}…";
@@ -856,6 +880,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             NetworkOutput.Text = SafeError(ex);
             StatusText.Text = "Firewall change failed";
+        }
+        finally
+        {
+            _mutationGate.Release();
         }
     }
 
@@ -924,6 +952,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!await TryAcquireMutationAsync("Preparing configuration snapshot…"))
+        {
+            return;
+        }
+
         string? remoteArchive = null;
         try
         {
@@ -972,6 +1005,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             BackupOutput.ScrollToEnd();
+            _mutationGate.Release();
         }
     }
 
@@ -1674,6 +1708,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _autoRefreshBusy = false;
         }
+    }
+
+    private async Task<bool> TryAcquireMutationAsync(string message)
+    {
+        if (!await _mutationGate.WaitAsync(0))
+        {
+            StatusText.Text = "Another administrative action is already running.";
+            return false;
+        }
+
+        StatusText.Text = message;
+        return true;
     }
 
     private void ShowAddError(string message)
