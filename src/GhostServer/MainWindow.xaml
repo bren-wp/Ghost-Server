@@ -135,8 +135,13 @@
                             <TextBlock x:Name="PageSubtitle" Text="Server health, services and connection state."
                                        Foreground="{StaticResource GhostMuted}" Margin="0,5,0,0"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Content="+  Add server" Style="{StaticResource AccentButton}"
-                                VerticalAlignment="Center" Click="OpenAddServer_Click"/>
+                        <Button Grid.Column="1" Style="{StaticResource AccentButton}"
+                                VerticalAlignment="Center" Click="OpenAddServer_Click" ToolTip="Add server (Ctrl+N)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
+                                <TextBlock Text="Add server" Margin="7,0,0,0" Foreground="#06121E" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </Border>
 
@@ -548,7 +553,7 @@
             <Grid Margin="14,0">
                 <TextBlock x:Name="StatusText" Text="Ready" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" FontSize="11"/>
-                <TextBlock Text="Ghost Server • SSH.NET 2026.0.0" Foreground="{StaticResource GhostMuted}"
+                <TextBlock Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11"/>
             </Grid>
         </Border>
