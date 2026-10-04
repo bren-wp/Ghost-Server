@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.4.x`
+The active development line is `0.5.x`
 
 ## SSH trust model
 
@@ -45,3 +45,14 @@ Configuration snapshots use a fixed allowlist of common server configuration dir
 ## Package updates
 
 The Updates workspace is discovery-only in 0.4.x. It does not install, upgrade or remove packages.
+
+
+## Local application data recovery
+
+Profile and settings JSON files are written atomically through a temporary file and retain a `.bak` copy of the previous valid state. If the primary JSON becomes malformed, Ghost Server attempts to load the backup rather than silently accepting corrupted data.
+
+Profile export/import never includes passwords or private-key passphrases because those values are session-only and are not members of the persisted profile model.
+
+## Runtime diagnostics
+
+Unexpected process-level failures may write a bounded local diagnostic log under the Ghost Server app-data `Logs` directory. Ghost Server does not intentionally include session secrets in these diagnostics. Fatal WPF dispatcher exceptions are logged but are not swallowed so the application does not continue in an unknown state.
