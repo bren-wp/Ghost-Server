@@ -1,0 +1,102 @@
+name: Publish Release
+
+on:
+  workflow_run:
+    workflows: ["Windows CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read version
+        shell: pwsh
+        run: |
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($metadata.version)) {
+            throw "version.json does not contain a version."
+          }
+          "VERSION=$($metadata.version)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Publishing Ghost Server $($metadata.version)"
+
+      - name: Restore and build
+        run: |
+          dotnet restore GhostServer.sln
+          dotnet build GhostServer.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Publish self-contained x64
+        run: >
+          dotnet publish src/GhostServer/GhostServer.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None
+          -o artifacts/publish
+
+      - name: Prepare portable executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/release | Out-Null
+          Copy-Item artifacts/publish/GhostServer.exe artifacts/release/GhostServer-Portable.exe -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Setup.exe
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          }
+          if (-not (Test-Path $iscc)) {
+            throw "ISCC.exe was not found after Inno Setup installation."
+          }
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          $env:GHOST_SERVER_VERSION = $metadata.version
+          & $iscc installer/GhostServer.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Verify release files
+        shell: pwsh
+        run: |
+          foreach ($file in @("artifacts/release/GhostServer-Portable.exe", "artifacts/release/GhostServer-Setup.exe")) {
+            if (-not (Test-Path $file)) { throw "$file missing." }
+            if ((Get-Item $file).Length -lt 1MB) { throw "$file is unexpectedly small." }
+          }
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          $tag = "v$env:VERSION"
+          $notes = "docs/releases/$env:VERSION.md"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe --clobber --repo $env:GITHUB_REPOSITORY
+          } else {
+            gh release create $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe --target $env:VALIDATED_SHA --title "Ghost Server $env:VERSION" --notes-file $notes --repo $env:GITHUB_REPOSITORY
+          }

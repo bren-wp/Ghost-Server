@@ -42,7 +42,7 @@
                     </Border>
                     <TextBlock Text="Ghost Server" FontWeight="SemiBold" FontSize="15" Margin="10,0,0,0"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="0.1.0" Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="10,2,0,0"
+                    <TextBlock Text="0.2.0" Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="10,2,0,0"
                                VerticalAlignment="Center"/>
                 </StackPanel>
 
@@ -73,6 +73,9 @@
                         <TextBlock Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="11" FontWeight="SemiBold"
                                    Margin="12,8,0,10"/>
                         <Button Content="▦   Dashboard" Style="{StaticResource NavButton}" Click="DashboardNav_Click"/>
+                        <Button Content="⚙   Services" Style="{StaticResource NavButton}" Click="ServicesNav_Click"/>
+                        <Button Content="▣   Docker" Style="{StaticResource NavButton}" Click="DockerNav_Click"/>
+                        <Button Content="≡   Logs" Style="{StaticResource NavButton}" Click="LogsNav_Click"/>
                         <Button Content="⌁   Terminal" Style="{StaticResource NavButton}" Click="TerminalNav_Click"/>
                         <Button Content="◇   Security" Style="{StaticResource NavButton}" Click="SecurityNav_Click"/>
                     </StackPanel>
@@ -286,6 +289,81 @@
                                 </StackPanel>
                             </ScrollViewer>
                         </Grid>
+                    </Grid>
+
+                    <Grid x:Name="ServicesPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,0"/>
+                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,0"/>
+                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,0"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" x:Name="SelectedServiceText" Text="Select a service."
+                                   Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
+                            <ListView x:Name="ServicesManagerList" Background="Transparent" BorderThickness="0"
+                                      Foreground="{StaticResource GhostIce}" SelectionChanged="ServicesManagerList_SelectionChanged">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Service" DisplayMemberBinding="{Binding Name}" Width="230"/>
+                                        <GridViewColumn Header="State" DisplayMemberBinding="{Binding State}" Width="150"/>
+                                        <GridViewColumn Header="Description" DisplayMemberBinding="{Binding Description}" Width="520"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="DockerPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,0"/>
+                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,0"/>
+                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,0"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" x:Name="SelectedDockerText" Text="Select a Docker container."
+                                   Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
+                            <ListView x:Name="DockerList" Background="Transparent" BorderThickness="0"
+                                      Foreground="{StaticResource GhostIce}" SelectionChanged="DockerList_SelectionChanged">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="180"/>
+                                        <GridViewColumn Header="Image" DisplayMemberBinding="{Binding Image}" Width="250"/>
+                                        <GridViewColumn Header="State" DisplayMemberBinding="{Binding State}" Width="120"/>
+                                        <GridViewColumn Header="Status" DisplayMemberBinding="{Binding Status}" Width="380"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="LogsPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button Content="Refresh logs" Style="{StaticResource AccentButton}" Click="RefreshLogs_Click"/>
+                            <TextBlock Text="Latest 200 journal entries; falls back to dmesg when journalctl is unavailable."
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
+                            <TextBox x:Name="LogsOutput" IsReadOnly="True" AcceptsReturn="True"
+                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
+                                     FontFamily="Cascadia Code, Consolas" Padding="14"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                        </Border>
                     </Grid>
 
                     <Grid x:Name="TerminalPage" Visibility="Collapsed" Margin="24">

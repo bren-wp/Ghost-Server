@@ -69,6 +69,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void DashboardNav_Click(object sender, RoutedEventArgs e) =>
         ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
 
+    private async void ServicesNav_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(ServicesPage, "Services", "Inspect and control systemd services.");
+        await RefreshManagerServicesAsync();
+    }
+
+    private async void DockerNav_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(DockerPage, "Docker", "Inspect and control containers on the selected server.");
+        await RefreshDockerAsync();
+    }
+
+    private async void LogsNav_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(LogsPage, "Logs", "Recent server journal output.");
+        await RefreshLogsAsync();
+    }
+
     private void TerminalNav_Click(object sender, RoutedEventArgs e)
     {
         ShowPage(TerminalPage, "Terminal", "Run commands on the currently selected SSH server.");
@@ -82,6 +100,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ShowPage(UIElement page, string title, string subtitle)
     {
         DashboardPage.Visibility = Visibility.Collapsed;
+        ServicesPage.Visibility = Visibility.Collapsed;
+        DockerPage.Visibility = Visibility.Collapsed;
+        LogsPage.Visibility = Visibility.Collapsed;
         TerminalPage.Visibility = Visibility.Collapsed;
         SecurityPage.Visibility = Visibility.Collapsed;
         page.Visibility = Visibility.Visible;
@@ -113,6 +134,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : "Ready to connect";
         ResetMetrics();
         ServicesList.ItemsSource = null;
+        ServicesManagerList.ItemsSource = null;
+        DockerList.ItemsSource = null;
+        LogsOutput.Clear();
+        SelectedServiceText.Text = "Select a service.";
+        SelectedDockerText.Text = "Select a Docker container.";
         UpdateSelectedLabels();
     }
 
@@ -226,6 +252,186 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             StatusText.Text = SafeError(ex);
+        }
+    }
+
+    private async void RefreshManagerServices_Click(object sender, RoutedEventArgs e) =>
+        await RefreshManagerServicesAsync();
+
+    private async Task RefreshManagerServicesAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            ServicesManagerList.ItemsSource = null;
+            SelectedServiceText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Loading services…";
+            ServicesManagerList.ItemsSource = await _ssh.GetServicesAsync(
+                SelectedProfile, SessionSecretBox.Password);
+            SelectedServiceText.Text = "Select a service to manage it.";
+            StatusText.Text = "Services refreshed";
+        }
+        catch (Exception ex)
+        {
+            ServicesManagerList.ItemsSource = null;
+            SelectedServiceText.Text = SafeError(ex);
+            StatusText.Text = "Service refresh failed";
+        }
+    }
+
+    private void ServicesManagerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        SelectedServiceText.Text = ServicesManagerList.SelectedItem is ServiceStatus service
+            ? $"{service.Name} • {service.State}"
+            : "Select a service.";
+    }
+
+    private async void StartService_Click(object sender, RoutedEventArgs e) =>
+        await RunServiceActionAsync("start");
+
+    private async void StopService_Click(object sender, RoutedEventArgs e) =>
+        await RunServiceActionAsync("stop");
+
+    private async void RestartService_Click(object sender, RoutedEventArgs e) =>
+        await RunServiceActionAsync("restart");
+
+    private async Task RunServiceActionAsync(string action)
+    {
+        if (SelectedProfile is null)
+        {
+            SelectedServiceText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (ServicesManagerList.SelectedItem is not ServiceStatus service)
+        {
+            SelectedServiceText.Text = "Select a service first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"{char.ToUpperInvariant(action[0])}{action[1..]}ing {service.Name}…";
+            var output = await _ssh.ServiceActionAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                service.Name,
+                action);
+            StatusText.Text = $"{service.Name}: {output}";
+            await RefreshManagerServicesAsync();
+            await RefreshServicesAsync();
+        }
+        catch (Exception ex)
+        {
+            SelectedServiceText.Text = SafeError(ex);
+            StatusText.Text = $"Service {action} failed";
+        }
+    }
+
+    private async void RefreshDocker_Click(object sender, RoutedEventArgs e) =>
+        await RefreshDockerAsync();
+
+    private async Task RefreshDockerAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            DockerList.ItemsSource = null;
+            SelectedDockerText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Loading Docker containers…";
+            DockerList.ItemsSource = await _ssh.GetDockerContainersAsync(
+                SelectedProfile, SessionSecretBox.Password);
+            SelectedDockerText.Text = "Select a Docker container.";
+            StatusText.Text = "Docker containers refreshed";
+        }
+        catch (Exception ex)
+        {
+            DockerList.ItemsSource = null;
+            SelectedDockerText.Text = SafeError(ex);
+            StatusText.Text = "Docker refresh failed";
+        }
+    }
+
+    private void DockerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        SelectedDockerText.Text = DockerList.SelectedItem is DockerContainerStatus container
+            ? $"{container.Name} • {container.State}"
+            : "Select a Docker container.";
+    }
+
+    private async void StartDocker_Click(object sender, RoutedEventArgs e) =>
+        await RunDockerActionAsync("start");
+
+    private async void StopDocker_Click(object sender, RoutedEventArgs e) =>
+        await RunDockerActionAsync("stop");
+
+    private async void RestartDocker_Click(object sender, RoutedEventArgs e) =>
+        await RunDockerActionAsync("restart");
+
+    private async Task RunDockerActionAsync(string action)
+    {
+        if (SelectedProfile is null)
+        {
+            SelectedDockerText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (DockerList.SelectedItem is not DockerContainerStatus container)
+        {
+            SelectedDockerText.Text = "Select a Docker container first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"Docker {action}: {container.Name}…";
+            var output = await _ssh.DockerActionAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                container.Id,
+                action);
+            StatusText.Text = $"Docker {container.Name}: {output}";
+            await RefreshDockerAsync();
+        }
+        catch (Exception ex)
+        {
+            SelectedDockerText.Text = SafeError(ex);
+            StatusText.Text = $"Docker {action} failed";
+        }
+    }
+
+    private async void RefreshLogs_Click(object sender, RoutedEventArgs e) =>
+        await RefreshLogsAsync();
+
+    private async Task RefreshLogsAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            LogsOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Loading recent logs…";
+            var logs = await _ssh.GetRecentLogsAsync(
+                SelectedProfile, SessionSecretBox.Password);
+            LogsOutput.Text = string.IsNullOrWhiteSpace(logs) ? "(no log output)" : logs;
+            LogsOutput.ScrollToEnd();
+            StatusText.Text = "Logs refreshed";
+        }
+        catch (Exception ex)
+        {
+            LogsOutput.Text = SafeError(ex);
+            StatusText.Text = "Log refresh failed";
         }
     }
 
