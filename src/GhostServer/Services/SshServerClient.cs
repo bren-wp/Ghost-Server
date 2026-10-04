@@ -307,44 +307,6 @@ fi
         return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Task<string> GetUpdateOverviewAsync(
-        ServerProfile profile,
-        string? secret,
-        CancellationToken cancellationToken = default)
-    {
-        const string command = """
-if command -v apt >/dev/null 2>&1; then
-  echo 'Package manager: APT'
-  echo
-  apt list --upgradable 2>/dev/null | sed '1d' | head -n 200
-elif command -v dnf >/dev/null 2>&1; then
-  echo 'Package manager: DNF'
-  echo
-  dnf -q check-update 2>/dev/null || true
-elif command -v yum >/dev/null 2>&1; then
-  echo 'Package manager: YUM'
-  echo
-  yum -q check-update 2>/dev/null || true
-elif command -v zypper >/dev/null 2>&1; then
-  echo 'Package manager: Zypper'
-  echo
-  zypper --non-interactive list-updates 2>/dev/null || true
-elif command -v pacman >/dev/null 2>&1; then
-  echo 'Package manager: pacman'
-  echo
-  if command -v checkupdates >/dev/null 2>&1; then
-    checkupdates 2>/dev/null || true
-  else
-    pacman -Qu 2>/dev/null || true
-  fi
-else
-  echo 'No supported package manager detected.'
-fi
-""";
-
-        return RunCommandAsync(profile, secret, command, cancellationToken);
-    }
-
     public static Task<string> GetSafeUpdatePreviewAsync(
         ServerProfile profile,
         string? secret,
