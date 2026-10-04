@@ -9,7 +9,10 @@
         ResizeMode="CanResize"
         Background="{StaticResource GhostNavy}"
         Foreground="{StaticResource GhostIce}"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             ResizeBorderThickness="6"
@@ -36,22 +39,30 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Border Width="28" Height="28" CornerRadius="8" Background="{StaticResource GhostBlue}">
-                        <TextBlock Text="G" Foreground="#06121E" FontWeight="Bold" FontSize="16"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource GhostBlue}">
+                        <TextBlock Text="&#xE968;" Style="{StaticResource FluentIcon}" Foreground="#06121E"
+                                   FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="Ghost Server" FontWeight="SemiBold" FontSize="15" Margin="10,0,0,0"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="0.2.0" Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="10,2,0,0"
-                               VerticalAlignment="Center"/>
+                    <Border Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
+                            BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="10,0,0,0">
+                        <TextBlock Text="0.3.0" Foreground="{StaticResource GhostMuted}" FontSize="10"/>
+                    </Border>
                 </StackPanel>
 
-                <Button Grid.Column="1" Content="—" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
-                        Margin="0" Click="Minimize_Click"/>
-                <Button Grid.Column="2" Content="□" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
-                        Margin="0" Click="Maximize_Click"/>
-                <Button Grid.Column="3" Content="×" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
-                        Margin="0" Click="Close_Click"/>
+                <Button Grid.Column="1" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Minimize_Click" ToolTip="Minimize" AutomationProperties.Name="Minimize">
+                    <TextBlock Text="&#xE921;" Style="{StaticResource FluentIcon}" FontSize="12"/>
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Maximize_Click" ToolTip="Maximize or restore" AutomationProperties.Name="Maximize or restore">
+                    <TextBlock Text="&#xE922;" Style="{StaticResource FluentIcon}" FontSize="12"/>
+                </Button>
+                <Button Grid.Column="3" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close">
+                    <TextBlock Text="&#xE8BB;" Style="{StaticResource FluentIcon}" FontSize="12"/>
+                </Button>
             </Grid>
         </Border>
 
@@ -72,12 +83,27 @@
                     <StackPanel>
                         <TextBlock Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="11" FontWeight="SemiBold"
                                    Margin="12,8,0,10"/>
-                        <Button Content="▦   Dashboard" Style="{StaticResource NavButton}" Click="DashboardNav_Click"/>
-                        <Button Content="⚙   Services" Style="{StaticResource NavButton}" Click="ServicesNav_Click"/>
-                        <Button Content="▣   Docker" Style="{StaticResource NavButton}" Click="DockerNav_Click"/>
-                        <Button Content="≡   Logs" Style="{StaticResource NavButton}" Click="LogsNav_Click"/>
-                        <Button Content="⌁   Terminal" Style="{StaticResource NavButton}" Click="TerminalNav_Click"/>
-                        <Button Content="◇   Security" Style="{StaticResource NavButton}" Click="SecurityNav_Click"/>
+                        <Button x:Name="DashboardNavButton" Style="{StaticResource NavButton}" Click="DashboardNav_Click" ToolTip="Dashboard">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Dashboard" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="FilesNavButton" Style="{StaticResource NavButton}" Click="FilesNav_Click" ToolTip="SFTP files">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Files" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="ServicesNavButton" Style="{StaticResource NavButton}" Click="ServicesNav_Click" ToolTip="Services">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Services" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="DockerNavButton" Style="{StaticResource NavButton}" Click="DockerNav_Click" ToolTip="Docker">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7B8;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Docker" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="LogsNavButton" Style="{StaticResource NavButton}" Click="LogsNav_Click" ToolTip="Logs">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Logs" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="TerminalNavButton" Style="{StaticResource NavButton}" Click="TerminalNav_Click" ToolTip="Terminal">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Terminal" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="SecurityNavButton" Style="{StaticResource NavButton}" Click="SecurityNav_Click" ToolTip="Security">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA18;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Security" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
                     </StackPanel>
 
                     <Border Grid.Row="2" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
