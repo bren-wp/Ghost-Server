@@ -1,0 +1,7 @@
+{
+  "product": "Ghost Server",
+  "version": "0.1.0",
+  "channel": "development",
+  "platform": "windows",
+  "framework": ".NET 10 WPF"
+}
