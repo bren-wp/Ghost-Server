@@ -1198,6 +1198,72 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return message.Length > 500 ? message[..500] : message;
     }
 
+    private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            if (ConfirmOverlay.Visibility == Visibility.Visible)
+            {
+                CancelDelete_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+
+            if (AddServerOverlay.Visibility == Visibility.Visible)
+            {
+                CloseAddServer_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
+        {
+            OpenAddServer_Click(sender, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L)
+        {
+            LockSession_Click(sender, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key != Key.F5)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (_activeNavButton == FilesNavButton)
+        {
+            await RefreshFilesAsync();
+        }
+        else if (_activeNavButton == ServicesNavButton)
+        {
+            await RefreshManagerServicesAsync();
+        }
+        else if (_activeNavButton == DockerNavButton)
+        {
+            await RefreshDockerAsync();
+        }
+        else if (_activeNavButton == LogsNavButton)
+        {
+            await RefreshLogsAsync();
+        }
+        else if (_activeNavButton == SecurityNavButton)
+        {
+            SecurityScan_Click(sender, new RoutedEventArgs());
+        }
+        else if (_activeNavButton == DashboardNavButton)
+        {
+            Connect_Click(sender, new RoutedEventArgs());
+        }
+    }
+
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left || IsInsideButton(e.OriginalSource as DependencyObject))
