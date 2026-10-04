@@ -107,6 +107,9 @@
                             <Button x:Name="BackupNavButton" Style="{StaticResource NavButton}" Click="BackupNav_Click" ToolTip="Configuration backup">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Backup" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
+                            <Button x:Name="TasksNavButton" Style="{StaticResource NavButton}" Click="TasksNav_Click" ToolTip="Scheduled operations">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE823;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Tasks" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
                             <Button x:Name="LogsNavButton" Style="{StaticResource NavButton}" Click="LogsNav_Click" ToolTip="Logs">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Logs" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
@@ -476,6 +479,94 @@
                                 </ListView.View>
                             </ListView>
                         </Border>
+                    </Grid>
+
+                    <Grid x:Name="TasksPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Margin="0,0,8,0">
+                                    <Label Content="Task name"/>
+                                    <TextBox x:Name="TaskNameBox" Style="{StaticResource GhostTextBox}" ToolTip="lowercase letters, numbers and hyphens"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                    <Label Content="Schedule"/>
+                                    <ComboBox x:Name="TaskScheduleBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1">
+                                        <ComboBoxItem Content="Hourly" Tag="Hourly"/>
+                                        <ComboBoxItem Content="Daily" Tag="Daily"/>
+                                        <ComboBoxItem Content="Weekly" Tag="Weekly"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                    <Label Content="Command"/>
+                                    <TextBox x:Name="TaskCommandBox" Style="{StaticResource GhostTextBox}" FontFamily="Cascadia Code, Consolas"
+                                             ToolTip="Command runs as root through a dedicated Ghost Server oneshot service"/>
+                                </StackPanel>
+
+                                <Button Grid.Column="3" Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
+                                        Click="CreateTask_Click" Margin="0,0,0,1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE710;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
+                                        <TextBlock Text="Create task" Margin="7,0,0,0" Foreground="#06121E"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,12">
+                            <Button Style="{StaticResource GhostButton}" Click="RefreshTasks_Click" Margin="0,0,8,8">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Refresh" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource DangerButton}" Click="DeleteTask_Click" Margin="0,0,12,8">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostDanger}"/><TextBlock Text="Delete selected" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
+                            <TextBlock x:Name="TasksStatusText" Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                       Text="Only Ghost Server timers named ghost-server-* are managed here."/>
+                        </WrapPanel>
+
+                        <Grid Grid.Row="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="2*"/>
+                                <RowDefinition Height="12"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Style="{StaticResource CardBorder}" Padding="8">
+                                <ListView x:Name="TasksList" Background="Transparent" BorderThickness="0" Foreground="{StaticResource GhostIce}">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="180"/>
+                                            <GridViewColumn Header="Schedule" DisplayMemberBinding="{Binding Schedule}" Width="130"/>
+                                            <GridViewColumn Header="Next run" DisplayMemberBinding="{Binding NextRun}" Width="250"/>
+                                            <GridViewColumn Header="State" DisplayMemberBinding="{Binding State}" Width="110"/>
+                                            <GridViewColumn Header="Enabled" DisplayMemberBinding="{Binding EnabledLabel}" Width="110"/>
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </Border>
+
+                            <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+                                <TextBox x:Name="CrontabOutput" IsReadOnly="True" AcceptsReturn="True"
+                                         Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
+                                         FontFamily="Cascadia Code, Consolas" Padding="14"
+                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                         Text="Current user crontab is shown here for visibility only. Ghost Server does not edit it."/>
+                            </Border>
+                        </Grid>
                     </Grid>
 
                     <Grid x:Name="LogsPage" Visibility="Collapsed" Margin="24">
