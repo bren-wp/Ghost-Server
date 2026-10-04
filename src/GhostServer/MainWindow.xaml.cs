@@ -147,7 +147,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async void UpdatesNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(UpdatesNavButton);
-        ShowPage(UpdatesPage, "Updates", "Read-only package update discovery for supported Linux distributions.");
+        ShowPage(UpdatesPage, "Safe Update", "Preview, back up, update and verify supported Linux servers.");
         await RefreshUpdatesAsync();
     }
 
@@ -915,20 +915,233 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            StatusText.Text = "Checking package updates…";
-            var output = await SshServerClient.GetUpdateOverviewAsync(
+            StatusText.Text = "Preparing Safe Update preview…";
+            var output = await SshServerClient.GetSafeUpdatePreviewAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             UpdatesOutput.Text = string.IsNullOrWhiteSpace(output)
-                ? "No pending updates were reported."
+                ? "No update information was reported."
                 : output;
             UpdatesOutput.ScrollToHome();
-            StatusText.Text = "Update check completed";
+            StatusText.Text = "Safe Update preview completed";
         }
         catch (Exception ex)
         {
             UpdatesOutput.Text = SafeError(ex);
-            StatusText.Text = "Update check failed";
+            StatusText.Text = "Safe Update preview failed";
+        }
+    }
+
+    private async void RunSafeUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            UpdatesOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        var confirmed = MessageBox.Show(
+            this,
+            $"Run Safe Update on {SelectedProfile.Name}?\n\nGhost Server will first create and download a configuration snapshot. It will then install regular updates using the detected supported package manager. No automatic reboot is performed. Package managers may update dependencies.",
+            "Run Safe Update",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (confirmed != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var snapshotDialog = CreateSnapshotSaveDialog(
+            "Save mandatory pre-update configuration snapshot");
+
+        if (snapshotDialog.ShowDialog(this) != true)
+        {
+            UpdatesOutput.Text = "Safe Update cancelled because the required configuration snapshot was not saved.";
+            return;
+        }
+
+        if (!TryAcquireMutation("Preparing Safe Update…"))
+        {
+            return;
+        }
+
+        string? remoteArchive = null;
+        try
+        {
+            UpdatesOutput.Text = "Step 1/4 • Creating configuration snapshot…";
+            remoteArchive = await SshServerClient.CreateConfigurationSnapshotAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}Step 2/4 • Downloading snapshot over verified SFTP…");
+
+            await SshServerClient.DownloadFileAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                remoteArchive,
+                snapshotDialog.FileName);
+
+            var snapshotSize = new FileInfo(snapshotDialog.FileName).Length;
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}Snapshot saved: {snapshotDialog.FileName}");
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}Snapshot size: {snapshotSize:N0} bytes");
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}Step 3/4 • Installing supported package updates…");
+            UpdatesOutput.ScrollToEnd();
+
+            StatusText.Text = "Safe Update is installing package updates…";
+            var updateOutput = await SshServerClient.RunSafeUpdateAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}{updateOutput}");
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}Step 4/4 • Running post-update health check…");
+            UpdatesOutput.ScrollToEnd();
+
+            var healthOutput = await SshServerClient.GetSafeUpdateHealthAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}{healthOutput}");
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}Safe Update finished. Review the health report above. Ghost Server did not reboot the server.");
+            UpdatesOutput.ScrollToEnd();
+            StatusText.Text = "Safe Update completed";
+        }
+        catch (Exception ex)
+        {
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}[Safe Update stopped] {SafeError(ex)}");
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}No automatic reboot was attempted. The pre-update snapshot remains on this PC if its download completed.");
+            UpdatesOutput.ScrollToEnd();
+            StatusText.Text = "Safe Update stopped";
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(remoteArchive))
+            {
+                try
+                {
+                    await SshServerClient.DeleteRemoteFileAsync(
+                        SelectedProfile,
+                        SessionSecretBox.Password,
+                        remoteArchive);
+                    UpdatesOutput.AppendText(
+                        $"{Environment.NewLine}Temporary remote snapshot removed.");
+                }
+                catch (Exception cleanupEx)
+                {
+                    UpdatesOutput.AppendText(
+                        $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                }
+            }
+
+            Interlocked.Exchange(ref _mutationActive, 0);
+        }
+    }
+
+    private async void RestoreConfigSnapshot_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            UpdatesOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select Ghost Server configuration snapshot",
+            Filter = "Ghost Server snapshot (*.tar.gz)|*.tar.gz|All files|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var confirmed = MessageBox.Show(
+            this,
+            $"Restore allowlisted configuration from {Path.GetFileName(dialog.FileName)} to {SelectedProfile.Name}?\n\nThis can overwrite SSH, web server, systemd, Docker, Fail2ban or UFW configuration contained in the snapshot. Ghost Server validates archive paths and file types first. It will not downgrade packages, restart services or reboot automatically.",
+            "Restore configuration snapshot",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (confirmed != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        if (!TryAcquireMutation("Preparing configuration restore…"))
+        {
+            return;
+        }
+
+        var remotePath = $"/tmp/ghost-server-restore-{Guid.NewGuid():N}.tar.gz";
+        try
+        {
+            UpdatesOutput.Text = "Uploading snapshot over verified SFTP…";
+            await SshServerClient.UploadFileToPathAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                dialog.FileName,
+                remotePath);
+
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}Validating allowlisted paths and archive entry types…");
+
+            var restoreOutput = await SshServerClient.RestoreConfigurationSnapshotAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                remotePath);
+
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}{restoreOutput}");
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}Running post-restore health check…");
+
+            var healthOutput = await SshServerClient.GetSafeUpdateHealthAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}{healthOutput}");
+            UpdatesOutput.ScrollToEnd();
+            StatusText.Text = "Configuration restore completed";
+        }
+        catch (Exception ex)
+        {
+            UpdatesOutput.AppendText(
+                $"{Environment.NewLine}{Environment.NewLine}[restore stopped] {SafeError(ex)}");
+            UpdatesOutput.ScrollToEnd();
+            StatusText.Text = "Configuration restore stopped";
+        }
+        finally
+        {
+            try
+            {
+                await SshServerClient.DeleteRemoteFileAsync(
+                    SelectedProfile,
+                    SessionSecretBox.Password,
+                    remotePath);
+            }
+            catch (Exception cleanupEx)
+            {
+                UpdatesOutput.AppendText(
+                    $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+            }
+
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -940,27 +1153,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var invalid = Path.GetInvalidFileNameChars();
-        var safeServerName = new string(
-            SelectedProfile.Name
-                .Select(ch => invalid.Contains(ch) ? '_' : ch)
-                .ToArray());
-
-        if (string.IsNullOrWhiteSpace(safeServerName))
-        {
-            safeServerName = "server";
-        }
-
-        var dialog = new SaveFileDialog
-        {
-            Title = "Save Ghost Server configuration snapshot",
-            FileName = $"ghost-server-{safeServerName}-config-{DateTime.Now:yyyyMMdd-HHmmss}.tar.gz",
-            Filter = "GZip archive (*.tar.gz)|*.tar.gz|All files|*.*",
-            OverwritePrompt = true,
-            InitialDirectory = Directory.Exists(_settings.DefaultBackupDirectory)
-                ? _settings.DefaultBackupDirectory
-                : null
-        };
+        var dialog = CreateSnapshotSaveDialog(
+            "Save Ghost Server configuration snapshot");
 
         if (dialog.ShowDialog(this) != true)
         {
@@ -1724,6 +1918,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _autoRefreshBusy = false;
         }
+    }
+
+    private SaveFileDialog CreateSnapshotSaveDialog(string title)
+    {
+        var serverName = SelectedProfile?.Name ?? "server";
+        var invalid = Path.GetInvalidFileNameChars();
+        var safeServerName = new string(
+            serverName
+                .Select(ch => invalid.Contains(ch) ? '_' : ch)
+                .ToArray());
+
+        if (string.IsNullOrWhiteSpace(safeServerName))
+        {
+            safeServerName = "server";
+        }
+
+        return new SaveFileDialog
+        {
+            Title = title,
+            FileName = $"ghost-server-{safeServerName}-config-{DateTime.Now:yyyyMMdd-HHmmss}.tar.gz",
+            Filter = "GZip archive (*.tar.gz)|*.tar.gz|All files|*.*",
+            OverwritePrompt = true,
+            InitialDirectory = Directory.Exists(_settings.DefaultBackupDirectory)
+                ? _settings.DefaultBackupDirectory
+                : null
+        };
     }
 
     private bool ConfirmAdministrativeAction(string title, string message)
