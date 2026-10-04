@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using GhostServer.Models;
 using GhostServer.Services;
+using Microsoft.Win32;
 
 namespace GhostServer;
 
@@ -19,6 +20,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
     private ServerProfile? _selectedProfile;
+    private ServerProfile? _editingProfile;
+    private ServerProfile? _pendingDeleteProfile;
+    private readonly List<string> _commandHistory = [];
+    private int _commandHistoryIndex;
+    private string _rawLogs = string.Empty;
+    private Button? _activeNavButton;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
 
@@ -58,6 +65,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             StatusText.Text = Profiles.Count == 0
                 ? "Ready • add your first server"
                 : $"Ready • {Profiles.Count} server profile(s)";
+            SetActiveNavigation(DashboardNavButton);
         }
         catch (Exception ex)
         {
@@ -66,40 +74,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void DashboardNav_Click(object sender, RoutedEventArgs e) =>
+    private void DashboardNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(DashboardNavButton);
         ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
+    }
+
+    private async void FilesNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(FilesNavButton);
+        ShowPage(FilesPage, "Files", "Browse, upload and download files over the verified SFTP connection.");
+        await RefreshFilesAsync();
+    }
 
     private async void ServicesNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(ServicesNavButton);
         ShowPage(ServicesPage, "Services", "Inspect and control systemd services.");
         await RefreshManagerServicesAsync();
     }
 
     private async void DockerNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(DockerNavButton);
         ShowPage(DockerPage, "Docker", "Inspect and control containers on the selected server.");
         await RefreshDockerAsync();
     }
 
     private async void LogsNav_Click(object sender, RoutedEventArgs e)
     {
-        ShowPage(LogsPage, "Logs", "Recent server journal output.");
+        SetActiveNavigation(LogsNavButton);
+        ShowPage(LogsPage, "Logs", "Recent server, service or container output.");
         await RefreshLogsAsync();
     }
 
     private void TerminalNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(TerminalNavButton);
         ShowPage(TerminalPage, "Terminal", "Run commands on the currently selected SSH server.");
         UpdateSelectedLabels();
         CommandInput.Focus();
     }
 
-    private void SecurityNav_Click(object sender, RoutedEventArgs e) =>
+    private void SecurityNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(SecurityNavButton);
         ShowPage(SecurityPage, "Security", "Read-only checks for common server security risks.");
+    }
+
+    private void SetActiveNavigation(Button button)
+    {
+        foreach (var nav in new[]
+                 {
+                     DashboardNavButton,
+                     FilesNavButton,
+                     ServicesNavButton,
+                     DockerNavButton,
+                     LogsNavButton,
+                     TerminalNavButton,
+                     SecurityNavButton
+                 })
+        {
+            nav.ClearValue(BackgroundProperty);
+            nav.ClearValue(BorderBrushProperty);
+        }
+
+        button.Background = (Brush)FindResource("GhostSelectedSurface");
+        button.BorderBrush = (Brush)FindResource("GhostBlue");
+        _activeNavButton = button;
+    }
 
     private void ShowPage(UIElement page, string title, string subtitle)
     {
         DashboardPage.Visibility = Visibility.Collapsed;
+        FilesPage.Visibility = Visibility.Collapsed;
         ServicesPage.Visibility = Visibility.Collapsed;
         DockerPage.Visibility = Visibility.Collapsed;
         LogsPage.Visibility = Visibility.Collapsed;
