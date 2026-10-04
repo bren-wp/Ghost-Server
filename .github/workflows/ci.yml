@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -29,7 +29,7 @@ jobs:
       - name: Build
         run: dotnet build GhostServer.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
 
-      - name: Publish portable x64
+      - name: Publish self-contained x64
         run: >
           dotnet publish src/GhostServer/GhostServer.csproj
           -c Release
@@ -38,24 +38,68 @@ jobs:
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:DebugType=None
-          -o artifacts/portable-x64
+          -o artifacts/publish
 
-      - name: Verify executable
+      - name: Prepare portable executable
         shell: pwsh
         run: |
-          $exe = "artifacts/portable-x64/GhostServer.exe"
-          if (-not (Test-Path $exe)) {
-            throw "GhostServer.exe was not produced."
-          }
-          $size = (Get-Item $exe).Length
-          if ($size -lt 1MB) {
-            throw "GhostServer.exe is unexpectedly small: $size bytes"
-          }
-          Write-Host "Verified GhostServer.exe ($size bytes)"
+          New-Item -ItemType Directory -Force -Path artifacts/release | Out-Null
+          Copy-Item artifacts/publish/GhostServer.exe artifacts/release/GhostServer-Portable.exe -Force
 
-      - name: Upload portable artifact
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Setup.exe
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          }
+          if (-not (Test-Path $iscc)) {
+            throw "ISCC.exe was not found after Inno Setup installation."
+          }
+          & $iscc installer/GhostServer.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Verify release executables
+        shell: pwsh
+        run: |
+          $files = @(
+            "artifacts/release/GhostServer-Portable.exe",
+            "artifacts/release/GhostServer-Setup.exe"
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path $file)) {
+              throw "$file was not produced."
+            }
+            $size = (Get-Item $file).Length
+            if ($size -lt 1MB) {
+              throw "$file is unexpectedly small: $size bytes"
+            }
+            Write-Host "Verified $file ($size bytes)"
+          }
+
+      - name: Portable launch smoke test
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path "artifacts/release/GhostServer-Portable.exe"
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            throw "GhostServer-Portable.exe exited during launch smoke test with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+          Write-Host "Portable launch smoke test passed."
+
+      - name: Upload Windows release candidates
         uses: actions/upload-artifact@v4
         with:
-          name: GhostServer-win-x64
-          path: artifacts/portable-x64/
+          name: GhostServer-windows-release
+          path: |
+            artifacts/release/GhostServer-Portable.exe
+            artifacts/release/GhostServer-Setup.exe
           if-no-files-found: error
