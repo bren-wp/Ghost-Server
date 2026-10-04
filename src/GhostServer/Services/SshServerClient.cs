@@ -345,6 +345,251 @@ fi
         return RunCommandAsync(profile, secret, command, cancellationToken);
     }
 
+    public static Task<string> GetSafeUpdatePreviewAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+echo "Ghost Server Safe Update preview"
+echo "--------------------------------"
+printf "Host: "; hostname 2>/dev/null || echo unknown
+printf "Kernel: "; uname -r 2>/dev/null || echo unknown
+printf "Root free space: "; df -hP / 2>/dev/null | awk 'NR==2 {print $4 " free of " $2}' || echo unknown
+printf "Reboot already required: "; if [ -f /var/run/reboot-required ]; then echo yes; else echo no; fi
+printf "Failed systemd units: "; systemctl --failed --no-legend --no-pager 2>/dev/null | wc -l || echo unknown
+echo
+
+if command -v apt >/dev/null 2>&1; then
+  echo "Package manager: APT"
+  echo
+  apt list --upgradable 2>/dev/null | sed '1d' | head -n 200
+elif command -v dnf >/dev/null 2>&1; then
+  echo "Package manager: DNF"
+  echo
+  dnf -q check-update 2>/dev/null || true
+elif command -v yum >/dev/null 2>&1; then
+  echo "Package manager: YUM"
+  echo
+  yum -q check-update 2>/dev/null || true
+elif command -v zypper >/dev/null 2>&1; then
+  echo "Package manager: Zypper"
+  echo
+  zypper --non-interactive list-updates 2>/dev/null || true
+elif command -v pacman >/dev/null 2>&1; then
+  echo "Package manager: pacman"
+  echo
+  if command -v checkupdates >/dev/null 2>&1; then
+    checkupdates 2>/dev/null || true
+  else
+    pacman -Qu 2>/dev/null || true
+  fi
+else
+  echo "Package manager: unsupported"
+fi
+""";
+
+        return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    public static Task<string> RunSafeUpdateAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+set -eu
+
+available_kb=$(df -Pk / 2>/dev/null | awk 'NR==2 {print $4}')
+if [ -z "$available_kb" ] || [ "$available_kb" -lt 1048576 ]; then
+  echo "Safe Update blocked: at least 1 GiB of free root-disk space is required." >&2
+  exit 20
+fi
+
+if ! sudo -n true >/dev/null 2>&1; then
+  echo "Safe Update blocked: passwordless sudo is required for the connected account." >&2
+  exit 21
+fi
+
+echo "Ghost Server Safe Update"
+echo "========================"
+printf "Started: "; date -Iseconds 2>/dev/null || date
+printf "Host: "; hostname 2>/dev/null || echo unknown
+printf "Kernel before: "; uname -r 2>/dev/null || echo unknown
+echo
+
+if command -v apt-get >/dev/null 2>&1; then
+  echo "[APT] Refreshing package metadata..."
+  sudo -n apt-get update
+  echo "[APT] Installing regular upgrades..."
+  sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
+elif command -v dnf >/dev/null 2>&1; then
+  echo "[DNF] Installing upgrades..."
+  sudo -n dnf -y upgrade
+elif command -v yum >/dev/null 2>&1; then
+  echo "[YUM] Installing upgrades..."
+  sudo -n yum -y update
+elif command -v zypper >/dev/null 2>&1; then
+  echo "[Zypper] Installing upgrades..."
+  sudo -n zypper --non-interactive update
+elif command -v pacman >/dev/null 2>&1; then
+  echo "[pacman] Installing upgrades..."
+  sudo -n pacman -Syu --noconfirm
+else
+  echo "Safe Update blocked: no supported package manager was detected." >&2
+  exit 22
+fi
+
+echo
+echo "Post-update summary"
+echo "-------------------"
+printf "Finished: "; date -Iseconds 2>/dev/null || date
+printf "Kernel after: "; uname -r 2>/dev/null || echo unknown
+printf "Reboot required: "; if [ -f /var/run/reboot-required ]; then echo yes; else echo no; fi
+printf "Failed systemd units: "; systemctl --failed --no-legend --no-pager 2>/dev/null | wc -l || echo unknown
+printf "Root free space: "; df -hP / 2>/dev/null | awk 'NR==2 {print $4 " free of " $2}' || echo unknown
+""";
+
+        return ExecuteLongRunningCheckedAsync(
+            profile,
+            secret,
+            command,
+            cancellationToken);
+    }
+
+    public static Task<string> GetSafeUpdateHealthAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+echo "Ghost Server post-update health check"
+echo "-------------------------------------"
+printf "Host: "; hostname 2>/dev/null || echo unknown
+printf "Kernel: "; uname -r 2>/dev/null || echo unknown
+printf "Uptime: "; uptime -p 2>/dev/null || uptime
+printf "Load: "; awk '{print $1 ", " $2 ", " $3}' /proc/loadavg 2>/dev/null || echo unknown
+printf "Root disk: "; df -hP / 2>/dev/null | awk 'NR==2 {print $3 " used / " $2 " total (" $5 ")"}' || echo unknown
+printf "Reboot required: "; if [ -f /var/run/reboot-required ]; then echo yes; else echo no; fi
+echo
+echo "Failed systemd units"
+echo "--------------------"
+systemctl --failed --no-legend --no-pager 2>/dev/null | head -n 30 || true
+echo
+echo "Pending updates after run"
+echo "-------------------------"
+if command -v apt >/dev/null 2>&1; then
+  apt list --upgradable 2>/dev/null | sed '1d' | head -n 100
+elif command -v dnf >/dev/null 2>&1; then
+  dnf -q check-update 2>/dev/null || true
+elif command -v yum >/dev/null 2>&1; then
+  yum -q check-update 2>/dev/null || true
+elif command -v zypper >/dev/null 2>&1; then
+  zypper --non-interactive list-updates 2>/dev/null || true
+elif command -v pacman >/dev/null 2>&1; then
+  pacman -Qu 2>/dev/null || true
+fi
+""";
+
+        return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    public static Task UploadFileToPathAsync(
+        ServerProfile profile,
+        string? secret,
+        string localPath,
+        string remotePath,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!File.Exists(localPath))
+            {
+                throw new FileNotFoundException("Local file does not exist.", localPath);
+            }
+
+            using var client = CreateVerifiedSftpClient(profile, secret);
+            client.Connect();
+
+            using var stream = File.OpenRead(localPath);
+            client.UploadFile(stream, NormalizeRemotePath(remotePath), true);
+        }, cancellationToken);
+    }
+
+    public static Task<string> RestoreConfigurationSnapshotAsync(
+        ServerProfile profile,
+        string? secret,
+        string remotePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                remotePath,
+                @"^/tmp/ghost-server-restore-[a-f0-9]{32}[.]tar[.]gz$",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            throw new ArgumentException(
+                "Invalid temporary restore path.",
+                nameof(remotePath));
+        }
+
+        var command = $"""
+set -eu
+archive='{remotePath}'
+
+if [ ! -f "$archive" ]; then
+  echo "Restore archive is missing." >&2
+  exit 30
+fi
+
+if ! sudo -n true >/dev/null 2>&1; then
+  echo "Restore blocked: passwordless sudo is required." >&2
+  exit 31
+fi
+
+if ! tar -tzf "$archive" >/dev/null 2>&1; then
+  echo "Restore blocked: archive is not a valid gzip tar snapshot." >&2
+  exit 32
+fi
+
+if ! tar -tzf "$archive" | awk '
+  $0 ~ /^// || $0 ~ /(^|[/])[.][.]([/]|$)/ {{ exit 1 }}
+  /^etc[/]ssh([/]|$)/ {{ next }}
+  /^etc[/]nginx([/]|$)/ {{ next }}
+  /^etc[/]apache2([/]|$)/ {{ next }}
+  /^etc[/]systemd[/]system([/]|$)/ {{ next }}
+  /^etc[/]docker([/]|$)/ {{ next }}
+  /^etc[/]fail2ban([/]|$)/ {{ next }}
+  /^etc[/]ufw([/]|$)/ {{ next }}
+  {{ exit 1 }}
+'; then
+  echo "Restore blocked: archive contains paths outside the Ghost Server configuration allowlist." >&2
+  exit 33
+fi
+
+if ! tar -tvzf "$archive" | awk '
+  {{ type = substr($1, 1, 1); if (type != "-" && type != "d") exit 1 }}
+'; then
+  echo "Restore blocked: links or special filesystem entries are not accepted." >&2
+  exit 34
+fi
+
+echo "Validated snapshot contents."
+sudo -n tar -xzf "$archive" -C /
+sudo -n systemctl daemon-reload 2>/dev/null || true
+
+echo "Configuration snapshot restored."
+echo "No service restart or reboot was performed automatically."
+""";
+
+        return ExecuteLongRunningCheckedAsync(
+            profile,
+            secret,
+            command,
+            cancellationToken);
+    }
+
     public static Task<string> CreateConfigurationSnapshotAsync(
         ServerProfile profile,
         string? secret,
@@ -758,6 +1003,37 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         }
 
         return services;
+    }
+
+    private static Task<string> ExecuteLongRunningCheckedAsync(
+        ServerProfile profile,
+        string? secret,
+        string command,
+        CancellationToken cancellationToken)
+    {
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedClient(profile, secret);
+            client.Connect();
+            using var result = client.CreateCommand(command);
+            result.CommandTimeout = TimeSpan.FromMinutes(30);
+
+            var output = result.Execute()?.TrimEnd() ?? string.Empty;
+            var error = result.Error?.TrimEnd() ?? string.Empty;
+
+            if (result.ExitStatus != 0)
+            {
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(error)
+                        ? $"Remote command failed with exit code {result.ExitStatus}."
+                        : error);
+            }
+
+            return string.IsNullOrWhiteSpace(output)
+                ? "Command completed."
+                : output;
+        }, cancellationToken);
     }
 
     private static Task<string> ExecuteCheckedAsync(
