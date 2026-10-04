@@ -47,3 +47,13 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Files uses SFTP and separates path navigation from transfer actions;
 - log search filters the currently loaded output locally without issuing extra remote commands;
 - terminal Up/Down recalls the latest local command history.
+
+
+## v0.4 operations UX
+
+- the navigation rail scrolls independently so every workspace remains reachable at supported minimum window sizes;
+- Network separates read-only discovery from the explicit firewall mutation action;
+- firewall changes always require a confirmation dialog and validated port/protocol input;
+- Updates is intentionally read-only and communicates that boundary next to the primary action;
+- Backup presents one focused create-and-download workflow and reports remote creation, local download and cleanup phases;
+- Dashboard auto-refresh is opt-in and automatically stops when the session is locked or a refresh fails.
