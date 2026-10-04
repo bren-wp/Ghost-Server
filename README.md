@@ -4,11 +4,11 @@
 
 The project follows the established **Ghost FTP** visual system: Electric Blue `#38ABFF`, Deep Navy `#0B1E36`, Slate Blue `#132D52`, Ice White `#EAF6FF`, a 51 px custom title bar and a 216 px navigation rail.
 
-## Current release — 0.2.0
+## Current release — 0.3.0
 
 This development milestone contains real application code rather than seeded demo data:
 
-- add and persist SSH server profiles;
+- add, edit and delete SSH server profiles;
 - password or private-key authentication;
 - session secrets stay in memory and are not written to the profile store;
 - SHA-256 SSH host-key pinning with explicit first-connection approval;
@@ -16,11 +16,16 @@ This development milestone contains real application code rather than seeded dem
 - running systemd service list;
 - Services workspace with start, stop and restart actions;
 - Docker container discovery and start/stop/restart actions;
-- recent server journal/log viewer;
+- recent server, service and Docker log viewer with client-side filtering;
+- secure SFTP file browser with upload and download;
+- terminal command history and keyboard shortcuts;
+- explicit session lock that clears the in-memory secret;
+- resettable SSH host-key trust for deliberate re-pinning;
 - command terminal against the selected server;
 - read-only baseline security scan;
-- dark Ghost UI implemented in WPF with no browser/WebView application shell;
+- dark Ghost UI implemented in WPF with Fluent iconography, branded executable/installer icon and no browser/WebView application shell;
 - Windows CI build with verified `GhostServer-Portable.exe` and `GhostServer-Setup.exe` artifacts;
+- portable launch smoke test plus Setup silent install/launch/uninstall smoke test;
 - automatic GitHub Release publication only after a successful main CI run.
 
 ## Technology

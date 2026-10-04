@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.1.x`.
+The active development line is `0.3.x`.
 
 ## SSH trust model
 
@@ -16,6 +16,14 @@ On first connection the presented SHA-256 fingerprint is shown to the user and t
 - Secrets must never be serialized into `servers.json`.
 - Secrets must not be written to logs, exception telemetry, process arguments or README examples.
 - Private keys remain user-owned files and are not copied into the application data directory.
+
+## SFTP
+
+SFTP uses the same pinned SSH host identity as command sessions. Unknown or changed host keys fail closed. Upload and download operations use the SSH.NET SFTP API rather than shell command interpolation.
+
+## Profile trust reset
+
+Resetting a pinned host key is an explicit local action. The next connection must present and re-approve a fingerprint before SSH or SFTP operations can proceed.
 
 ## Commands
 

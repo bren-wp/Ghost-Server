@@ -97,6 +97,56 @@ jobs:
           Stop-Process -Id $process.Id -Force
           Write-Host "Portable launch smoke test passed."
 
+      - name: Setup install launch uninstall smoke test
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path "artifacts/release/GhostServer-Setup.exe"
+          $installDir = Join-Path $env:RUNNER_TEMP "GhostServer-Setup-Smoke"
+
+          if (Test-Path $installDir) {
+            Remove-Item $installDir -Recurse -Force
+          }
+
+          $install = Start-Process -FilePath $setup -ArgumentList @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/DIR=$installDir"
+          ) -Wait -PassThru
+
+          if ($install.ExitCode -ne 0) {
+            throw "GhostServer-Setup.exe silent install failed with code $($install.ExitCode)."
+          }
+
+          $installedExe = Join-Path $installDir "GhostServer.exe"
+          if (-not (Test-Path $installedExe)) {
+            throw "Installed GhostServer.exe was not found."
+          }
+
+          $process = Start-Process -FilePath $installedExe -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            throw "Installed GhostServer.exe exited during launch smoke test with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+
+          $uninstaller = Join-Path $installDir "unins000.exe"
+          if (-not (Test-Path $uninstaller)) {
+            throw "Inno Setup uninstaller was not found."
+          }
+
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART"
+          ) -Wait -PassThru
+
+          if ($uninstall.ExitCode -ne 0) {
+            throw "Ghost Server silent uninstall failed with code $($uninstall.ExitCode)."
+          }
+
+          Write-Host "Setup install/launch/uninstall smoke test passed."
+
       - name: Upload Windows release candidates
         uses: actions/upload-artifact@v4
         with:

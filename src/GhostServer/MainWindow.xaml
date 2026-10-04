@@ -9,7 +9,10 @@
         ResizeMode="CanResize"
         Background="{StaticResource GhostNavy}"
         Foreground="{StaticResource GhostIce}"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             ResizeBorderThickness="6"
@@ -36,22 +39,30 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Border Width="28" Height="28" CornerRadius="8" Background="{StaticResource GhostBlue}">
-                        <TextBlock Text="G" Foreground="#06121E" FontWeight="Bold" FontSize="16"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource GhostBlue}">
+                        <TextBlock Text="&#xE968;" Style="{StaticResource FluentIcon}" Foreground="#06121E"
+                                   FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="Ghost Server" FontWeight="SemiBold" FontSize="15" Margin="10,0,0,0"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="0.2.0" Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="10,2,0,0"
-                               VerticalAlignment="Center"/>
+                    <Border Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
+                            BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="10,0,0,0">
+                        <TextBlock Text="0.3.0" Foreground="{StaticResource GhostMuted}" FontSize="10"/>
+                    </Border>
                 </StackPanel>
 
-                <Button Grid.Column="1" Content="—" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
-                        Margin="0" Click="Minimize_Click"/>
-                <Button Grid.Column="2" Content="□" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
-                        Margin="0" Click="Maximize_Click"/>
-                <Button Grid.Column="3" Content="×" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
-                        Margin="0" Click="Close_Click"/>
+                <Button Grid.Column="1" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Minimize_Click" ToolTip="Minimize" AutomationProperties.Name="Minimize">
+                    <TextBlock Text="&#xE921;" Style="{StaticResource FluentIcon}" FontSize="12"/>
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Maximize_Click" ToolTip="Maximize or restore" AutomationProperties.Name="Maximize or restore">
+                    <TextBlock Text="&#xE922;" Style="{StaticResource FluentIcon}" FontSize="12"/>
+                </Button>
+                <Button Grid.Column="3" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
+                        Margin="0" Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close">
+                    <TextBlock Text="&#xE8BB;" Style="{StaticResource FluentIcon}" FontSize="12"/>
+                </Button>
             </Grid>
         </Border>
 
@@ -72,12 +83,27 @@
                     <StackPanel>
                         <TextBlock Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="11" FontWeight="SemiBold"
                                    Margin="12,8,0,10"/>
-                        <Button Content="▦   Dashboard" Style="{StaticResource NavButton}" Click="DashboardNav_Click"/>
-                        <Button Content="⚙   Services" Style="{StaticResource NavButton}" Click="ServicesNav_Click"/>
-                        <Button Content="▣   Docker" Style="{StaticResource NavButton}" Click="DockerNav_Click"/>
-                        <Button Content="≡   Logs" Style="{StaticResource NavButton}" Click="LogsNav_Click"/>
-                        <Button Content="⌁   Terminal" Style="{StaticResource NavButton}" Click="TerminalNav_Click"/>
-                        <Button Content="◇   Security" Style="{StaticResource NavButton}" Click="SecurityNav_Click"/>
+                        <Button x:Name="DashboardNavButton" Style="{StaticResource NavButton}" Click="DashboardNav_Click" ToolTip="Dashboard">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Dashboard" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="FilesNavButton" Style="{StaticResource NavButton}" Click="FilesNav_Click" ToolTip="SFTP files">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Files" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="ServicesNavButton" Style="{StaticResource NavButton}" Click="ServicesNav_Click" ToolTip="Services">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Services" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="DockerNavButton" Style="{StaticResource NavButton}" Click="DockerNav_Click" ToolTip="Docker">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7B8;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Docker" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="LogsNavButton" Style="{StaticResource NavButton}" Click="LogsNav_Click" ToolTip="Logs">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Logs" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="TerminalNavButton" Style="{StaticResource NavButton}" Click="TerminalNav_Click" ToolTip="Terminal">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Terminal" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
+                        <Button x:Name="SecurityNavButton" Style="{StaticResource NavButton}" Click="SecurityNav_Click" ToolTip="Security">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA18;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Security" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                        </Button>
                     </StackPanel>
 
                     <Border Grid.Row="2" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
@@ -109,8 +135,13 @@
                             <TextBlock x:Name="PageSubtitle" Text="Server health, services and connection state."
                                        Foreground="{StaticResource GhostMuted}" Margin="0,5,0,0"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Content="+  Add server" Style="{StaticResource AccentButton}"
-                                VerticalAlignment="Center" Click="OpenAddServer_Click"/>
+                        <Button Grid.Column="1" Style="{StaticResource AccentButton}"
+                                VerticalAlignment="Center" Click="OpenAddServer_Click" ToolTip="Add server (Ctrl+N)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
+                                <TextBlock Text="Add server" Margin="7,0,0,0" Foreground="#06121E" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </Border>
 
@@ -133,12 +164,12 @@
                                 <ListBox x:Name="ServerList" Grid.Row="1" ItemsSource="{Binding Profiles}"
                                          Background="Transparent" BorderThickness="0"
                                          Foreground="{StaticResource GhostIce}"
+                                         ItemContainerStyle="{StaticResource ServerListItemStyle}"
                                          SelectionChanged="ServerList_SelectionChanged">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
-                                                    BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8"
-                                                    Width="258">
+                                            <Border x:Name="ServerCard" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
+                                                    BorderThickness="1" CornerRadius="10" Padding="12" Width="258">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
@@ -153,6 +184,12 @@
                                                              VerticalAlignment="Center"/>
                                                 </Grid>
                                             </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                    <Setter TargetName="ServerCard" Property="Background" Value="{StaticResource GhostSelectedSurface}"/>
+                                                    <Setter TargetName="ServerCard" Property="BorderBrush" Value="{StaticResource GhostBlue}"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
@@ -178,23 +215,40 @@
                                     <Grid Margin="0,0,0,14">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="260"/>
+                                            <ColumnDefinition Width="290"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Name="SelectedName" FontSize="22" FontWeight="SemiBold"/>
                                             <TextBlock x:Name="SelectedEndpoint" Foreground="{StaticResource GhostMuted}" Margin="0,4,0,0"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="OpenEditServer_Click" Margin="0,0,7,0" ToolTip="Edit selected server">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE70F;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Edit" Margin="6,0,0,0"/></StackPanel>
+                                                </Button>
+                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,0" ToolTip="Forget pinned SSH host key">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Reset trust" Margin="6,0,0,0"/></StackPanel>
+                                                </Button>
+                                                <Button Style="{StaticResource DangerButton}" Padding="10,6" Click="DeleteServer_Click" ToolTip="Delete selected server">
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" FontSize="13" Foreground="{StaticResource GhostDanger}"/><TextBlock Text="Delete" Margin="6,0,0,0"/></StackPanel>
+                                                </Button>
+                                            </StackPanel>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1">
                                             <Label Content="Session password / key passphrase"/>
                                             <PasswordBox x:Name="SessionSecretBox" Style="{StaticResource GhostPasswordBox}"/>
+                                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Padding="10,5"
+                                                    Margin="0,7,0,0" Click="LockSession_Click" ToolTip="Clear the in-memory session secret (Ctrl+L)">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="12"/><TextBlock Text="Lock session" Margin="6,0,0,0"/></StackPanel>
+                                            </Button>
                                         </StackPanel>
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                        <Button Content="Connect &amp; refresh" Style="{StaticResource AccentButton}"
-                                                Click="Connect_Click" Margin="0,0,8,0"/>
-                                        <Button Content="Refresh services" Style="{StaticResource GhostButton}"
-                                                Click="RefreshServices_Click"/>
+                                        <Button Style="{StaticResource AccentButton}" Click="Connect_Click" Margin="0,0,8,0" ToolTip="Connect and refresh dashboard (F5)">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Connect &amp; refresh" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" ToolTip="Refresh dashboard service list">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Refresh services" Margin="7,0,0,0"/></StackPanel>
+                                        </Button>
                                         <TextBlock x:Name="ConnectionStatus" Text="Not connected"
                                                    Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
                                                    Margin="14,0,0,0"/>
@@ -291,6 +345,56 @@
                         </Grid>
                     </Grid>
 
+                    <Grid x:Name="FilesPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Style="{StaticResource IconButton}" Click="RemoteUp_Click" ToolTip="Up one folder">
+                                    <TextBlock Text="&#xE74A;" Style="{StaticResource FluentIcon}"/>
+                                </Button>
+                                <TextBox x:Name="RemotePathBox" Grid.Column="1" Style="{StaticResource GhostTextBox}"
+                                         Margin="8,0" Text="/" KeyDown="RemotePathBox_KeyDown"/>
+                                <Button Grid.Column="2" Style="{StaticResource AccentButton}" Click="RefreshFiles_Click" ToolTip="Open path / refresh">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Open" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Style="{StaticResource GhostButton}" Click="UploadFile_Click" Margin="0,0,8,0" ToolTip="Upload a local file to this folder">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE898;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Upload" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource GhostButton}" Click="DownloadFile_Click" ToolTip="Download the selected remote file">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Download" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
+                            <TextBlock x:Name="FilesStatusText" Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
+                            <ListView x:Name="RemoteFilesList" Background="Transparent" BorderThickness="0"
+                                      Foreground="{StaticResource GhostIce}" MouseDoubleClick="RemoteFiles_DoubleClick">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="360"/>
+                                        <GridViewColumn Header="Type" DisplayMemberBinding="{Binding TypeLabel}" Width="110"/>
+                                        <GridViewColumn Header="Size" DisplayMemberBinding="{Binding SizeLabel}" Width="130"/>
+                                        <GridViewColumn Header="Modified" DisplayMemberBinding="{Binding LastWriteTime}" Width="190"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
+                    </Grid>
+
                     <Grid x:Name="ServicesPage" Visibility="Collapsed" Margin="24">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -301,7 +405,10 @@
                             <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,0"/>
                             <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,0"/>
                             <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,0"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,0"/>
+                            <Button Style="{StaticResource GhostButton}" Click="ServiceLogs_Click" ToolTip="Open recent logs for the selected service">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
                         </StackPanel>
                         <TextBlock Grid.Row="1" x:Name="SelectedServiceText" Text="Select a service."
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
@@ -329,7 +436,10 @@
                             <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,0"/>
                             <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,0"/>
                             <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,0"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,0"/>
+                            <Button Style="{StaticResource GhostButton}" Click="DockerLogs_Click" ToolTip="Open recent logs for the selected container">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
                         </StackPanel>
                         <TextBlock Grid.Row="1" x:Name="SelectedDockerText" Text="Select a Docker container."
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
@@ -353,11 +463,20 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button Content="Refresh logs" Style="{StaticResource AccentButton}" Click="RefreshLogs_Click"/>
-                            <TextBlock Text="Latest 200 journal entries; falls back to dmesg when journalctl is unavailable."
-                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                        </StackPanel>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="280"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Style="{StaticResource AccentButton}" Click="RefreshLogs_Click">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Refresh logs" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                            </Button>
+                            <TextBlock Grid.Column="1" Text="Latest 200 entries. Service and Docker log shortcuts also open here."
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,12,0"/>
+                            <TextBox Grid.Column="2" x:Name="LogsFilterBox" Style="{StaticResource GhostTextBox}"
+                                     ToolTip="Filter visible log lines" TextChanged="LogsFilter_TextChanged"/>
+                        </Grid>
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
                             <TextBox x:Name="LogsOutput" IsReadOnly="True" AcceptsReturn="True"
                                      Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
@@ -380,11 +499,19 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="CommandInput" Style="{StaticResource GhostTextBox}"
-                                             FontFamily="Cascadia Code, Consolas" KeyDown="CommandInput_KeyDown"/>
-                                    <Button Grid.Column="1" Content="Run" Style="{StaticResource AccentButton}"
-                                            Margin="8,0,0,0" Click="RunCommand_Click"/>
+                                             FontFamily="Cascadia Code, Consolas" KeyDown="CommandInput_KeyDown"
+                                             ToolTip="Enter command. Use Up/Down for command history."/>
+                                    <Button Grid.Column="1" Style="{StaticResource AccentButton}"
+                                            Margin="8,0,0,0" Click="RunCommand_Click" ToolTip="Run command">
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Run" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="2" Style="{StaticResource GhostButton}"
+                                            Margin="8,0,0,0" Click="ClearTerminal_Click" ToolTip="Clear terminal output">
+                                        <TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}"/>
+                                    </Button>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -426,7 +553,7 @@
             <Grid Margin="14,0">
                 <TextBlock x:Name="StatusText" Text="Ready" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" FontSize="11"/>
-                <TextBlock Text="Ghost Server • SSH.NET 2026.0.0" Foreground="{StaticResource GhostMuted}"
+                <TextBlock Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11"/>
             </Grid>
         </Border>
@@ -437,9 +564,11 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <Grid Margin="0,0,0,18">
-                            <TextBlock Text="Add server" FontSize="22" FontWeight="SemiBold"/>
-                            <Button Content="×" Style="{StaticResource NavButton}" HorizontalAlignment="Right"
-                                    Width="40" Click="CloseAddServer_Click"/>
+                            <TextBlock x:Name="AddServerTitle" Text="Add server" FontSize="22" FontWeight="SemiBold"/>
+                            <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right"
+                                    Click="CloseAddServer_Click" ToolTip="Close">
+                                <TextBlock Text="&#xE8BB;" Style="{StaticResource FluentIcon}"/>
+                            </Button>
                         </Grid>
 
                         <Label Content="Display name"/>
@@ -472,7 +601,17 @@
 
                         <StackPanel x:Name="PrivateKeyPanel" Visibility="Collapsed" Margin="0,0,0,12">
                             <Label Content="Private key path"/>
-                            <TextBox x:Name="AddPrivateKeyPath" Style="{StaticResource GhostTextBox}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="AddPrivateKeyPath" Style="{StaticResource GhostTextBox}"/>
+                                <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                        Click="BrowsePrivateKey_Click" ToolTip="Browse for private key">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Browse" Margin="7,0,0,0"/></StackPanel>
+                                </Button>
+                            </Grid>
                         </StackPanel>
 
                         <TextBlock Text="Passwords and private-key passphrases are never stored in the profile. Enter the session secret after selecting the server."
@@ -484,10 +623,34 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                                     Click="CloseAddServer_Click"/>
-                            <Button Content="Save server" Style="{StaticResource AccentButton}" Click="SaveServer_Click"/>
+                            <Button x:Name="SaveServerButton" Content="Save server" Style="{StaticResource AccentButton}" Click="SaveServer_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="ConfirmOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed">
+            <Border Width="470" Style="{StaticResource CardBorder}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="24" BorderBrush="{StaticResource GhostDanger}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="38" Height="38" CornerRadius="10" Background="{StaticResource GhostDangerSurface}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostDanger}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Delete server?" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="This removes the local profile only. Nothing is deleted from the remote server."
+                                       Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,0" MaxWidth="350"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock x:Name="ConfirmMessage" Margin="0,18,0,18" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="CancelDelete_Click"/>
+                        <Button Content="Delete profile" Style="{StaticResource DangerButton}" Click="ConfirmDelete_Click"/>
+                    </StackPanel>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

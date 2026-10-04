@@ -1,3 +1,4 @@
+using System.IO;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -9,6 +10,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using GhostServer.Models;
 using GhostServer.Services;
+using Microsoft.Win32;
 
 namespace GhostServer;
 
@@ -19,6 +21,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
     private ServerProfile? _selectedProfile;
+    private ServerProfile? _editingProfile;
+    private ServerProfile? _pendingDeleteProfile;
+    private readonly List<string> _commandHistory = [];
+    private int _commandHistoryIndex;
+    private string _rawLogs = string.Empty;
+    private Button? _activeNavButton;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
 
@@ -58,6 +66,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             StatusText.Text = Profiles.Count == 0
                 ? "Ready • add your first server"
                 : $"Ready • {Profiles.Count} server profile(s)";
+            SetActiveNavigation(DashboardNavButton);
         }
         catch (Exception ex)
         {
@@ -66,40 +75,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void DashboardNav_Click(object sender, RoutedEventArgs e) =>
+    private void DashboardNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(DashboardNavButton);
         ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
+    }
+
+    private async void FilesNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(FilesNavButton);
+        ShowPage(FilesPage, "Files", "Browse, upload and download files over the verified SFTP connection.");
+        await RefreshFilesAsync();
+    }
 
     private async void ServicesNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(ServicesNavButton);
         ShowPage(ServicesPage, "Services", "Inspect and control systemd services.");
         await RefreshManagerServicesAsync();
     }
 
     private async void DockerNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(DockerNavButton);
         ShowPage(DockerPage, "Docker", "Inspect and control containers on the selected server.");
         await RefreshDockerAsync();
     }
 
     private async void LogsNav_Click(object sender, RoutedEventArgs e)
     {
-        ShowPage(LogsPage, "Logs", "Recent server journal output.");
+        SetActiveNavigation(LogsNavButton);
+        ShowPage(LogsPage, "Logs", "Recent server, service or container output.");
         await RefreshLogsAsync();
     }
 
     private void TerminalNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(TerminalNavButton);
         ShowPage(TerminalPage, "Terminal", "Run commands on the currently selected SSH server.");
         UpdateSelectedLabels();
         CommandInput.Focus();
     }
 
-    private void SecurityNav_Click(object sender, RoutedEventArgs e) =>
+    private void SecurityNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(SecurityNavButton);
         ShowPage(SecurityPage, "Security", "Read-only checks for common server security risks.");
+    }
+
+    private void SetActiveNavigation(Button button)
+    {
+        foreach (var nav in new[]
+                 {
+                     DashboardNavButton,
+                     FilesNavButton,
+                     ServicesNavButton,
+                     DockerNavButton,
+                     LogsNavButton,
+                     TerminalNavButton,
+                     SecurityNavButton
+                 })
+        {
+            nav.ClearValue(BackgroundProperty);
+            nav.ClearValue(BorderBrushProperty);
+        }
+
+        button.Background = (Brush)FindResource("GhostSelectedSurface");
+        button.BorderBrush = (Brush)FindResource("GhostBlue");
+        _activeNavButton = button;
+    }
 
     private void ShowPage(UIElement page, string title, string subtitle)
     {
         DashboardPage.Visibility = Visibility.Collapsed;
+        FilesPage.Visibility = Visibility.Collapsed;
         ServicesPage.Visibility = Visibility.Collapsed;
         DockerPage.Visibility = Visibility.Collapsed;
         LogsPage.Visibility = Visibility.Collapsed;
@@ -136,6 +185,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ServicesList.ItemsSource = null;
         ServicesManagerList.ItemsSource = null;
         DockerList.ItemsSource = null;
+        RemoteFilesList.ItemsSource = null;
+        RemotePathBox.Text = "/";
+        FilesStatusText.Text = string.Empty;
+        _rawLogs = string.Empty;
+        LogsFilterBox.Clear();
         LogsOutput.Clear();
         SelectedServiceText.Text = "Select a service.";
         SelectedDockerText.Text = "Select a Docker container.";
@@ -147,6 +201,198 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TerminalServerLabel.Text = SelectedProfile is null
             ? "Select a server on Dashboard before running commands."
             : $"Target: {SelectedProfile.Username}@{SelectedProfile.Endpoint}";
+    }
+
+    private async void RefreshFiles_Click(object sender, RoutedEventArgs e) =>
+        await RefreshFilesAsync();
+
+    private async Task RefreshFilesAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            RemoteFilesList.ItemsSource = null;
+            FilesStatusText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            var path = string.IsNullOrWhiteSpace(RemotePathBox.Text) ? "/" : RemotePathBox.Text.Trim();
+            FilesStatusText.Text = "Loading…";
+            StatusText.Text = "Loading remote files…";
+
+            var files = await _ssh.GetRemoteFilesAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                path);
+
+            RemoteFilesList.ItemsSource = files;
+            RemotePathBox.Text = NormalizeUiRemotePath(path);
+            FilesStatusText.Text = $"{files.Count} item(s)";
+            StatusText.Text = "Remote files refreshed";
+        }
+        catch (Exception ex)
+        {
+            RemoteFilesList.ItemsSource = null;
+            FilesStatusText.Text = SafeError(ex);
+            StatusText.Text = "Remote file refresh failed";
+        }
+    }
+
+    private async void RemoteFiles_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (RemoteFilesList.SelectedItem is not RemoteFileItem item)
+        {
+            return;
+        }
+
+        if (item.IsDirectory)
+        {
+            RemotePathBox.Text = item.FullPath;
+            await RefreshFilesAsync();
+            return;
+        }
+
+        await DownloadSelectedRemoteFileAsync(item);
+    }
+
+    private async void RemoteUp_Click(object sender, RoutedEventArgs e)
+    {
+        var current = NormalizeUiRemotePath(RemotePathBox.Text);
+        if (current == "/")
+        {
+            return;
+        }
+
+        var trimmed = current.TrimEnd('/');
+        var index = trimmed.LastIndexOf('/');
+        RemotePathBox.Text = index <= 0 ? "/" : trimmed[..index];
+        await RefreshFilesAsync();
+    }
+
+    private async void RemotePathBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await RefreshFilesAsync();
+    }
+
+    private async void UploadFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            FilesStatusText.Text = "Select a server first.";
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Upload file to Ghost Server",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            FilesStatusText.Text = $"Uploading {Path.GetFileName(dialog.FileName)}…";
+            await _ssh.UploadFileAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                dialog.FileName,
+                RemotePathBox.Text);
+            StatusText.Text = $"Uploaded {Path.GetFileName(dialog.FileName)}";
+            await RefreshFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            FilesStatusText.Text = SafeError(ex);
+            StatusText.Text = "Upload failed";
+        }
+    }
+
+    private async void DownloadFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (RemoteFilesList.SelectedItem is not RemoteFileItem item)
+        {
+            FilesStatusText.Text = "Select a file to download.";
+            return;
+        }
+
+        if (item.IsDirectory)
+        {
+            FilesStatusText.Text = "Select a file, not a folder.";
+            return;
+        }
+
+        await DownloadSelectedRemoteFileAsync(item);
+    }
+
+    private async Task DownloadSelectedRemoteFileAsync(RemoteFileItem item)
+    {
+        if (SelectedProfile is null)
+        {
+            FilesStatusText.Text = "Select a server first.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Download file from Ghost Server",
+            FileName = item.Name,
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            FilesStatusText.Text = $"Downloading {item.Name}…";
+            await _ssh.DownloadFileAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                item.FullPath,
+                dialog.FileName);
+            FilesStatusText.Text = $"Downloaded {item.Name}";
+            StatusText.Text = $"Downloaded {item.Name}";
+        }
+        catch (Exception ex)
+        {
+            FilesStatusText.Text = SafeError(ex);
+            StatusText.Text = "Download failed";
+        }
+    }
+
+    private static string NormalizeUiRemotePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "/";
+        }
+
+        var normalized = path.Replace('\\', '/').Trim();
+        if (!normalized.StartsWith('/'))
+        {
+            normalized = "/" + normalized;
+        }
+
+        while (normalized.Contains("//", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+        }
+
+        return normalized;
     }
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
@@ -332,6 +578,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void ServiceLogs_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            SelectedServiceText.Text = "Select a server first.";
+            return;
+        }
+
+        if (ServicesManagerList.SelectedItem is not ServiceStatus service)
+        {
+            SelectedServiceText.Text = "Select a service first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"Loading logs for {service.Name}…";
+            _rawLogs = await _ssh.GetServiceLogsAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                service.Name);
+            LogsFilterBox.Clear();
+            ApplyLogFilter();
+            SetActiveNavigation(LogsNavButton);
+            ShowPage(LogsPage, "Logs", $"Recent logs for {service.Name}");
+            StatusText.Text = $"Loaded logs for {service.Name}";
+        }
+        catch (Exception ex)
+        {
+            SelectedServiceText.Text = SafeError(ex);
+            StatusText.Text = "Service log load failed";
+        }
+    }
+
     private async void RefreshDocker_Click(object sender, RoutedEventArgs e) =>
         await RefreshDockerAsync();
 
@@ -408,6 +688,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void DockerLogs_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            SelectedDockerText.Text = "Select a server first.";
+            return;
+        }
+
+        if (DockerList.SelectedItem is not DockerContainerStatus container)
+        {
+            SelectedDockerText.Text = "Select a Docker container first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"Loading logs for {container.Name}…";
+            _rawLogs = await _ssh.GetDockerLogsAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                container.Id);
+            LogsFilterBox.Clear();
+            ApplyLogFilter();
+            SetActiveNavigation(LogsNavButton);
+            ShowPage(LogsPage, "Logs", $"Recent logs for Docker container {container.Name}");
+            StatusText.Text = $"Loaded Docker logs for {container.Name}";
+        }
+        catch (Exception ex)
+        {
+            SelectedDockerText.Text = SafeError(ex);
+            StatusText.Text = "Docker log load failed";
+        }
+    }
+
     private async void RefreshLogs_Click(object sender, RoutedEventArgs e) =>
         await RefreshLogsAsync();
 
@@ -415,6 +729,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (SelectedProfile is null)
         {
+            _rawLogs = string.Empty;
             LogsOutput.Text = "Select a server on Dashboard first.";
             return;
         }
@@ -422,17 +737,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading recent logs…";
-            var logs = await _ssh.GetRecentLogsAsync(
+            _rawLogs = await _ssh.GetRecentLogsAsync(
                 SelectedProfile, SessionSecretBox.Password);
-            LogsOutput.Text = string.IsNullOrWhiteSpace(logs) ? "(no log output)" : logs;
+            ApplyLogFilter();
             LogsOutput.ScrollToEnd();
             StatusText.Text = "Logs refreshed";
         }
         catch (Exception ex)
         {
+            _rawLogs = string.Empty;
             LogsOutput.Text = SafeError(ex);
             StatusText.Text = "Log refresh failed";
         }
+    }
+
+    private void LogsFilter_TextChanged(object sender, TextChangedEventArgs e) =>
+        ApplyLogFilter();
+
+    private void ApplyLogFilter()
+    {
+        if (LogsOutput is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_rawLogs))
+        {
+            LogsOutput.Text = "(no log output)";
+            return;
+        }
+
+        var filter = LogsFilterBox?.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            LogsOutput.Text = _rawLogs;
+            return;
+        }
+
+        var visible = _rawLogs
+            .Split('\n')
+            .Where(line => line.Contains(filter, StringComparison.OrdinalIgnoreCase));
+
+        LogsOutput.Text = string.Join(Environment.NewLine, visible);
     }
 
     private void ApplySnapshot(ServerSnapshot snapshot)
@@ -480,6 +826,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (_commandHistory.Count == 0 ||
+            !string.Equals(_commandHistory[^1], command, StringComparison.Ordinal))
+        {
+            _commandHistory.Add(command);
+            if (_commandHistory.Count > 100)
+            {
+                _commandHistory.RemoveAt(0);
+            }
+        }
+
+        _commandHistoryIndex = _commandHistory.Count;
+
         try
         {
             StatusText.Text = "Running command…";
@@ -505,7 +863,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             RunCommand_Click(sender, e);
             e.Handled = true;
+            return;
         }
+
+        if (e.Key == Key.Up && _commandHistory.Count > 0)
+        {
+            _commandHistoryIndex = Math.Max(0, _commandHistoryIndex - 1);
+            CommandInput.Text = _commandHistory[_commandHistoryIndex];
+            CommandInput.CaretIndex = CommandInput.Text.Length;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Down && _commandHistory.Count > 0)
+        {
+            _commandHistoryIndex = Math.Min(_commandHistory.Count, _commandHistoryIndex + 1);
+            CommandInput.Text = _commandHistoryIndex >= _commandHistory.Count
+                ? string.Empty
+                : _commandHistory[_commandHistoryIndex];
+            CommandInput.CaretIndex = CommandInput.Text.Length;
+            e.Handled = true;
+        }
+    }
+
+    private void ClearTerminal_Click(object sender, RoutedEventArgs e)
+    {
+        TerminalOutput.Clear();
+        StatusText.Text = "Terminal output cleared";
+        CommandInput.Focus();
     }
 
     private async void SecurityScan_Click(object sender, RoutedEventArgs e)
@@ -532,6 +917,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OpenAddServer_Click(object sender, RoutedEventArgs e)
     {
+        _editingProfile = null;
+        AddServerTitle.Text = "Add server";
+        SaveServerButton.Content = "Save server";
         AddError.Visibility = Visibility.Collapsed;
         AddName.Clear();
         AddHost.Clear();
@@ -543,8 +931,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AddName.Focus();
     }
 
-    private void CloseAddServer_Click(object sender, RoutedEventArgs e) =>
+    private void OpenEditServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        _editingProfile = SelectedProfile;
+        AddServerTitle.Text = "Edit server";
+        SaveServerButton.Content = "Save changes";
+        AddError.Visibility = Visibility.Collapsed;
+        AddName.Text = SelectedProfile.Name;
+        AddHost.Text = SelectedProfile.Host;
+        AddUsername.Text = SelectedProfile.Username;
+        AddPort.Text = SelectedProfile.Port.ToString(CultureInfo.InvariantCulture);
+        AddPrivateKeyPath.Text = SelectedProfile.PrivateKeyPath ?? string.Empty;
+
+        AddAuthentication.SelectedIndex = string.Equals(
+            SelectedProfile.Authentication,
+            "PrivateKey",
+            StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+
+        AddServerOverlay.Visibility = Visibility.Visible;
+        AddName.Focus();
+        AddName.SelectAll();
+    }
+
+    private void CloseAddServer_Click(object sender, RoutedEventArgs e)
+    {
         AddServerOverlay.Visibility = Visibility.Collapsed;
+        _editingProfile = null;
+    }
 
     private void AddAuthentication_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -556,6 +974,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         PrivateKeyPanel.Visibility = string.Equals(selected.Tag?.ToString(), "PrivateKey", StringComparison.Ordinal)
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    private void BrowsePrivateKey_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select SSH private key",
+            CheckFileExists = true,
+            Multiselect = false,
+            Filter = "SSH private keys|id_*;*.pem;*.key;*.ppk|All files|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            AddPrivateKeyPath.Text = dialog.FileName;
+        }
     }
 
     private async void SaveServer_Click(object sender, RoutedEventArgs e)
@@ -579,38 +1013,167 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var name = AddName.Text.Trim();
+        var host = AddHost.Text.Trim();
+        var username = AddUsername.Text.Trim();
+        var keyPath = auth == "PrivateKey" ? AddPrivateKeyPath.Text.Trim() : null;
+
         if (Profiles.Any(profile =>
-                string.Equals(profile.Host, AddHost.Text.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                profile.Id != _editingProfile?.Id &&
+                string.Equals(profile.Host, host, StringComparison.OrdinalIgnoreCase) &&
                 profile.Port == port &&
-                string.Equals(profile.Username, AddUsername.Text.Trim(), StringComparison.OrdinalIgnoreCase)))
+                string.Equals(profile.Username, username, StringComparison.OrdinalIgnoreCase)))
         {
             ShowAddError("This SSH endpoint and username already exist.");
             return;
         }
 
+        var editedExisting = _editingProfile is not null;
+        var oldProfile = _editingProfile;
         var profile = new ServerProfile
         {
-            Name = AddName.Text.Trim(),
-            Host = AddHost.Text.Trim(),
+            Id = oldProfile?.Id ?? Guid.NewGuid(),
+            Name = name,
+            Host = host,
             Port = port,
-            Username = AddUsername.Text.Trim(),
+            Username = username,
             Authentication = auth,
-            PrivateKeyPath = auth == "PrivateKey" ? AddPrivateKeyPath.Text.Trim() : null
+            PrivateKeyPath = keyPath,
+            HostKeyFingerprint = oldProfile is not null &&
+                                 string.Equals(oldProfile.Host, host, StringComparison.OrdinalIgnoreCase) &&
+                                 oldProfile.Port == port
+                ? oldProfile.HostKeyFingerprint
+                : null,
+            LastConnectedUtc = oldProfile?.LastConnectedUtc
         };
+
+        var replaceIndex = oldProfile is null ? -1 : Profiles.IndexOf(oldProfile);
 
         try
         {
-            Profiles.Add(profile);
+            if (editedExisting && replaceIndex >= 0)
+            {
+                Profiles[replaceIndex] = profile;
+            }
+            else
+            {
+                Profiles.Add(profile);
+            }
+
             await _profileStore.SaveAsync(Profiles);
             AddServerOverlay.Visibility = Visibility.Collapsed;
+            _editingProfile = null;
             ServerList.SelectedItem = profile;
-            StatusText.Text = $"Saved {profile.Name}. Approve the SSH host key before first connection.";
+            ServerList.ScrollIntoView(profile);
+            StatusText.Text = editedExisting
+                ? $"Updated {profile.Name}."
+                : $"Saved {profile.Name}. Approve the SSH host key before first connection.";
         }
         catch (Exception ex)
         {
-            Profiles.Remove(profile);
+            if (editedExisting && replaceIndex >= 0 && oldProfile is not null)
+            {
+                Profiles[replaceIndex] = oldProfile;
+                ServerList.SelectedItem = oldProfile;
+            }
+            else
+            {
+                Profiles.Remove(profile);
+            }
+
             ShowAddError(SafeError(ex));
         }
+    }
+
+    private void DeleteServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        _pendingDeleteProfile = SelectedProfile;
+        ConfirmMessage.Text = $"Delete local profile “{SelectedProfile.Name}” ({SelectedProfile.Endpoint})?";
+        ConfirmOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CancelDelete_Click(object sender, RoutedEventArgs e)
+    {
+        ConfirmOverlay.Visibility = Visibility.Collapsed;
+        _pendingDeleteProfile = null;
+    }
+
+    private async void ConfirmDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingDeleteProfile is null)
+        {
+            ConfirmOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var profile = _pendingDeleteProfile;
+        var index = Profiles.IndexOf(profile);
+        try
+        {
+            Profiles.Remove(profile);
+            await _profileStore.SaveAsync(Profiles);
+            ConfirmOverlay.Visibility = Visibility.Collapsed;
+            _pendingDeleteProfile = null;
+            SelectedProfile = null;
+            ServerList.SelectedItem = null;
+            SessionSecretBox.Clear();
+            EmptyState.Visibility = Visibility.Visible;
+            ServerDetail.Visibility = Visibility.Collapsed;
+            StatusText.Text = $"Deleted local profile {profile.Name}";
+        }
+        catch (Exception ex)
+        {
+            if (!Profiles.Contains(profile))
+            {
+                if (index >= 0 && index <= Profiles.Count)
+                {
+                    Profiles.Insert(index, profile);
+                }
+                else
+                {
+                    Profiles.Add(profile);
+                }
+            }
+
+            ConfirmOverlay.Visibility = Visibility.Collapsed;
+            _pendingDeleteProfile = null;
+            StatusText.Text = SafeError(ex);
+        }
+    }
+
+    private async void ResetHostKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        SelectedProfile.HostKeyFingerprint = null;
+        try
+        {
+            await _profileStore.SaveAsync(Profiles);
+            ConnectionStatus.Text = "Host key not approved";
+            ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
+            HostKeyPanel.Visibility = Visibility.Collapsed;
+            StatusText.Text = $"SSH trust reset for {SelectedProfile.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = SafeError(ex);
+        }
+    }
+
+    private void LockSession_Click(object sender, RoutedEventArgs e)
+    {
+        SessionSecretBox.Clear();
+        StatusText.Text = "Session secret cleared from memory";
+        ConnectionStatus.Text = SelectedProfile is null ? "Not connected" : "Session locked";
+        ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
     }
 
     private void ShowAddError(string message)
@@ -634,6 +1197,72 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return message.Length > 500 ? message[..500] : message;
+    }
+
+    private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            if (ConfirmOverlay.Visibility == Visibility.Visible)
+            {
+                CancelDelete_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+
+            if (AddServerOverlay.Visibility == Visibility.Visible)
+            {
+                CloseAddServer_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
+        {
+            OpenAddServer_Click(sender, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L)
+        {
+            LockSession_Click(sender, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key != Key.F5)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (_activeNavButton == FilesNavButton)
+        {
+            await RefreshFilesAsync();
+        }
+        else if (_activeNavButton == ServicesNavButton)
+        {
+            await RefreshManagerServicesAsync();
+        }
+        else if (_activeNavButton == DockerNavButton)
+        {
+            await RefreshDockerAsync();
+        }
+        else if (_activeNavButton == LogsNavButton)
+        {
+            await RefreshLogsAsync();
+        }
+        else if (_activeNavButton == SecurityNavButton)
+        {
+            SecurityScan_Click(sender, new RoutedEventArgs());
+        }
+        else if (_activeNavButton == DashboardNavButton)
+        {
+            Connect_Click(sender, new RoutedEventArgs());
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

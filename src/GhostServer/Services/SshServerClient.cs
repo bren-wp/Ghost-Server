@@ -1,3 +1,4 @@
+using System.IO;
 using System.Globalization;
 using System.Security;
 using GhostServer.Models;
@@ -150,13 +151,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             throw new ArgumentOutOfRangeException(nameof(action), "Unsupported service action.");
         }
 
-        if (!System.Text.RegularExpressions.Regex.IsMatch(
-                serviceName,
-                @"^[A-Za-z0-9][A-Za-z0-9@_.:-]*\.service$",
-                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
-        {
-            throw new ArgumentException("Invalid systemd service identifier.", nameof(serviceName));
-        }
+        ValidateServiceName(serviceName);
 
         return ExecuteCheckedAsync(
             profile,
@@ -224,13 +219,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             throw new ArgumentOutOfRangeException(nameof(action), "Unsupported Docker action.");
         }
 
-        if (!System.Text.RegularExpressions.Regex.IsMatch(
-                container,
-                @"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
-                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
-        {
-            throw new ArgumentException("Invalid Docker container identifier.", nameof(container));
-        }
+        ValidateDockerIdentifier(container);
 
         return ExecuteCheckedAsync(
             profile,
@@ -248,6 +237,110 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             "journalctl -n 200 --no-pager -o short-iso 2>/dev/null || dmesg --ctime 2>/dev/null | tail -n 200";
 
         return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<RemoteFileItem>> GetRemoteFilesAsync(
+        ServerProfile profile,
+        string? secret,
+        string remotePath,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.Run<IReadOnlyList<RemoteFileItem>>(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedSftpClient(profile, secret);
+            client.Connect();
+
+            var target = NormalizeRemotePath(remotePath);
+            return client.ListDirectory(target)
+                .Where(item => item.Name is not "." and not "..")
+                .OrderByDescending(item => item.IsDirectory)
+                .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(item => new RemoteFileItem
+                {
+                    Name = item.Name,
+                    FullPath = item.FullName,
+                    IsDirectory = item.IsDirectory,
+                    SizeBytes = item.IsDirectory ? 0 : item.Length,
+                    LastWriteTime = item.LastWriteTime
+                })
+                .ToArray();
+        }, cancellationToken);
+    }
+
+    public Task UploadFileAsync(
+        ServerProfile profile,
+        string? secret,
+        string localPath,
+        string remoteDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!File.Exists(localPath))
+            {
+                throw new FileNotFoundException("Local file does not exist.", localPath);
+            }
+
+            using var client = CreateVerifiedSftpClient(profile, secret);
+            client.Connect();
+
+            var directory = NormalizeRemotePath(remoteDirectory).TrimEnd('/');
+            var remotePath = directory.Length == 0
+                ? "/" + Path.GetFileName(localPath)
+                : directory + "/" + Path.GetFileName(localPath);
+
+            using var stream = File.OpenRead(localPath);
+            client.UploadFile(stream, remotePath, true);
+        }, cancellationToken);
+    }
+
+    public Task DownloadFileAsync(
+        ServerProfile profile,
+        string? secret,
+        string remotePath,
+        string localPath,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedSftpClient(profile, secret);
+            client.Connect();
+
+            using var stream = File.Create(localPath);
+            client.DownloadFile(NormalizeRemotePath(remotePath), stream);
+        }, cancellationToken);
+    }
+
+    public Task<string> GetServiceLogsAsync(
+        ServerProfile profile,
+        string? secret,
+        string serviceName,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateServiceName(serviceName);
+        return RunCommandAsync(
+            profile,
+            secret,
+            $"journalctl -u {serviceName} -n 200 --no-pager -o short-iso 2>/dev/null",
+            cancellationToken);
+    }
+
+    public Task<string> GetDockerLogsAsync(
+        ServerProfile profile,
+        string? secret,
+        string container,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateDockerIdentifier(container);
+        return RunCommandAsync(
+            profile,
+            secret,
+            $"docker logs --tail 200 {container} 2>&1",
+            cancellationToken);
     }
 
     public Task<string> RunCommandAsync(
@@ -295,6 +388,98 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
 """;
 
         return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    private static void ValidateServiceName(string serviceName)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                serviceName,
+                @"^[A-Za-z0-9][A-Za-z0-9@_.:-]*\.service$",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            throw new ArgumentException("Invalid systemd service identifier.", nameof(serviceName));
+        }
+    }
+
+    private static void ValidateDockerIdentifier(string container)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                container,
+                @"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            throw new ArgumentException("Invalid Docker container identifier.", nameof(container));
+        }
+    }
+
+    private static string NormalizeRemotePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "/";
+        }
+
+        var normalized = path.Replace('\\', '/').Trim();
+        if (!normalized.StartsWith('/'))
+        {
+            normalized = "/" + normalized;
+        }
+
+        while (normalized.Contains("//", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+        }
+
+        return normalized;
+    }
+
+    private static SftpClient CreateVerifiedSftpClient(ServerProfile profile, string? secret)
+    {
+        if (string.IsNullOrWhiteSpace(profile.HostKeyFingerprint))
+        {
+            throw new SecurityException("Host key has not been approved for this server.");
+        }
+
+        AuthenticationMethod authentication;
+        if (string.Equals(profile.Authentication, "PrivateKey", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(profile.PrivateKeyPath))
+            {
+                throw new InvalidOperationException("Private key path is required.");
+            }
+
+            var key = string.IsNullOrEmpty(secret)
+                ? new PrivateKeyFile(profile.PrivateKeyPath)
+                : new PrivateKeyFile(profile.PrivateKeyPath, secret);
+
+            authentication = new PrivateKeyAuthenticationMethod(profile.Username, key);
+        }
+        else
+        {
+            authentication = new PasswordAuthenticationMethod(profile.Username, secret ?? string.Empty);
+        }
+
+        var connection = new ConnectionInfo(
+            profile.Host,
+            profile.Port,
+            profile.Username,
+            authentication)
+        {
+            Timeout = TimeSpan.FromSeconds(15)
+        };
+
+        var client = new SftpClient(connection)
+        {
+            KeepAliveInterval = TimeSpan.FromSeconds(20),
+            OperationTimeout = TimeSpan.FromSeconds(45)
+        };
+
+        client.HostKeyReceived += (_, e) =>
+        {
+            e.CanTrust = CryptographicEquals(profile.HostKeyFingerprint, e.FingerPrintSHA256);
+        };
+
+        return client;
     }
 
     private static SshClient CreateVerifiedClient(ServerProfile profile, string? secret)
