@@ -262,6 +262,10 @@
                                         <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" ToolTip="Refresh dashboard service list">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Refresh services" Margin="7,0,0,0"/></StackPanel>
                                         </Button>
+                                        <CheckBox x:Name="AutoRefreshToggle" Content="Auto refresh • 30s"
+                                                  Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
+                                                  Margin="14,0,0,0" Checked="AutoRefresh_Changed" Unchecked="AutoRefresh_Changed"
+                                                  ToolTip="Refresh server health and running services every 30 seconds"/>
                                         <TextBlock x:Name="ConnectionStatus" Text="Not connected"
                                                    Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
                                                    Margin="14,0,0,0"/>
