@@ -599,20 +599,36 @@
                     <Grid x:Name="UpdatesPage" Visibility="Collapsed" Margin="24">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button Style="{StaticResource AccentButton}" Click="RefreshUpdates_Click">
-                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Check updates" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+
+                        <WrapPanel Margin="0,0,0,12">
+                            <Button Style="{StaticResource GhostButton}" Click="RefreshUpdates_Click" Margin="0,0,8,8">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Preview updates" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <TextBlock Text="Read-only package discovery. No packages are installed or upgraded automatically."
-                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                        </StackPanel>
-                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
+                            <Button Style="{StaticResource AccentButton}" Click="RunSafeUpdate_Click" Margin="0,0,8,8">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Run Safe Update" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource GhostButton}" Click="RestoreConfigSnapshot_Click" Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE777;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Restore config snapshot" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
+                        </WrapPanel>
+
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,12" BorderBrush="{StaticResource GhostWarning}">
+                            <StackPanel>
+                                <TextBlock Text="Safe Update guardrails" Foreground="{StaticResource GhostWarning}" FontWeight="SemiBold"/>
+                                <TextBlock Text="Ghost Server requires a downloaded configuration snapshot before package changes, at least 1 GiB of free root-disk space and passwordless sudo. It never reboots automatically. Restore config snapshot restores only allowlisted configuration paths; it does not claim to downgrade updated packages."
+                                           Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
                             <TextBox x:Name="UpdatesOutput" IsReadOnly="True" AcceptsReturn="True"
                                      Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
                                      FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                     Text="Preview pending updates first. Safe Update will require a local configuration snapshot before making package changes."/>
                         </Border>
                     </Grid>
 
