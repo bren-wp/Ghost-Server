@@ -16,6 +16,9 @@ OutputBaseFilename=GhostServer-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\src\GhostServer\Assets\GhostServer.ico
+WizardImageStretch=no
+UsePreviousAppDir=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -27,6 +30,7 @@ VersionInfoVersion={#MyAppVersion}
 VersionInfoProductName={#MyAppName}
 VersionInfoDescription=Ghost Server Setup
 VersionInfoCompany={#MyAppPublisher}
+VersionInfoCopyright=Copyright (c) Brendigo
 
 [Files]
 Source: "..\artifacts\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
