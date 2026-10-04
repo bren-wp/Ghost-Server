@@ -102,7 +102,7 @@
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE774;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Network" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
                             <Button x:Name="UpdatesNavButton" Style="{StaticResource NavButton}" Click="UpdatesNav_Click" ToolTip="Package updates">
-                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Updates" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Safe Update" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
                             <Button x:Name="BackupNavButton" Style="{StaticResource NavButton}" Click="BackupNav_Click" ToolTip="Configuration backup">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Backup" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
