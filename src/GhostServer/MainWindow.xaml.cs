@@ -157,6 +157,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ShowPage(BackupPage, "Backup", "Create and download a temporary configuration snapshot.");
     }
 
+    private async void TasksNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(TasksNavButton);
+        ShowPage(TasksPage, "Tasks", "Manage isolated Ghost Server systemd timers and inspect the current user crontab.");
+        await RefreshTasksAsync();
+    }
+
     private void SecurityNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(SecurityNavButton);
@@ -181,6 +188,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                      NetworkNavButton,
                      UpdatesNavButton,
                      BackupNavButton,
+                     TasksNavButton,
                      LogsNavButton,
                      TerminalNavButton,
                      SecurityNavButton,
@@ -205,6 +213,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         NetworkPage.Visibility = Visibility.Collapsed;
         UpdatesPage.Visibility = Visibility.Collapsed;
         BackupPage.Visibility = Visibility.Collapsed;
+        TasksPage.Visibility = Visibility.Collapsed;
         LogsPage.Visibility = Visibility.Collapsed;
         TerminalPage.Visibility = Visibility.Collapsed;
         SecurityPage.Visibility = Visibility.Collapsed;
@@ -256,6 +265,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         NetworkOutput.Clear();
         UpdatesOutput.Clear();
         BackupOutput.Text = "Ready. Select a server, unlock the session, then create a configuration snapshot.";
+        TasksList.ItemsSource = null;
+        TasksStatusText.Text = "Only Ghost Server timers named ghost-server-* are managed here.";
+        CrontabOutput.Text = "Current user crontab is shown here for visibility only. Ghost Server does not edit it.";
         UpdateSelectedLabels();
     }
 
@@ -1218,6 +1230,147 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void RefreshTasks_Click(object sender, RoutedEventArgs e) =>
+        await RefreshTasksAsync();
+
+    private async Task RefreshTasksAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            TasksList.ItemsSource = null;
+            TasksStatusText.Text = "Select a server on Dashboard first.";
+            CrontabOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Loading scheduled operations…";
+            var tasks = await SshServerClient.GetScheduledTasksAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+            var crontab = await SshServerClient.GetUserCrontabAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            TasksList.ItemsSource = tasks;
+            TasksStatusText.Text = tasks.Count == 0
+                ? "No Ghost Server scheduled tasks."
+                : $"{tasks.Count} Ghost Server scheduled task(s).";
+            CrontabOutput.Text = crontab;
+            StatusText.Text = "Scheduled operations refreshed";
+        }
+        catch (Exception ex)
+        {
+            TasksList.ItemsSource = null;
+            TasksStatusText.Text = SafeError(ex);
+            CrontabOutput.Text = SafeError(ex);
+            StatusText.Text = "Scheduled operations refresh failed";
+        }
+    }
+
+    private async void CreateTask_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            TasksStatusText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        var name = TaskNameBox.Text.Trim();
+        var command = TaskCommandBox.Text.Trim();
+        var schedule = (TaskScheduleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Daily";
+
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(command))
+        {
+            TasksStatusText.Text = "Task name and command are required.";
+            return;
+        }
+
+        if (!ConfirmAdministrativeAction(
+                "Create scheduled task?",
+                $"Create Ghost Server task '{name}' on {SelectedProfile.Name} with schedule {schedule}?\n\nThe command will run as root through a dedicated systemd oneshot service."))
+        {
+            return;
+        }
+
+        if (!TryAcquireMutation("Creating scheduled task…"))
+        {
+            return;
+        }
+
+        try
+        {
+            var output = await SshServerClient.CreateScheduledTaskAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                name,
+                schedule,
+                command);
+
+            TasksStatusText.Text = output;
+            TaskNameBox.Clear();
+            TaskCommandBox.Clear();
+            await RefreshTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            TasksStatusText.Text = SafeError(ex);
+            StatusText.Text = "Scheduled task creation failed";
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _mutationActive, 0);
+        }
+    }
+
+    private async void DeleteTask_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            TasksStatusText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (TasksList.SelectedItem is not ScheduledTaskStatus task)
+        {
+            TasksStatusText.Text = "Select a Ghost Server scheduled task first.";
+            return;
+        }
+
+        if (!ConfirmAdministrativeAction(
+                "Delete scheduled task?",
+                $"Delete Ghost Server task '{task.Name}' from {SelectedProfile.Name}?"))
+        {
+            return;
+        }
+
+        if (!TryAcquireMutation("Deleting scheduled task…"))
+        {
+            return;
+        }
+
+        try
+        {
+            var output = await SshServerClient.DeleteScheduledTaskAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                task.Name);
+
+            TasksStatusText.Text = output;
+            await RefreshTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            TasksStatusText.Text = SafeError(ex);
+            StatusText.Text = "Scheduled task deletion failed";
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _mutationActive, 0);
+        }
+    }
+
     private async void RefreshLogs_Click(object sender, RoutedEventArgs e) =>
         await RefreshLogsAsync();
 
@@ -2051,6 +2204,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else if (_activeNavButton == UpdatesNavButton)
         {
             await RefreshUpdatesAsync();
+        }
+        else if (_activeNavButton == TasksNavButton)
+        {
+            await RefreshTasksAsync();
         }
         else if (_activeNavButton == LogsNavButton)
         {

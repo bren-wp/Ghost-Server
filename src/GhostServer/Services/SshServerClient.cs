@@ -307,6 +307,188 @@ fi
         return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
     }
 
+    public static Task<IReadOnlyList<ScheduledTaskStatus>> GetScheduledTasksAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+for timer in /etc/systemd/system/ghost-server-*.timer; do
+  [ -e "$timer" ] || continue
+  unit=$(basename "$timer")
+  name=${unit#ghost-server-}
+  name=${name%.timer}
+  schedule=$(awk -F= '/^OnCalendar=/{print $2; exit}' "$timer")
+  next=$(systemctl show "$unit" -p NextElapseUSecRealtime --value 2>/dev/null || true)
+  state=$(systemctl is-active "$unit" 2>/dev/null || true)
+  enabled=$(systemctl is-enabled "$unit" 2>/dev/null || true)
+  printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$unit" "$schedule" "$next" "$state|$enabled"
+done
+""";
+
+        return Task.Run<IReadOnlyList<ScheduledTaskStatus>>(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedClient(profile, secret);
+            client.Connect();
+            using var result = client.RunCommand(command);
+
+            if (result.ExitStatus != 0)
+            {
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(result.Error)
+                        ? $"Remote command failed with exit code {result.ExitStatus}."
+                        : result.Error.Trim());
+            }
+
+            return ParseScheduledTasks(result.Result ?? string.Empty);
+        }, cancellationToken);
+    }
+
+    public static Task<string> GetUserCrontabAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+echo "Current user crontab"
+echo "--------------------"
+crontab -l 2>/dev/null || echo "(no crontab entries)"
+""";
+
+        return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    public static Task<string> CreateScheduledTaskAsync(
+        ServerProfile profile,
+        string? secret,
+        string name,
+        string schedule,
+        string userCommand,
+        CancellationToken cancellationToken = default)
+    {
+        var slug = NormalizeScheduledTaskName(name);
+        var onCalendar = schedule switch
+        {
+            "Hourly" => "hourly",
+            "Daily" => "daily",
+            "Weekly" => "weekly",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(schedule),
+                "Schedule must be Hourly, Daily or Weekly.")
+        };
+
+        if (string.IsNullOrWhiteSpace(userCommand))
+        {
+            throw new ArgumentException(
+                "Scheduled command is required.",
+                nameof(userCommand));
+        }
+
+        if (userCommand.Length > 4096)
+        {
+            throw new ArgumentException(
+                "Scheduled command is too long.",
+                nameof(userCommand));
+        }
+
+        var script = "#!/usr/bin/env bash\nset -euo pipefail\n" + userCommand.Trim() + "\n";
+        var encodedScript = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(script));
+
+        var command = string.Join(
+            "\n",
+            new[]
+            {
+                "set -eu",
+                "if ! sudo -n true >/dev/null 2>&1; then",
+                "  echo \"Task creation blocked: passwordless sudo is required.\" >&2",
+                "  exit 40",
+                "fi",
+                string.Empty,
+                $"slug='{slug}'",
+                "script=\"/usr/local/lib/ghost-server/tasks/ghost-server-$slug.sh\"",
+                "service=\"/etc/systemd/system/ghost-server-$slug.service\"",
+                "timer=\"/etc/systemd/system/ghost-server-$slug.timer\"",
+                string.Empty,
+                "sudo -n install -d -m 700 /usr/local/lib/ghost-server/tasks",
+                $"printf '%s' '{encodedScript}' | base64 -d | sudo -n tee \"$script\" >/dev/null",
+                "sudo -n chmod 700 \"$script\"",
+                "sudo -n chown root:root \"$script\"",
+                string.Empty,
+                "sudo -n tee \"$service\" >/dev/null <<EOF",
+                "[Unit]",
+                $"Description=Ghost Server scheduled task: {slug}",
+                "After=network-online.target",
+                "Wants=network-online.target",
+                string.Empty,
+                "[Service]",
+                "Type=oneshot",
+                "ExecStart=$script",
+                "EOF",
+                string.Empty,
+                "sudo -n tee \"$timer\" >/dev/null <<EOF",
+                "[Unit]",
+                $"Description=Ghost Server timer: {slug}",
+                string.Empty,
+                "[Timer]",
+                $"OnCalendar={onCalendar}",
+                "Persistent=true",
+                "AccuracySec=1m",
+                $"Unit=ghost-server-{slug}.service",
+                string.Empty,
+                "[Install]",
+                "WantedBy=timers.target",
+                "EOF",
+                string.Empty,
+                "sudo -n systemctl daemon-reload",
+                "sudo -n systemctl enable --now \"ghost-server-$slug.timer\"",
+                $"echo \"Created Ghost Server task '$slug' ({schedule}).\""
+            });
+
+        return ExecuteCheckedAsync(
+            profile,
+            secret,
+            command,
+            cancellationToken);
+    }
+
+    public static Task<string> DeleteScheduledTaskAsync(
+        ServerProfile profile,
+        string? secret,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var slug = NormalizeScheduledTaskName(name);
+
+        var command = string.Join(
+            "\n",
+            new[]
+            {
+                "set -eu",
+                "if ! sudo -n true >/dev/null 2>&1; then",
+                "  echo \"Task deletion blocked: passwordless sudo is required.\" >&2",
+                "  exit 41",
+                "fi",
+                string.Empty,
+                $"slug='{slug}'",
+                "timer=\"/etc/systemd/system/ghost-server-$slug.timer\"",
+                "service=\"/etc/systemd/system/ghost-server-$slug.service\"",
+                "script=\"/usr/local/lib/ghost-server/tasks/ghost-server-$slug.sh\"",
+                string.Empty,
+                "sudo -n systemctl disable --now \"ghost-server-$slug.timer\" 2>/dev/null || true",
+                "sudo -n rm -f \"$timer\" \"$service\" \"$script\"",
+                "sudo -n systemctl daemon-reload",
+                "sudo -n systemctl reset-failed \"ghost-server-$slug.service\" 2>/dev/null || true",
+                "echo \"Deleted Ghost Server task '$slug'.\""
+            });
+
+        return ExecuteCheckedAsync(
+            profile,
+            secret,
+            command,
+            cancellationToken);
+    }
+
     public static Task<string> GetSafeUpdatePreviewAsync(
         ServerProfile profile,
         string? secret,
@@ -763,6 +945,51 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
 """;
 
         return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    private static string NormalizeScheduledTaskName(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                normalized,
+                @"^[a-z0-9][a-z0-9-]{0,39}$",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            throw new ArgumentException(
+                "Task name must use lowercase letters, numbers or hyphens and be at most 40 characters.",
+                nameof(value));
+        }
+
+        return normalized;
+    }
+
+    private static List<ScheduledTaskStatus> ParseScheduledTasks(string output)
+    {
+        var result = new List<ScheduledTaskStatus>();
+
+        foreach (var raw in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var columns = raw.TrimEnd('\r').Split('\t');
+            if (columns.Length != 5)
+            {
+                continue;
+            }
+
+            var stateParts = columns[4].Split('|', 2);
+            result.Add(new ScheduledTaskStatus
+            {
+                Name = columns[0],
+                TimerUnit = columns[1],
+                Schedule = columns[2],
+                NextRun = string.IsNullOrWhiteSpace(columns[3]) ? "—" : columns[3],
+                State = stateParts.Length > 0 ? stateParts[0] : "unknown",
+                Enabled = stateParts.Length > 1 &&
+                          stateParts[1].StartsWith("enabled", StringComparison.OrdinalIgnoreCase)
+            });
+        }
+
+        return result;
     }
 
     private static void ValidateServiceName(string serviceName)
