@@ -24,6 +24,16 @@
     <SolidColorBrush x:Key="GhostDanger" Color="{StaticResource GhostDangerColor}"/>
     <SolidColorBrush x:Key="GhostSuccess" Color="{StaticResource GhostSuccessColor}"/>
     <SolidColorBrush x:Key="GhostWarning" Color="{StaticResource GhostWarningColor}"/>
+    <SolidColorBrush x:Key="GhostDangerSurface" Color="#3519222C"/>
+    <SolidColorBrush x:Key="GhostSelectedSurface" Color="#1D3F63"/>
+
+    <Style x:Key="FluentIcon" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+    </Style>
 
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
@@ -97,6 +107,18 @@
         </Setter>
     </Style>
 
+    <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+        <Setter Property="Background" Value="{StaticResource GhostDangerSurface}"/>
+        <Setter Property="Foreground" Value="{StaticResource GhostDanger}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GhostDanger}"/>
+    </Style>
+
+    <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+        <Setter Property="Width" Value="38"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+
     <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
         <Setter Property="Background" Value="{StaticResource GhostBlue}"/>
         <Setter Property="Foreground" Value="#06121E"/>
@@ -106,10 +128,26 @@
 
     <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        <Setter Property="Padding" Value="14,10"/>
-        <Setter Property="Margin" Value="0,0,0,6"/>
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="Margin" Value="0,0,0,5"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style x:Key="ServerListItemStyle" TargetType="ListBoxItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <ContentPresenter/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="CardBorder" TargetType="Border">
