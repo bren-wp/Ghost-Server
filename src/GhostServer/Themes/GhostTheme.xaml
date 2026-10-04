@@ -1,0 +1,122 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Color x:Key="GhostNavyColor">#0B1E36</Color>
+    <Color x:Key="GhostPanelColor">#0F2745</Color>
+    <Color x:Key="GhostSlateColor">#132D52</Color>
+    <Color x:Key="GhostHoverColor">#173960</Color>
+    <Color x:Key="GhostBlueColor">#38ABFF</Color>
+    <Color x:Key="GhostIceColor">#EAF6FF</Color>
+    <Color x:Key="GhostMutedColor">#91ABC4</Color>
+    <Color x:Key="GhostBorderColor">#24517B</Color>
+    <Color x:Key="GhostDangerColor">#FF6B7A</Color>
+    <Color x:Key="GhostSuccessColor">#48D597</Color>
+    <Color x:Key="GhostWarningColor">#FFCB63</Color>
+
+    <SolidColorBrush x:Key="GhostNavy" Color="{StaticResource GhostNavyColor}"/>
+    <SolidColorBrush x:Key="GhostPanel" Color="{StaticResource GhostPanelColor}"/>
+    <SolidColorBrush x:Key="GhostSlate" Color="{StaticResource GhostSlateColor}"/>
+    <SolidColorBrush x:Key="GhostHover" Color="{StaticResource GhostHoverColor}"/>
+    <SolidColorBrush x:Key="GhostBlue" Color="{StaticResource GhostBlueColor}"/>
+    <SolidColorBrush x:Key="GhostIce" Color="{StaticResource GhostIceColor}"/>
+    <SolidColorBrush x:Key="GhostMuted" Color="{StaticResource GhostMutedColor}"/>
+    <SolidColorBrush x:Key="GhostBorder" Color="{StaticResource GhostBorderColor}"/>
+    <SolidColorBrush x:Key="GhostDanger" Color="{StaticResource GhostDangerColor}"/>
+    <SolidColorBrush x:Key="GhostSuccess" Color="{StaticResource GhostSuccessColor}"/>
+    <SolidColorBrush x:Key="GhostWarning" Color="{StaticResource GhostWarningColor}"/>
+
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+    </Style>
+
+    <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{StaticResource GhostMuted}"/>
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+        <Setter Property="Padding" Value="0,0,0,6"/>
+    </Style>
+
+    <Style x:Key="GhostTextBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="Background" Value="{StaticResource GhostNavy}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GhostBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="CaretBrush" Value="{StaticResource GhostBlue}"/>
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+    </Style>
+
+    <Style x:Key="GhostPasswordBox" TargetType="PasswordBox">
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="Background" Value="{StaticResource GhostNavy}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GhostBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="CaretBrush" Value="{StaticResource GhostBlue}"/>
+    </Style>
+
+    <Style x:Key="GhostComboBox" TargetType="ComboBox">
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="Background" Value="{StaticResource GhostNavy}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GhostBorder}"/>
+        <Setter Property="Padding" Value="8,6"/>
+    </Style>
+
+    <Style x:Key="GhostButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="Background" Value="{StaticResource GhostSlate}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GhostBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="14,9"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Border" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource GhostHover}"/>
+                            <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource GhostBlue}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Border" Property="Opacity" Value="0.82"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Border" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+        <Setter Property="Background" Value="{StaticResource GhostBlue}"/>
+        <Setter Property="Foreground" Value="#06121E"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GhostBlue}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Padding" Value="14,10"/>
+        <Setter Property="Margin" Value="0,0,0,6"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+
+    <Style x:Key="CardBorder" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource GhostPanel}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GhostBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="Padding" Value="16"/>
+    </Style>
+</ResourceDictionary>
