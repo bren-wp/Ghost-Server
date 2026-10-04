@@ -559,9 +559,11 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <Grid Margin="0,0,0,18">
-                            <TextBlock Text="Add server" FontSize="22" FontWeight="SemiBold"/>
-                            <Button Content="×" Style="{StaticResource NavButton}" HorizontalAlignment="Right"
-                                    Width="40" Click="CloseAddServer_Click"/>
+                            <TextBlock x:Name="AddServerTitle" Text="Add server" FontSize="22" FontWeight="SemiBold"/>
+                            <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right"
+                                    Click="CloseAddServer_Click" ToolTip="Close">
+                                <TextBlock Text="&#xE8BB;" Style="{StaticResource FluentIcon}"/>
+                            </Button>
                         </Grid>
 
                         <Label Content="Display name"/>
@@ -594,7 +596,17 @@
 
                         <StackPanel x:Name="PrivateKeyPanel" Visibility="Collapsed" Margin="0,0,0,12">
                             <Label Content="Private key path"/>
-                            <TextBox x:Name="AddPrivateKeyPath" Style="{StaticResource GhostTextBox}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="AddPrivateKeyPath" Style="{StaticResource GhostTextBox}"/>
+                                <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                        Click="BrowsePrivateKey_Click" ToolTip="Browse for private key">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Browse" Margin="7,0,0,0"/></StackPanel>
+                                </Button>
+                            </Grid>
                         </StackPanel>
 
                         <TextBlock Text="Passwords and private-key passphrases are never stored in the profile. Enter the session secret after selecting the server."
@@ -606,10 +618,34 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                                     Click="CloseAddServer_Click"/>
-                            <Button Content="Save server" Style="{StaticResource AccentButton}" Click="SaveServer_Click"/>
+                            <Button x:Name="SaveServerButton" Content="Save server" Style="{StaticResource AccentButton}" Click="SaveServer_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="ConfirmOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed">
+            <Border Width="470" Style="{StaticResource CardBorder}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="24" BorderBrush="{StaticResource GhostDanger}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="38" Height="38" CornerRadius="10" Background="{StaticResource GhostDangerSurface}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostDanger}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Delete server?" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="This removes the local profile only. Nothing is deleted from the remote server."
+                                       Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,0" MaxWidth="350"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock x:Name="ConfirmMessage" Margin="0,18,0,18" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="CancelDelete_Click"/>
+                        <Button Content="Delete profile" Style="{StaticResource DangerButton}" Click="ConfirmDelete_Click"/>
+                    </StackPanel>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>
