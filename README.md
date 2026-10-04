@@ -4,7 +4,7 @@
 
 The project follows the established **Ghost FTP** visual system: Electric Blue `#38ABFF`, Deep Navy `#0B1E36`, Slate Blue `#132D52`, Ice White `#EAF6FF`, a 51 px custom title bar and a 216 px navigation rail.
 
-## Current release — 0.4.0
+## Current release — 0.5.0
 
 This development milestone contains real application code rather than seeded demo data:
 
@@ -22,7 +22,7 @@ This development milestone contains real application code rather than seeded dem
 - validated UFW/firewalld allow-port workflow with explicit confirmation;
 - read-only package update discovery for APT, DNF, YUM, Zypper and pacman;
 - configuration snapshot workflow with SFTP download and temporary-archive cleanup;
-- optional 30-second dashboard auto-refresh;
+- configurable 15/30/60/120-second dashboard auto-refresh;
 - terminal command history and keyboard shortcuts;
 - explicit session lock that clears the in-memory secret;
 - resettable SSH host-key trust for deliberate re-pinning;
@@ -31,6 +31,10 @@ This development milestone contains real application code rather than seeded dem
 - dark Ghost UI implemented in WPF with Fluent iconography, branded executable/installer icon and no browser/WebView application shell;
 - Windows CI build with verified `GhostServer-Portable.exe` and `GhostServer-Setup.exe` artifacts;
 - portable launch smoke test plus Setup silent install/launch/uninstall smoke test;
+- atomic profile/settings persistence with `.bak` recovery;
+- Settings & About workspace with default backup folder and profile import/export;
+- bounded local crash diagnostics for unexpected failures;
+- .NET analyzers enabled with warnings treated as build errors;
 - automatic GitHub Release publication only after a successful main CI run.
 
 ## Technology
@@ -68,7 +72,7 @@ See [SECURITY.md](SECURITY.md).
 
 ## Product direction
 
-Next milestones expand scheduled tasks, database operations, notification channels, Safe Update/rollback and signed Windows packaging.
+Next milestones focus on Safe Update/rollback, scheduled operations, database tooling, notification channels and signed Windows packaging.
 
 ## License
 

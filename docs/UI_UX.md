@@ -57,3 +57,14 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Updates is intentionally read-only and communicates that boundary next to the primary action;
 - Backup presents one focused create-and-download workflow and reports remote creation, local download and cleanup phases;
 - Dashboard auto-refresh is opt-in and automatically stops when the session is locked or a refresh fails.
+
+
+## v0.5 completion polish
+
+- the title-bar version badge is populated from assembly metadata instead of duplicated hard-coded text;
+- Settings & About centralizes monitoring interval, backup folder, app-data access and profile portability;
+- server-list dots are neutral profile markers and no longer imply a live connection before one exists;
+- dashboard, Services and Docker action rows wrap instead of clipping at narrower supported widths;
+- disruptive Service and Docker stop/restart actions require confirmation;
+- only one remote mutation action may execute at a time, preventing accidental overlapping administrative commands;
+- crash diagnostics are local, bounded and surfaced through the app-data location.

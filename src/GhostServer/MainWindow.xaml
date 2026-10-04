@@ -47,7 +47,7 @@
                                VerticalAlignment="Center"/>
                     <Border Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
                             BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="10,0,0,0">
-                        <TextBlock Text="0.4.0" Foreground="{StaticResource GhostMuted}" FontSize="10"/>
+                        <TextBlock x:Name="AppVersionBadge" Text="…" Foreground="{StaticResource GhostMuted}" FontSize="10"/>
                     </Border>
                 </StackPanel>
 
@@ -115,6 +115,9 @@
                             </Button>
                             <Button x:Name="SecurityNavButton" Style="{StaticResource NavButton}" Click="SecurityNav_Click" ToolTip="Security">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA18;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Security" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
+                            <Button x:Name="SettingsNavButton" Style="{StaticResource NavButton}" Click="SettingsNav_Click" ToolTip="Settings and about">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Settings" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
                         </StackPanel>
                     </ScrollViewer>
@@ -193,8 +196,8 @@
                                                         <TextBlock Text="{Binding Endpoint}" Foreground="{StaticResource GhostMuted}"
                                                                    FontSize="11" Margin="0,4,0,0"/>
                                                     </StackPanel>
-                                                    <Ellipse Grid.Column="1" Width="8" Height="8" Fill="{StaticResource GhostBlue}"
-                                                             VerticalAlignment="Center"/>
+                                                    <Ellipse Grid.Column="1" Width="8" Height="8" Fill="{StaticResource GhostMuted}"
+                                                             VerticalAlignment="Center" ToolTip="Saved server profile"/>
                                                 </Grid>
                                             </Border>
                                             <DataTemplate.Triggers>
@@ -255,21 +258,21 @@
                                         </StackPanel>
                                     </Grid>
 
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                        <Button Style="{StaticResource AccentButton}" Click="Connect_Click" Margin="0,0,8,0" ToolTip="Connect and refresh dashboard (F5)">
+                                    <WrapPanel Margin="0,0,0,16">
+                                        <Button Style="{StaticResource AccentButton}" Click="Connect_Click" Margin="0,0,8,8" ToolTip="Connect and refresh dashboard (F5)">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Connect &amp; refresh" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                                         </Button>
-                                        <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" ToolTip="Refresh dashboard service list">
+                                        <Button Style="{StaticResource GhostButton}" Click="RefreshServices_Click" Margin="0,0,8,8" ToolTip="Refresh dashboard service list">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Refresh services" Margin="7,0,0,0"/></StackPanel>
                                         </Button>
                                         <CheckBox x:Name="AutoRefreshToggle" Content="Auto refresh • 30s"
                                                   Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
-                                                  Margin="14,0,0,0" Checked="AutoRefresh_Changed" Unchecked="AutoRefresh_Changed"
+                                                  Margin="6,0,10,8" Checked="AutoRefresh_Changed" Unchecked="AutoRefresh_Changed"
                                                   ToolTip="Refresh server health and running services every 30 seconds"/>
                                         <TextBlock x:Name="ConnectionStatus" Text="Not connected"
                                                    Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
-                                                   Margin="14,0,0,0"/>
-                                    </StackPanel>
+                                                   Margin="6,0,0,8"/>
+                                    </WrapPanel>
 
                                     <Border x:Name="HostKeyPanel" Visibility="Collapsed" Style="{StaticResource CardBorder}"
                                             Margin="0,0,0,16" BorderBrush="{StaticResource GhostWarning}">
@@ -418,15 +421,15 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,0"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,0"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,0"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,0"/>
-                            <Button Style="{StaticResource GhostButton}" Click="ServiceLogs_Click" ToolTip="Open recent logs for the selected service">
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,8"/>
+                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,8"/>
+                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,8"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,8"/>
+                            <Button Style="{StaticResource GhostButton}" Click="ServiceLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected service">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock Grid.Row="1" x:Name="SelectedServiceText" Text="Select a service."
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
@@ -449,15 +452,15 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,0"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,0"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,0"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,0"/>
-                            <Button Style="{StaticResource GhostButton}" Click="DockerLogs_Click" ToolTip="Open recent logs for the selected container">
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,8"/>
+                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,8"/>
+                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,8"/>
+                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,8"/>
+                            <Button Style="{StaticResource GhostButton}" Click="DockerLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected container">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock Grid.Row="1" x:Name="SelectedDockerText" Text="Select a Docker container."
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
@@ -663,6 +666,110 @@
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
                         </Border>
                     </Grid>
+
+                    <ScrollViewer x:Name="SettingsPage" Visibility="Collapsed" Margin="24"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="920">
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="220"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Monitoring" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Choose how often Dashboard auto-refresh polls the selected server."
+                                                   Foreground="{StaticResource GhostMuted}" Margin="0,5,16,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <Label Content="Refresh interval"/>
+                                        <ComboBox x:Name="RefreshIntervalBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1">
+                                            <ComboBoxItem Content="15 seconds" Tag="15"/>
+                                            <ComboBoxItem Content="30 seconds" Tag="30"/>
+                                            <ComboBoxItem Content="60 seconds" Tag="60"/>
+                                            <ComboBoxItem Content="120 seconds" Tag="120"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Backup location" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Optional default folder for downloaded configuration snapshots."
+                                               Foreground="{StaticResource GhostMuted}" Margin="0,5,0,12"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="DefaultBackupFolderBox" Style="{StaticResource GhostTextBox}" IsReadOnly="True"/>
+                                        <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                                Click="BrowseBackupFolder_Click">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Choose folder" Margin="7,0,0,0"/></StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Server profiles" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Export or import connection profiles. Passwords and private-key passphrases are never included because Ghost Server never stores them."
+                                               Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,12"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Style="{StaticResource GhostButton}" Click="ExportProfiles_Click" Margin="0,0,8,0">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Export profiles" Margin="7,0,0,0"/></StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource GhostButton}" Click="ImportProfiles_Click">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE898;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Import profiles" Margin="7,0,0,0"/></StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Application data" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="AppDataPathText" Foreground="{StaticResource GhostMuted}"
+                                                   Margin="0,5,16,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                                            Click="OpenAppData_Click">
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Open folder" Margin="7,0,0,0"/></StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="About Ghost Server" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="AboutVersionText" Foreground="{StaticResource GhostMuted}" Margin="0,6,0,0"/>
+                                        <TextBlock Text=".NET 10 • WPF • SSH.NET • Windows 10/11"
+                                                   Foreground="{StaticResource GhostMuted}" Margin="0,3,0,0"/>
+                                        <TextBlock Text="SSH host-key pinning, session-only secrets and verified SFTP are enforced across remote operations."
+                                                   Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,8,20,0"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Style="{StaticResource AccentButton}" VerticalAlignment="Center"
+                                            Click="SaveSettings_Click">
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74E;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Save settings" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <TextBlock x:Name="SettingsStatusText" Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"/>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
         </Grid>

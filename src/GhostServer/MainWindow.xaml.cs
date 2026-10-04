@@ -1,6 +1,7 @@
 using System.IO;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security;
@@ -18,7 +19,8 @@ namespace GhostServer;
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly ProfileStore _profileStore = new();
-    private readonly SshServerClient _ssh = new();
+    private readonly SettingsStore _settingsStore = new();
+    private AppSettings _settings = new();
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
     private ServerProfile? _selectedProfile;
@@ -29,6 +31,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _rawLogs = string.Empty;
     private Button? _activeNavButton;
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private int _mutationActive;
     private bool _autoRefreshBusy;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
@@ -59,12 +62,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        var version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        AppVersionBadge.Text = version;
+        AboutVersionText.Text = $"Ghost Server {version}";
+        AppDataPathText.Text = GetAppDataDirectory();
+
         try
         {
+            _settings = await _settingsStore.LoadAsync();
+            ApplySettingsToUi();
+
             var profiles = await _profileStore.LoadAsync();
             foreach (var profile in profiles)
             {
                 Profiles.Add(profile);
+            }
+
+            if (_settings.LastSelectedServerId is Guid selectedId)
+            {
+                ServerList.SelectedItem = Profiles.FirstOrDefault(profile => profile.Id == selectedId);
             }
 
             StatusText.Text = Profiles.Count == 0
@@ -74,7 +90,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Profile load failed";
+            StatusText.Text = "Application data load failed";
             TerminalOutput.Text = SafeError(ex);
         }
     }
@@ -147,6 +163,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ShowPage(SecurityPage, "Security", "Read-only checks for common server security risks.");
     }
 
+    private void SettingsNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(SettingsNavButton);
+        ShowPage(SettingsPage, "Settings", "Monitoring, profile portability and application information.");
+        ApplySettingsToUi();
+    }
+
     private void SetActiveNavigation(Button button)
     {
         foreach (var nav in new[]
@@ -160,7 +183,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                      BackupNavButton,
                      LogsNavButton,
                      TerminalNavButton,
-                     SecurityNavButton
+                     SecurityNavButton,
+                     SettingsNavButton
                  })
         {
             nav.ClearValue(BackgroundProperty);
@@ -184,12 +208,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LogsPage.Visibility = Visibility.Collapsed;
         TerminalPage.Visibility = Visibility.Collapsed;
         SecurityPage.Visibility = Visibility.Collapsed;
+        SettingsPage.Visibility = Visibility.Collapsed;
         page.Visibility = Visibility.Visible;
         PageTitle.Text = title;
         PageSubtitle.Text = subtitle;
     }
 
-    private void ServerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void ServerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         SelectedProfile = ServerList.SelectedItem as ServerProfile;
         _pendingFingerprint = null;
@@ -199,10 +224,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (SelectedProfile is null)
         {
+            _settings.LastSelectedServerId = null;
+            await PersistSettingsQuietlyAsync();
             EmptyState.Visibility = Visibility.Visible;
             ServerDetail.Visibility = Visibility.Collapsed;
             return;
         }
+
+        _settings.LastSelectedServerId = SelectedProfile.Id;
+        await PersistSettingsQuietlyAsync();
 
         EmptyState.Visibility = Visibility.Collapsed;
         ServerDetail.Visibility = Visibility.Visible;
@@ -254,7 +284,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             FilesStatusText.Text = "Loading…";
             StatusText.Text = "Loading remote files…";
 
-            var files = await _ssh.GetRemoteFilesAsync(
+            var files = await SshServerClient.GetRemoteFilesAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 path);
@@ -337,7 +367,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             FilesStatusText.Text = $"Uploading {Path.GetFileName(dialog.FileName)}…";
-            await _ssh.UploadFileAsync(
+            await SshServerClient.UploadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 dialog.FileName,
@@ -392,7 +422,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             FilesStatusText.Text = $"Downloading {item.Name}…";
-            await _ssh.DownloadFileAsync(
+            await SshServerClient.DownloadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 item.FullPath,
@@ -442,7 +472,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (string.IsNullOrWhiteSpace(SelectedProfile.HostKeyFingerprint))
             {
-                var probe = await _ssh.ProbeAsync(SelectedProfile, SessionSecretBox.Password);
+                var probe = await SshServerClient.ProbeAsync(SelectedProfile, SessionSecretBox.Password);
                 if (probe.RequiresTrust && !string.IsNullOrWhiteSpace(probe.PresentedFingerprint))
                 {
                     _pendingFingerprint = probe.PresentedFingerprint;
@@ -456,7 +486,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
             }
 
-            var snapshot = await _ssh.GetSnapshotAsync(SelectedProfile, SessionSecretBox.Password);
+            var snapshot = await SshServerClient.GetSnapshotAsync(SelectedProfile, SessionSecretBox.Password);
             ApplySnapshot(snapshot);
             SelectedProfile.LastConnectedUtc = DateTimeOffset.UtcNow;
             await _profileStore.SaveAsync(Profiles);
@@ -524,7 +554,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             SetBusy("Loading services…");
-            ServicesList.ItemsSource = await _ssh.GetRunningServicesAsync(
+            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
                 SelectedProfile, SessionSecretBox.Password);
             StatusText.Text = "Service list refreshed";
         }
@@ -549,7 +579,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading services…";
-            ServicesManagerList.ItemsSource = await _ssh.GetServicesAsync(
+            ServicesManagerList.ItemsSource = await SshServerClient.GetServicesAsync(
                 SelectedProfile, SessionSecretBox.Password);
             SelectedServiceText.Text = "Select a service to manage it.";
             StatusText.Text = "Services refreshed";
@@ -592,10 +622,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (action is "stop" or "restart" &&
+            !ConfirmAdministrativeAction(
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} service?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {SelectedProfile.Name}?"))
+        {
+            return;
+        }
+
+        if (!TryAcquireMutation($"Preparing service {action}…"))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"{char.ToUpperInvariant(action[0])}{action[1..]}ing {service.Name}…";
-            var output = await _ssh.ServiceActionAsync(
+            var output = await SshServerClient.ServiceActionAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 service.Name,
@@ -608,6 +651,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             SelectedServiceText.Text = SafeError(ex);
             StatusText.Text = $"Service {action} failed";
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -628,7 +675,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Loading logs for {service.Name}…";
-            _rawLogs = await _ssh.GetServiceLogsAsync(
+            _rawLogs = await SshServerClient.GetServiceLogsAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 service.Name);
@@ -660,7 +707,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading Docker containers…";
-            DockerList.ItemsSource = await _ssh.GetDockerContainersAsync(
+            DockerList.ItemsSource = await SshServerClient.GetDockerContainersAsync(
                 SelectedProfile, SessionSecretBox.Password);
             SelectedDockerText.Text = "Select a Docker container.";
             StatusText.Text = "Docker containers refreshed";
@@ -703,10 +750,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (action is "stop" or "restart" &&
+            !ConfirmAdministrativeAction(
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} container?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {SelectedProfile.Name}?"))
+        {
+            return;
+        }
+
+        if (!TryAcquireMutation($"Preparing Docker {action}…"))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"Docker {action}: {container.Name}…";
-            var output = await _ssh.DockerActionAsync(
+            var output = await SshServerClient.DockerActionAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 container.Id,
@@ -718,6 +778,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             SelectedDockerText.Text = SafeError(ex);
             StatusText.Text = $"Docker {action} failed";
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -738,7 +802,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Loading logs for {container.Name}…";
-            _rawLogs = await _ssh.GetDockerLogsAsync(
+            _rawLogs = await SshServerClient.GetDockerLogsAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 container.Id);
@@ -769,7 +833,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading network state…";
-            NetworkOutput.Text = await _ssh.GetNetworkOverviewAsync(
+            NetworkOutput.Text = await SshServerClient.GetNetworkOverviewAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             NetworkOutput.ScrollToHome();
@@ -810,10 +874,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (!TryAcquireMutation("Preparing firewall change…"))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"Allowing firewall port {port}/{protocol}…";
-            var output = await _ssh.AllowFirewallPortAsync(
+            var output = await SshServerClient.AllowFirewallPortAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 port,
@@ -826,6 +895,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             NetworkOutput.Text = SafeError(ex);
             StatusText.Text = "Firewall change failed";
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -843,7 +916,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Checking package updates…";
-            var output = await _ssh.GetUpdateOverviewAsync(
+            var output = await SshServerClient.GetUpdateOverviewAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             UpdatesOutput.Text = string.IsNullOrWhiteSpace(output)
@@ -883,10 +956,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Title = "Save Ghost Server configuration snapshot",
             FileName = $"ghost-server-{safeServerName}-config-{DateTime.Now:yyyyMMdd-HHmmss}.tar.gz",
             Filter = "GZip archive (*.tar.gz)|*.tar.gz|All files|*.*",
-            OverwritePrompt = true
+            OverwritePrompt = true,
+            InitialDirectory = Directory.Exists(_settings.DefaultBackupDirectory)
+                ? _settings.DefaultBackupDirectory
+                : null
         };
 
         if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        if (!TryAcquireMutation("Preparing configuration snapshot…"))
         {
             return;
         }
@@ -896,14 +977,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             BackupOutput.Text = "Creating remote configuration snapshot…";
             StatusText.Text = "Creating configuration snapshot…";
-            remoteArchive = await _ssh.CreateConfigurationSnapshotAsync(
+            remoteArchive = await SshServerClient.CreateConfigurationSnapshotAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
 
             BackupOutput.AppendText($"{Environment.NewLine}Remote archive: {remoteArchive}");
             BackupOutput.AppendText($"{Environment.NewLine}Downloading securely over SFTP…");
 
-            await _ssh.DownloadFileAsync(
+            await SshServerClient.DownloadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 remoteArchive,
@@ -925,7 +1006,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 try
                 {
-                    await _ssh.DeleteRemoteFileAsync(
+                    await SshServerClient.DeleteRemoteFileAsync(
                         SelectedProfile,
                         SessionSecretBox.Password,
                         remoteArchive);
@@ -939,6 +1020,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             BackupOutput.ScrollToEnd();
+            Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
 
@@ -957,7 +1039,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading recent logs…";
-            _rawLogs = await _ssh.GetRecentLogsAsync(
+            _rawLogs = await SshServerClient.GetRecentLogsAsync(
                 SelectedProfile, SessionSecretBox.Password);
             ApplyLogFilter();
             LogsOutput.ScrollToEnd();
@@ -1061,7 +1143,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Running command…";
-            var output = await _ssh.RunCommandAsync(SelectedProfile, SessionSecretBox.Password, command);
+            var output = await SshServerClient.RunCommandAsync(SelectedProfile, SessionSecretBox.Password, command);
             TerminalOutput.AppendText($"> {command}{Environment.NewLine}");
             TerminalOutput.AppendText(string.IsNullOrWhiteSpace(output) ? "(no output)" : output);
             TerminalOutput.AppendText(Environment.NewLine + Environment.NewLine);
@@ -1124,7 +1206,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Running read-only security scan…";
-            SecurityOutput.Text = await _ssh.RunSecurityScanAsync(
+            SecurityOutput.Text = await SshServerClient.RunSecurityScanAsync(
                 SelectedProfile, SessionSecretBox.Password);
             StatusText.Text = "Security scan completed";
         }
@@ -1402,12 +1484,202 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
     }
 
+    private void BrowseBackupFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Choose default Ghost Server backup folder",
+            InitialDirectory = Directory.Exists(_settings.DefaultBackupDirectory)
+                ? _settings.DefaultBackupDirectory
+                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            DefaultBackupFolderBox.Text = dialog.FolderName;
+        }
+    }
+
+    private async void SaveSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _settings.DashboardRefreshSeconds = ReadRefreshInterval();
+            _settings.DefaultBackupDirectory = string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text)
+                ? null
+                : DefaultBackupFolderBox.Text.Trim();
+            _settings.Normalize();
+
+            _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
+            await _settingsStore.SaveAsync(_settings);
+            SettingsStatusText.Text = "Settings saved.";
+            StatusText.Text = "Settings saved";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Settings save failed";
+        }
+    }
+
+    private async void ExportProfiles_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export Ghost Server profiles",
+            FileName = $"GhostServer-Profiles-{DateTime.Now:yyyyMMdd}.json",
+            Filter = "JSON files (*.json)|*.json|All files|*.*",
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ProfileStore.ExportAsync(dialog.FileName, Profiles);
+            SettingsStatusText.Text = $"Exported {Profiles.Count} profile(s). No passwords or passphrases were included.";
+            StatusText.Text = "Profiles exported";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Profile export failed";
+        }
+    }
+
+    private async void ImportProfiles_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import Ghost Server profiles",
+            Filter = "JSON files (*.json)|*.json|All files|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var imported = await ProfileStore.ImportAsync(dialog.FileName);
+            var confirmed = MessageBox.Show(
+                this,
+                $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
+                "Import server profiles",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
+
+            if (confirmed != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            foreach (var incoming in imported)
+            {
+                var existing = Profiles.FirstOrDefault(profile =>
+                    profile.Id == incoming.Id ||
+                    (string.Equals(profile.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
+                     profile.Port == incoming.Port &&
+                     string.Equals(profile.Username, incoming.Username, StringComparison.OrdinalIgnoreCase)));
+
+                if (existing is null)
+                {
+                    Profiles.Add(incoming);
+                    continue;
+                }
+
+                var index = Profiles.IndexOf(existing);
+                Profiles[index] = incoming;
+            }
+
+            await _profileStore.SaveAsync(Profiles);
+            SettingsStatusText.Text = $"Imported and validated {imported.Count} profile(s).";
+            StatusText.Text = "Profiles imported";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Profile import failed";
+        }
+    }
+
+    private void OpenAppData_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = GetAppDataDirectory();
+            Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+        }
+    }
+
+    private void ApplySettingsToUi()
+    {
+        _settings.Normalize();
+        _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
+        DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
+        AutoRefreshToggle.Content = $"Auto refresh • {_settings.DashboardRefreshSeconds}s";
+
+        var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
+        foreach (var item in RefreshIntervalBox.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), tag, StringComparison.Ordinal))
+            {
+                RefreshIntervalBox.SelectedItem = item;
+                break;
+            }
+        }
+    }
+
+    private int ReadRefreshInterval()
+    {
+        if (RefreshIntervalBox.SelectedItem is ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
+        {
+            return seconds;
+        }
+
+        return 30;
+    }
+
+    private async Task PersistSettingsQuietlyAsync()
+    {
+        try
+        {
+            await _settingsStore.SaveAsync(_settings);
+        }
+        catch
+        {
+            // Selection persistence is best-effort; explicit Settings save reports failures.
+        }
+    }
+
+    private static string GetAppDataDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "GhostServer");
+
     private void AutoRefresh_Changed(object sender, RoutedEventArgs e)
     {
         if (AutoRefreshToggle.IsChecked == true)
         {
             _dashboardTimer.Start();
-            StatusText.Text = "Dashboard auto-refresh enabled (30 seconds)";
+            StatusText.Text = $"Dashboard auto-refresh enabled ({_settings.DashboardRefreshSeconds} seconds)";
         }
         else
         {
@@ -1429,11 +1701,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _autoRefreshBusy = true;
         try
         {
-            var snapshot = await _ssh.GetSnapshotAsync(
+            var snapshot = await SshServerClient.GetSnapshotAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             ApplySnapshot(snapshot);
-            ServicesList.ItemsSource = await _ssh.GetRunningServicesAsync(
+            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             ConnectionStatus.Text = "Connected • auto-refreshed";
@@ -1452,6 +1724,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _autoRefreshBusy = false;
         }
+    }
+
+    private bool ConfirmAdministrativeAction(string title, string message)
+    {
+        return MessageBox.Show(
+                   this,
+                   message + "\n\nThe action is sent to the selected remote server.",
+                   title,
+                   MessageBoxButton.YesNo,
+                   MessageBoxImage.Warning,
+                   MessageBoxResult.No) == MessageBoxResult.Yes;
+    }
+
+    private bool TryAcquireMutation(string message)
+    {
+        if (Interlocked.CompareExchange(ref _mutationActive, 1, 0) != 0)
+        {
+            StatusText.Text = "Another administrative action is already running.";
+            return false;
+        }
+
+        StatusText.Text = message;
+        return true;
     }
 
     private void ShowAddError(string message)
