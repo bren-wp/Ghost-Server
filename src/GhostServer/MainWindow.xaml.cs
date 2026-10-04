@@ -1,6 +1,7 @@
 using System.IO;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security;
@@ -18,7 +19,9 @@ namespace GhostServer;
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly ProfileStore _profileStore = new();
+    private readonly SettingsStore _settingsStore = new();
     private readonly SshServerClient _ssh = new();
+    private AppSettings _settings = new();
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
     private ServerProfile? _selectedProfile;
@@ -59,12 +62,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        var version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        AppVersionBadge.Text = version;
+        AboutVersionText.Text = $"Ghost Server {version}";
+        AppDataPathText.Text = GetAppDataDirectory();
+
         try
         {
+            _settings = await _settingsStore.LoadAsync();
+            ApplySettingsToUi();
+
             var profiles = await _profileStore.LoadAsync();
             foreach (var profile in profiles)
             {
                 Profiles.Add(profile);
+            }
+
+            if (_settings.LastSelectedServerId is Guid selectedId)
+            {
+                ServerList.SelectedItem = Profiles.FirstOrDefault(profile => profile.Id == selectedId);
             }
 
             StatusText.Text = Profiles.Count == 0
@@ -74,7 +90,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Profile load failed";
+            StatusText.Text = "Application data load failed";
             TerminalOutput.Text = SafeError(ex);
         }
     }
@@ -147,6 +163,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ShowPage(SecurityPage, "Security", "Read-only checks for common server security risks.");
     }
 
+    private void SettingsNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(SettingsNavButton);
+        ShowPage(SettingsPage, "Settings", "Monitoring, profile portability and application information.");
+        ApplySettingsToUi();
+    }
+
     private void SetActiveNavigation(Button button)
     {
         foreach (var nav in new[]
@@ -160,7 +183,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                      BackupNavButton,
                      LogsNavButton,
                      TerminalNavButton,
-                     SecurityNavButton
+                     SecurityNavButton,
+                     SettingsNavButton
                  })
         {
             nav.ClearValue(BackgroundProperty);
@@ -184,12 +208,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LogsPage.Visibility = Visibility.Collapsed;
         TerminalPage.Visibility = Visibility.Collapsed;
         SecurityPage.Visibility = Visibility.Collapsed;
+        SettingsPage.Visibility = Visibility.Collapsed;
         page.Visibility = Visibility.Visible;
         PageTitle.Text = title;
         PageSubtitle.Text = subtitle;
     }
 
-    private void ServerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void ServerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         SelectedProfile = ServerList.SelectedItem as ServerProfile;
         _pendingFingerprint = null;
@@ -199,10 +224,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (SelectedProfile is null)
         {
+            _settings.LastSelectedServerId = null;
+            await PersistSettingsQuietlyAsync();
             EmptyState.Visibility = Visibility.Visible;
             ServerDetail.Visibility = Visibility.Collapsed;
             return;
         }
+
+        _settings.LastSelectedServerId = SelectedProfile.Id;
+        await PersistSettingsQuietlyAsync();
 
         EmptyState.Visibility = Visibility.Collapsed;
         ServerDetail.Visibility = Visibility.Visible;
@@ -883,7 +913,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Title = "Save Ghost Server configuration snapshot",
             FileName = $"ghost-server-{safeServerName}-config-{DateTime.Now:yyyyMMdd-HHmmss}.tar.gz",
             Filter = "GZip archive (*.tar.gz)|*.tar.gz|All files|*.*",
-            OverwritePrompt = true
+            OverwritePrompt = true,
+            InitialDirectory = Directory.Exists(_settings.DefaultBackupDirectory)
+                ? _settings.DefaultBackupDirectory
+                : null
         };
 
         if (dialog.ShowDialog(this) != true)
@@ -1402,12 +1435,201 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
     }
 
+    private void BrowseBackupFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Choose default Ghost Server backup folder",
+            InitialDirectory = Directory.Exists(_settings.DefaultBackupDirectory)
+                ? _settings.DefaultBackupDirectory
+                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            DefaultBackupFolderBox.Text = dialog.FolderName;
+        }
+    }
+
+    private async void SaveSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _settings.DashboardRefreshSeconds = ReadRefreshInterval();
+            _settings.DefaultBackupDirectory = string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text)
+                ? null
+                : DefaultBackupFolderBox.Text.Trim();
+            _settings.Normalize();
+
+            _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
+            await _settingsStore.SaveAsync(_settings);
+            SettingsStatusText.Text = "Settings saved.";
+            StatusText.Text = "Settings saved";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Settings save failed";
+        }
+    }
+
+    private async void ExportProfiles_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export Ghost Server profiles",
+            FileName = $"GhostServer-Profiles-{DateTime.Now:yyyyMMdd}.json",
+            Filter = "JSON files (*.json)|*.json|All files|*.*",
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await _profileStore.ExportAsync(dialog.FileName, Profiles);
+            SettingsStatusText.Text = $"Exported {Profiles.Count} profile(s). No passwords or passphrases were included.";
+            StatusText.Text = "Profiles exported";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Profile export failed";
+        }
+    }
+
+    private async void ImportProfiles_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import Ghost Server profiles",
+            Filter = "JSON files (*.json)|*.json|All files|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var imported = await _profileStore.ImportAsync(dialog.FileName);
+            var confirmed = MessageBox.Show(
+                this,
+                $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
+                "Import server profiles",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
+
+            if (confirmed != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            foreach (var incoming in imported)
+            {
+                var existing = Profiles.FirstOrDefault(profile =>
+                    profile.Id == incoming.Id ||
+                    (string.Equals(profile.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
+                     profile.Port == incoming.Port &&
+                     string.Equals(profile.Username, incoming.Username, StringComparison.OrdinalIgnoreCase)));
+
+                if (existing is null)
+                {
+                    Profiles.Add(incoming);
+                    continue;
+                }
+
+                var index = Profiles.IndexOf(existing);
+                Profiles[index] = incoming;
+            }
+
+            await _profileStore.SaveAsync(Profiles);
+            SettingsStatusText.Text = $"Imported and validated {imported.Count} profile(s).";
+            StatusText.Text = "Profiles imported";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Profile import failed";
+        }
+    }
+
+    private void OpenAppData_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = GetAppDataDirectory();
+            Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+        }
+    }
+
+    private void ApplySettingsToUi()
+    {
+        _settings.Normalize();
+        _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
+        DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
+
+        var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
+        foreach (var item in RefreshIntervalBox.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), tag, StringComparison.Ordinal))
+            {
+                RefreshIntervalBox.SelectedItem = item;
+                break;
+            }
+        }
+    }
+
+    private int ReadRefreshInterval()
+    {
+        if (RefreshIntervalBox.SelectedItem is ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
+        {
+            return seconds;
+        }
+
+        return 30;
+    }
+
+    private async Task PersistSettingsQuietlyAsync()
+    {
+        try
+        {
+            await _settingsStore.SaveAsync(_settings);
+        }
+        catch
+        {
+            // Selection persistence is best-effort; explicit Settings save reports failures.
+        }
+    }
+
+    private static string GetAppDataDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "GhostServer");
+
     private void AutoRefresh_Changed(object sender, RoutedEventArgs e)
     {
         if (AutoRefreshToggle.IsChecked == true)
         {
             _dashboardTimer.Start();
-            StatusText.Text = "Dashboard auto-refresh enabled (30 seconds)";
+            StatusText.Text = $"Dashboard auto-refresh enabled ({_settings.DashboardRefreshSeconds} seconds)";
         }
         else
         {
