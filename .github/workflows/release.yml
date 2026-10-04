@@ -71,6 +71,8 @@ jobs:
           if (-not (Test-Path $iscc)) {
             throw "ISCC.exe was not found after Inno Setup installation."
           }
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          $env:GHOST_SERVER_VERSION = $metadata.version
           & $iscc installer/GhostServer.iss
           if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup failed with exit code $LASTEXITCODE."
