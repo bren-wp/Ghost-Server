@@ -916,6 +916,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OpenAddServer_Click(object sender, RoutedEventArgs e)
     {
+        _editingProfile = null;
+        AddServerTitle.Text = "Add server";
+        SaveServerButton.Content = "Save server";
         AddError.Visibility = Visibility.Collapsed;
         AddName.Clear();
         AddHost.Clear();
@@ -927,8 +930,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AddName.Focus();
     }
 
-    private void CloseAddServer_Click(object sender, RoutedEventArgs e) =>
+    private void OpenEditServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        _editingProfile = SelectedProfile;
+        AddServerTitle.Text = "Edit server";
+        SaveServerButton.Content = "Save changes";
+        AddError.Visibility = Visibility.Collapsed;
+        AddName.Text = SelectedProfile.Name;
+        AddHost.Text = SelectedProfile.Host;
+        AddUsername.Text = SelectedProfile.Username;
+        AddPort.Text = SelectedProfile.Port.ToString(CultureInfo.InvariantCulture);
+        AddPrivateKeyPath.Text = SelectedProfile.PrivateKeyPath ?? string.Empty;
+
+        AddAuthentication.SelectedIndex = string.Equals(
+            SelectedProfile.Authentication,
+            "PrivateKey",
+            StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+
+        AddServerOverlay.Visibility = Visibility.Visible;
+        AddName.Focus();
+        AddName.SelectAll();
+    }
+
+    private void CloseAddServer_Click(object sender, RoutedEventArgs e)
+    {
         AddServerOverlay.Visibility = Visibility.Collapsed;
+        _editingProfile = null;
+    }
 
     private void AddAuthentication_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -940,6 +973,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         PrivateKeyPanel.Visibility = string.Equals(selected.Tag?.ToString(), "PrivateKey", StringComparison.Ordinal)
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    private void BrowsePrivateKey_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select SSH private key",
+            CheckFileExists = true,
+            Multiselect = false,
+            Filter = "SSH private keys|id_*;*.pem;*.key;*.ppk|All files|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            AddPrivateKeyPath.Text = dialog.FileName;
+        }
     }
 
     private async void SaveServer_Click(object sender, RoutedEventArgs e)
@@ -963,38 +1012,167 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var name = AddName.Text.Trim();
+        var host = AddHost.Text.Trim();
+        var username = AddUsername.Text.Trim();
+        var keyPath = auth == "PrivateKey" ? AddPrivateKeyPath.Text.Trim() : null;
+
         if (Profiles.Any(profile =>
-                string.Equals(profile.Host, AddHost.Text.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                profile.Id != _editingProfile?.Id &&
+                string.Equals(profile.Host, host, StringComparison.OrdinalIgnoreCase) &&
                 profile.Port == port &&
-                string.Equals(profile.Username, AddUsername.Text.Trim(), StringComparison.OrdinalIgnoreCase)))
+                string.Equals(profile.Username, username, StringComparison.OrdinalIgnoreCase)))
         {
             ShowAddError("This SSH endpoint and username already exist.");
             return;
         }
 
+        var editedExisting = _editingProfile is not null;
+        var oldProfile = _editingProfile;
         var profile = new ServerProfile
         {
-            Name = AddName.Text.Trim(),
-            Host = AddHost.Text.Trim(),
+            Id = oldProfile?.Id ?? Guid.NewGuid(),
+            Name = name,
+            Host = host,
             Port = port,
-            Username = AddUsername.Text.Trim(),
+            Username = username,
             Authentication = auth,
-            PrivateKeyPath = auth == "PrivateKey" ? AddPrivateKeyPath.Text.Trim() : null
+            PrivateKeyPath = keyPath,
+            HostKeyFingerprint = oldProfile is not null &&
+                                 string.Equals(oldProfile.Host, host, StringComparison.OrdinalIgnoreCase) &&
+                                 oldProfile.Port == port
+                ? oldProfile.HostKeyFingerprint
+                : null,
+            LastConnectedUtc = oldProfile?.LastConnectedUtc
         };
+
+        var replaceIndex = oldProfile is null ? -1 : Profiles.IndexOf(oldProfile);
 
         try
         {
-            Profiles.Add(profile);
+            if (editedExisting && replaceIndex >= 0)
+            {
+                Profiles[replaceIndex] = profile;
+            }
+            else
+            {
+                Profiles.Add(profile);
+            }
+
             await _profileStore.SaveAsync(Profiles);
             AddServerOverlay.Visibility = Visibility.Collapsed;
+            _editingProfile = null;
             ServerList.SelectedItem = profile;
-            StatusText.Text = $"Saved {profile.Name}. Approve the SSH host key before first connection.";
+            ServerList.ScrollIntoView(profile);
+            StatusText.Text = editedExisting
+                ? $"Updated {profile.Name}."
+                : $"Saved {profile.Name}. Approve the SSH host key before first connection.";
         }
         catch (Exception ex)
         {
-            Profiles.Remove(profile);
+            if (editedExisting && replaceIndex >= 0 && oldProfile is not null)
+            {
+                Profiles[replaceIndex] = oldProfile;
+                ServerList.SelectedItem = oldProfile;
+            }
+            else
+            {
+                Profiles.Remove(profile);
+            }
+
             ShowAddError(SafeError(ex));
         }
+    }
+
+    private void DeleteServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        _pendingDeleteProfile = SelectedProfile;
+        ConfirmMessage.Text = $"Delete local profile “{SelectedProfile.Name}” ({SelectedProfile.Endpoint})?";
+        ConfirmOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CancelDelete_Click(object sender, RoutedEventArgs e)
+    {
+        ConfirmOverlay.Visibility = Visibility.Collapsed;
+        _pendingDeleteProfile = null;
+    }
+
+    private async void ConfirmDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingDeleteProfile is null)
+        {
+            ConfirmOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var profile = _pendingDeleteProfile;
+        var index = Profiles.IndexOf(profile);
+        try
+        {
+            Profiles.Remove(profile);
+            await _profileStore.SaveAsync(Profiles);
+            ConfirmOverlay.Visibility = Visibility.Collapsed;
+            _pendingDeleteProfile = null;
+            SelectedProfile = null;
+            ServerList.SelectedItem = null;
+            SessionSecretBox.Clear();
+            EmptyState.Visibility = Visibility.Visible;
+            ServerDetail.Visibility = Visibility.Collapsed;
+            StatusText.Text = $"Deleted local profile {profile.Name}";
+        }
+        catch (Exception ex)
+        {
+            if (!Profiles.Contains(profile))
+            {
+                if (index >= 0 && index <= Profiles.Count)
+                {
+                    Profiles.Insert(index, profile);
+                }
+                else
+                {
+                    Profiles.Add(profile);
+                }
+            }
+
+            ConfirmOverlay.Visibility = Visibility.Collapsed;
+            _pendingDeleteProfile = null;
+            StatusText.Text = SafeError(ex);
+        }
+    }
+
+    private async void ResetHostKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        SelectedProfile.HostKeyFingerprint = null;
+        try
+        {
+            await _profileStore.SaveAsync(Profiles);
+            ConnectionStatus.Text = "Host key not approved";
+            ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
+            HostKeyPanel.Visibility = Visibility.Collapsed;
+            StatusText.Text = $"SSH trust reset for {SelectedProfile.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = SafeError(ex);
+        }
+    }
+
+    private void LockSession_Click(object sender, RoutedEventArgs e)
+    {
+        SessionSecretBox.Clear();
+        StatusText.Text = "Session secret cleared from memory";
+        ConnectionStatus.Text = SelectedProfile is null ? "Not connected" : "Session locked";
+        ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
     }
 
     private void ShowAddError(string message)
