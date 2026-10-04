@@ -395,52 +395,55 @@ crontab -l 2>/dev/null || echo "(no crontab entries)"
         var script = "#!/usr/bin/env bash\nset -euo pipefail\n" + userCommand.Trim() + "\n";
         var encodedScript = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(script));
 
-        var command = $"""
-set -eu
-if ! sudo -n true >/dev/null 2>&1; then
-  echo "Task creation blocked: passwordless sudo is required." >&2
-  exit 40
-fi
-
-slug='{{slug}}'
-script="/usr/local/lib/ghost-server/tasks/ghost-server-$slug.sh"
-service="/etc/systemd/system/ghost-server-$slug.service"
-timer="/etc/systemd/system/ghost-server-$slug.timer"
-
-sudo -n install -d -m 700 /usr/local/lib/ghost-server/tasks
-printf '%s' '{{encodedScript}}' | base64 -d | sudo -n tee "$script" >/dev/null
-sudo -n chmod 700 "$script"
-sudo -n chown root:root "$script"
-
-sudo -n tee "$service" >/dev/null <<EOF
-[Unit]
-Description=Ghost Server scheduled task: {{slug}}
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=$script
-EOF
-
-sudo -n tee "$timer" >/dev/null <<EOF
-[Unit]
-Description=Ghost Server timer: {{slug}}
-
-[Timer]
-OnCalendar={{onCalendar}}
-Persistent=true
-AccuracySec=1m
-Unit=ghost-server-{{slug}}.service
-
-[Install]
-WantedBy=timers.target
-EOF
-
-sudo -n systemctl daemon-reload
-sudo -n systemctl enable --now "ghost-server-$slug.timer"
-echo "Created Ghost Server task '$slug' ({{schedule}})."
-""";
+        var command = string.Join(
+            "\n",
+            new[]
+            {
+                "set -eu",
+                "if ! sudo -n true >/dev/null 2>&1; then",
+                "  echo \"Task creation blocked: passwordless sudo is required.\" >&2",
+                "  exit 40",
+                "fi",
+                string.Empty,
+                $"slug='{slug}'",
+                "script=\"/usr/local/lib/ghost-server/tasks/ghost-server-$slug.sh\"",
+                "service=\"/etc/systemd/system/ghost-server-$slug.service\"",
+                "timer=\"/etc/systemd/system/ghost-server-$slug.timer\"",
+                string.Empty,
+                "sudo -n install -d -m 700 /usr/local/lib/ghost-server/tasks",
+                $"printf '%s' '{encodedScript}' | base64 -d | sudo -n tee \"$script\" >/dev/null",
+                "sudo -n chmod 700 \"$script\"",
+                "sudo -n chown root:root \"$script\"",
+                string.Empty,
+                "sudo -n tee \"$service\" >/dev/null <<EOF",
+                "[Unit]",
+                $"Description=Ghost Server scheduled task: {slug}",
+                "After=network-online.target",
+                "Wants=network-online.target",
+                string.Empty,
+                "[Service]",
+                "Type=oneshot",
+                "ExecStart=$script",
+                "EOF",
+                string.Empty,
+                "sudo -n tee \"$timer\" >/dev/null <<EOF",
+                "[Unit]",
+                $"Description=Ghost Server timer: {slug}",
+                string.Empty,
+                "[Timer]",
+                $"OnCalendar={onCalendar}",
+                "Persistent=true",
+                "AccuracySec=1m",
+                $"Unit=ghost-server-{slug}.service",
+                string.Empty,
+                "[Install]",
+                "WantedBy=timers.target",
+                "EOF",
+                string.Empty,
+                "sudo -n systemctl daemon-reload",
+                "sudo -n systemctl enable --now \"ghost-server-$slug.timer\"",
+                $"echo \"Created Ghost Server task '$slug' ({schedule}).\""
+            });
 
         return ExecuteCheckedAsync(
             profile,
@@ -456,24 +459,28 @@ echo "Created Ghost Server task '$slug' ({{schedule}})."
         CancellationToken cancellationToken = default)
     {
         var slug = NormalizeScheduledTaskName(name);
-        var command = $"""
-set -eu
-if ! sudo -n true >/dev/null 2>&1; then
-  echo "Task deletion blocked: passwordless sudo is required." >&2
-  exit 41
-fi
 
-slug='{{slug}}'
-timer="/etc/systemd/system/ghost-server-$slug.timer"
-service="/etc/systemd/system/ghost-server-$slug.service"
-script="/usr/local/lib/ghost-server/tasks/ghost-server-$slug.sh"
-
-sudo -n systemctl disable --now "ghost-server-$slug.timer" 2>/dev/null || true
-sudo -n rm -f "$timer" "$service" "$script"
-sudo -n systemctl daemon-reload
-sudo -n systemctl reset-failed "ghost-server-$slug.service" 2>/dev/null || true
-echo "Deleted Ghost Server task '$slug'."
-""";
+        var command = string.Join(
+            "\n",
+            new[]
+            {
+                "set -eu",
+                "if ! sudo -n true >/dev/null 2>&1; then",
+                "  echo \"Task deletion blocked: passwordless sudo is required.\" >&2",
+                "  exit 41",
+                "fi",
+                string.Empty,
+                $"slug='{slug}'",
+                "timer=\"/etc/systemd/system/ghost-server-$slug.timer\"",
+                "service=\"/etc/systemd/system/ghost-server-$slug.service\"",
+                "script=\"/usr/local/lib/ghost-server/tasks/ghost-server-$slug.sh\"",
+                string.Empty,
+                "sudo -n systemctl disable --now \"ghost-server-$slug.timer\" 2>/dev/null || true",
+                "sudo -n rm -f \"$timer\" \"$service\" \"$script\"",
+                "sudo -n systemctl daemon-reload",
+                "sudo -n systemctl reset-failed \"ghost-server-$slug.service\" 2>/dev/null || true",
+                "echo \"Deleted Ghost Server task '$slug'.\""
+            });
 
         return ExecuteCheckedAsync(
             profile,
