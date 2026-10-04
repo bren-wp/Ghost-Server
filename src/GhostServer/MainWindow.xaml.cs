@@ -623,6 +623,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (action is "stop" or "restart" &&
+            !ConfirmAdministrativeAction(
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} service?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {SelectedProfile.Name}?"))
+        {
+            return;
+        }
+
         if (!await TryAcquireMutationAsync($"Preparing service {action}…"))
         {
             return;
@@ -740,6 +748,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (DockerList.SelectedItem is not DockerContainerStatus container)
         {
             SelectedDockerText.Text = "Select a Docker container first.";
+            return;
+        }
+
+        if (action is "stop" or "restart" &&
+            !ConfirmAdministrativeAction(
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} container?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {SelectedProfile.Name}?"))
+        {
             return;
         }
 
@@ -1618,6 +1634,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settings.Normalize();
         _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
         DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
+        AutoRefreshToggle.Content = $"Auto refresh • {_settings.DashboardRefreshSeconds}s";
 
         var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
         foreach (var item in RefreshIntervalBox.Items.OfType<ComboBoxItem>())
@@ -1708,6 +1725,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _autoRefreshBusy = false;
         }
+    }
+
+    private bool ConfirmAdministrativeAction(string title, string message)
+    {
+        return MessageBox.Show(
+                   this,
+                   message + "\n\nThe action is sent to the selected remote server.",
+                   title,
+                   MessageBoxButton.YesNo,
+                   MessageBoxImage.Warning,
+                   MessageBoxResult.No) == MessageBoxResult.Yes;
     }
 
     private async Task<bool> TryAcquireMutationAsync(string message)
