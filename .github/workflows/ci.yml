@@ -1,0 +1,61 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore GhostServer.sln
+
+      - name: Build
+        run: dotnet build GhostServer.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Publish portable x64
+        run: >
+          dotnet publish src/GhostServer/GhostServer.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None
+          -o artifacts/portable-x64
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = "artifacts/portable-x64/GhostServer.exe"
+          if (-not (Test-Path $exe)) {
+            throw "GhostServer.exe was not produced."
+          }
+          $size = (Get-Item $exe).Length
+          if ($size -lt 1MB) {
+            throw "GhostServer.exe is unexpectedly small: $size bytes"
+          }
+          Write-Host "Verified GhostServer.exe ($size bytes)"
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GhostServer-win-x64
+          path: artifacts/portable-x64/
+          if-no-files-found: error
