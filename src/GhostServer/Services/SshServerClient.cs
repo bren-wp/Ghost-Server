@@ -110,6 +110,146 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
+    public Task<IReadOnlyList<ServiceStatus>> GetServicesAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command =
+            "systemctl list-units --type=service --all --no-legend --no-pager 2>/dev/null | head -n 100";
+
+        return Task.Run<IReadOnlyList<ServiceStatus>>(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedClient(profile, secret);
+            client.Connect();
+            using var result = client.RunCommand(command);
+
+            if (result.ExitStatus != 0)
+            {
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(result.Error)
+                        ? "Unable to read system services."
+                        : result.Error.Trim());
+            }
+
+            return ParseServices(result.Result);
+        }, cancellationToken);
+    }
+
+    public Task<string> ServiceActionAsync(
+        ServerProfile profile,
+        string? secret,
+        string serviceName,
+        string action,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedAction = action.ToLowerInvariant();
+        if (normalizedAction is not ("start" or "stop" or "restart"))
+        {
+            throw new ArgumentOutOfRangeException(nameof(action), "Unsupported service action.");
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                serviceName,
+                @"^[A-Za-z0-9][A-Za-z0-9@_.:-]*\.service$",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            throw new ArgumentException("Invalid systemd service identifier.", nameof(serviceName));
+        }
+
+        return ExecuteCheckedAsync(
+            profile,
+            secret,
+            $"sudo -n systemctl {normalizedAction} {serviceName}",
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<DockerContainerStatus>> GetDockerContainersAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command =
+            "docker ps -a --format '{{.ID}}\\t{{.Names}}\\t{{.Image}}\\t{{.State}}\\t{{.Status}}'";
+
+        return Task.Run<IReadOnlyList<DockerContainerStatus>>(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedClient(profile, secret);
+            client.Connect();
+            using var result = client.RunCommand(command);
+
+            if (result.ExitStatus != 0)
+            {
+                var error = string.IsNullOrWhiteSpace(result.Error)
+                    ? "Docker is unavailable or the current SSH user cannot access it."
+                    : result.Error.Trim();
+                throw new InvalidOperationException(error);
+            }
+
+            var containers = new List<DockerContainerStatus>();
+            foreach (var raw in result.Result.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = raw.TrimEnd('\r').Split('\t');
+                if (parts.Length < 5)
+                {
+                    continue;
+                }
+
+                containers.Add(new DockerContainerStatus
+                {
+                    Id = parts[0],
+                    Name = parts[1],
+                    Image = parts[2],
+                    State = parts[3],
+                    Status = parts[4]
+                });
+            }
+
+            return containers;
+        }, cancellationToken);
+    }
+
+    public Task<string> DockerActionAsync(
+        ServerProfile profile,
+        string? secret,
+        string container,
+        string action,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedAction = action.ToLowerInvariant();
+        if (normalizedAction is not ("start" or "stop" or "restart"))
+        {
+            throw new ArgumentOutOfRangeException(nameof(action), "Unsupported Docker action.");
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                container,
+                @"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            throw new ArgumentException("Invalid Docker container identifier.", nameof(container));
+        }
+
+        return ExecuteCheckedAsync(
+            profile,
+            secret,
+            $"docker {normalizedAction} {container}",
+            cancellationToken);
+    }
+
+    public Task<string> GetRecentLogsAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command =
+            "journalctl -n 200 --no-pager -o short-iso 2>/dev/null || dmesg --ctime 2>/dev/null | tail -n 200";
+
+        return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
     public Task<string> RunCommandAsync(
         ServerProfile profile,
         string? secret,
@@ -253,6 +393,57 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
             DiskTotalGb = disk.Item2,
             Docker = values.GetValueOrDefault("DOCKER", "Not detected")
         };
+    }
+
+    private static IReadOnlyList<ServiceStatus> ParseServices(string output)
+    {
+        var services = new List<ServiceStatus>();
+        foreach (var raw in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = raw.Trim();
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 4)
+            {
+                continue;
+            }
+
+            services.Add(new ServiceStatus
+            {
+                Name = parts[0],
+                State = $"{parts[2]}/{parts[3]}",
+                Description = parts.Length > 4 ? string.Join(' ', parts.Skip(4)) : string.Empty
+            });
+        }
+
+        return services;
+    }
+
+    private Task<string> ExecuteCheckedAsync(
+        ServerProfile profile,
+        string? secret,
+        string command,
+        CancellationToken cancellationToken)
+    {
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedClient(profile, secret);
+            client.Connect();
+            using var result = client.RunCommand(command);
+
+            var output = result.Result?.TrimEnd() ?? string.Empty;
+            var error = result.Error?.TrimEnd() ?? string.Empty;
+
+            if (result.ExitStatus != 0)
+            {
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(error)
+                        ? $"Remote command failed with exit code {result.ExitStatus}."
+                        : error);
+            }
+
+            return string.IsNullOrWhiteSpace(output) ? "Command completed." : output;
+        }, cancellationToken);
     }
 
     private static (long, long) ParsePair(string? value)
