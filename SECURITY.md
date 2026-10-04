@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.5.x`
+The active development line is `0.6.x`
 
 ## SSH trust model
 
@@ -56,3 +56,27 @@ Profile export/import never includes passwords or private-key passphrases becaus
 ## Runtime diagnostics
 
 Unexpected process-level failures may write a bounded local diagnostic log under the Ghost Server app-data `Logs` directory. Ghost Server does not intentionally include session secrets in these diagnostics. Fatal WPF dispatcher exceptions are logged but are not swallowed so the application does not continue in an unknown state.
+
+
+## Safe Update
+
+Safe Update is an explicit remote mutation and never runs automatically. Before any package change, Ghost Server requires a configuration snapshot to be created remotely and downloaded to the local Windows PC over the verified SFTP channel.
+
+Additional guardrails:
+- the remote root filesystem must have at least 1 GiB free;
+- the connected account must have non-interactive `sudo -n` access;
+- only APT, DNF, YUM, Zypper and pacman are supported;
+- APT preserves existing configuration files with `--force-confold`;
+- Ghost Server does not issue an automatic reboot;
+- the post-update health report is read-only and reports failed systemd units, disk state, reboot-required state and remaining updates.
+
+## Configuration restore
+
+Configuration restore is not presented as a universal package rollback. Ghost Server uploads the selected local snapshot over verified SFTP to a generated `/tmp/ghost-server-restore-<guid>.tar.gz` path. Before extraction, the remote archive must pass all of these checks:
+- valid gzip tar archive;
+- no absolute paths;
+- no `..` path traversal segments;
+- every entry must remain inside the allowlist used by Ghost Server snapshots;
+- only regular files and directories are accepted; symbolic links, hard links and special filesystem entries are rejected.
+
+The restore does not automatically restart services or reboot the server. The temporary uploaded archive is deleted after the restore attempt.

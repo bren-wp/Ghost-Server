@@ -68,3 +68,15 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - disruptive Service and Docker stop/restart actions require confirmation;
 - only one remote mutation action may execute at a time, preventing accidental overlapping administrative commands;
 - crash diagnostics are local, bounded and surfaced through the app-data location.
+
+
+## v0.6 Safe Update UX
+
+- the former Updates workspace is labeled **Safe Update** to make the mutation path explicit;
+- Preview updates remains read-only and shows host, kernel, root free space, existing reboot-required state, failed units and pending packages;
+- Run Safe Update requires an explicit warning confirmation and a chosen local snapshot destination before any package mutation;
+- progress is shown as four explicit stages: create snapshot, download snapshot, install updates, post-update health check;
+- no automatic reboot is performed;
+- Restore config snapshot is visually distinct from package rollback and states that it restores only validated allowlisted configuration;
+- restore reports validation failures instead of attempting partial extraction;
+- all Safe Update and restore operations use the existing single-mutation gate so they cannot overlap service, Docker, firewall or backup changes.

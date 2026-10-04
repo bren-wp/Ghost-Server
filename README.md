@@ -4,7 +4,7 @@
 
 The project follows the established **Ghost FTP** visual system: Electric Blue `#38ABFF`, Deep Navy `#0B1E36`, Slate Blue `#132D52`, Ice White `#EAF6FF`, a 51 px custom title bar and a 216 px navigation rail.
 
-## Current release — 0.5.0
+## Current release — 0.6.0
 
 This development milestone contains real application code rather than seeded demo data:
 
@@ -20,7 +20,10 @@ This development milestone contains real application code rather than seeded dem
 - secure SFTP file browser with upload and download;
 - Network workspace for interfaces, routes, listening sockets and supported firewall state;
 - validated UFW/firewalld allow-port workflow with explicit confirmation;
-- read-only package update discovery for APT, DNF, YUM, Zypper and pacman;
+- Safe Update preview and guarded package upgrades for APT, DNF, YUM, Zypper and pacman;
+- mandatory downloaded configuration snapshot before Safe Update changes;
+- post-update health verification with no automatic reboot;
+- validated configuration restore for allowlisted Ghost Server snapshot paths;
 - configuration snapshot workflow with SFTP download and temporary-archive cleanup;
 - configurable 15/30/60/120-second dashboard auto-refresh;
 - terminal command history and keyboard shortcuts;
@@ -72,7 +75,7 @@ See [SECURITY.md](SECURITY.md).
 
 ## Product direction
 
-Next milestones focus on Safe Update/rollback, scheduled operations, database tooling, notification channels and signed Windows packaging.
+Next milestones focus on scheduled operations, database tooling, notification channels and signed Windows packaging.
 
 ## License
 
