@@ -4,7 +4,7 @@
 
 The project follows the established **Ghost FTP** visual system: Electric Blue `#38ABFF`, Deep Navy `#0B1E36`, Slate Blue `#132D52`, Ice White `#EAF6FF`, a 51 px custom title bar and a 216 px navigation rail.
 
-## Current milestone — 0.1.0 foundation
+## Current release — 0.2.0
 
 This development milestone contains real application code rather than seeded demo data:
 
@@ -14,10 +14,14 @@ This development milestone contains real application code rather than seeded dem
 - SHA-256 SSH host-key pinning with explicit first-connection approval;
 - live hostname, OS, kernel, uptime, load, CPU, RAM, disk and Docker discovery;
 - running systemd service list;
+- Services workspace with start, stop and restart actions;
+- Docker container discovery and start/stop/restart actions;
+- recent server journal/log viewer;
 - command terminal against the selected server;
 - read-only baseline security scan;
 - dark Ghost UI implemented in WPF with no browser/WebView application shell;
-- Windows CI build and self-contained x64 publish artifact.
+- Windows CI build with verified `GhostServer-Portable.exe` and `GhostServer-Setup.exe` artifacts;
+- automatic GitHub Release publication only after a successful main CI run.
 
 ## Technology
 
