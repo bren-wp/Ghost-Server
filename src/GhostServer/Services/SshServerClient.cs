@@ -384,7 +384,7 @@ if command -v apt-get >/dev/null 2>&1; then
   echo "[APT] Refreshing package metadata..."
   sudo -n apt-get update
   echo "[APT] Installing regular upgrades..."
-  sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
+  sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::=--force-confold upgrade
 elif command -v dnf >/dev/null 2>&1; then
   echo "[DNF] Installing upgrades..."
   sudo -n dnf -y upgrade
