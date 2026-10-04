@@ -1,4 +1,5 @@
 using System.IO;
+using System.Globalization;
 using System.Text;
 
 namespace GhostServer.Services;
@@ -25,11 +26,11 @@ internal static class CrashLogService
             var version = typeof(CrashLogService).Assembly.GetName().Version?.ToString(3) ?? "unknown";
 
             var content = new StringBuilder()
-                .AppendLine($"Timestamp: {DateTimeOffset.Now:O}")
-                .AppendLine($"Source: {source}")
-                .AppendLine($"Ghost Server: {version}")
-                .AppendLine($"OS: {Environment.OSVersion}")
-                .AppendLine($".NET: {Environment.Version}")
+                .AppendLine("Timestamp: " + DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture))
+                .AppendLine("Source: " + source)
+                .AppendLine("Ghost Server: " + version)
+                .AppendLine("OS: " + Environment.OSVersion.VersionString)
+                .AppendLine(".NET: " + Environment.Version.ToString())
                 .AppendLine()
                 .AppendLine(exception.ToString())
                 .ToString();
