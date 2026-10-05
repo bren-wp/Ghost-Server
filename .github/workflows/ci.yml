@@ -89,6 +89,33 @@ jobs:
 
           Write-Host "Verified $($handlers.Count) XAML event handler binding(s)."
 
+      - name: Verify release provenance contract
+        shell: pwsh
+        run: |
+          $release = Get-Content .github/workflows/release.yml -Raw
+          foreach ($required in @(
+            "actions/download-artifact@v4",
+            "github.event.workflow_run.id",
+            "GhostServer-windows-release",
+            "BUILD-PROVENANCE.txt"
+          )) {
+            if (-not $release.Contains($required, [System.StringComparison]::Ordinal)) {
+              throw "Release provenance contract is missing required token: $required"
+            }
+          }
+
+          foreach ($forbidden in @(
+            "dotnet publish",
+            "Build Setup.exe",
+            "gh release upload"
+          )) {
+            if ($release.Contains($forbidden, [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw "Release workflow must not rebuild or overwrite validated artifacts: $forbidden"
+            }
+          }
+
+          Write-Host "Release provenance contract verified."
+
       - name: Restore
         run: dotnet restore GhostServer.sln
 
