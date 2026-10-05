@@ -71,13 +71,16 @@ public sealed class InteractiveSshTerminalSession : IDisposable
                     },
                     cancellationToken).ConfigureAwait(false);
 
+                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfDisposed();
+
                 var shellStream = client.CreateShellStream(
                     "dumb",
-                    columns: 120,
-                    rows: 32,
-                    width: 0,
-                    height: 0,
-                    bufferSize: 16 * 1024);
+                    120,
+                    32,
+                    0,
+                    0,
+                    16 * 1024);
 
                 var readerCancellation = new CancellationTokenSource();
 
