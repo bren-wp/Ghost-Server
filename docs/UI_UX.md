@@ -231,3 +231,17 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - responsive layout code may update continuously sized modal bounds during resize, but heavier breakpoint-dependent layout rewrites should run only when the breakpoint signature changes;
 - Dashboard auto-refresh must not poll SSH while the app is minimized or not visible;
 - focus, virtualization and accessibility additions remain subject to the dead-code, XAML-wiring and analyzer gates.
+
+
+## v0.20 Window-state and local-storage reliability contract
+
+- only normal-window dimensions may be remembered between launches;
+- Fit window is a temporary bounded layout and must never become the persisted startup full-screen/maximized state;
+- remembered window dimensions are normalized and clamped against the active Windows work area before use;
+- resize persistence is debounced and must not write on every resize pixel;
+- startup resize events must not persist settings before the existing settings file has loaded;
+- pending normal-window size persistence is flushed before close when necessary;
+- Settings must expose both Remember normal window size and Reset window size;
+- optional backup-folder configuration must support both setting and clearing the path;
+- settings, profile and Fleet-history load/save operations are serialized per store so atomic temp/backup writes cannot overlap;
+- the additional local-state persistence must never store passwords or private-key passphrases.
