@@ -298,13 +298,13 @@
                                             <TextBlock x:Name="SelectedEndpoint" Foreground="{StaticResource GhostMuted}" Margin="0,4,0,0"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <WrapPanel Margin="0,10,0,0">
-                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="OpenEditServer_Click" Margin="0,0,7,7" ToolTip="Edit selected server">
+                                                <Button x:Name="EditServerButton" Style="{StaticResource GhostButton}" Padding="10,6" Click="OpenEditServer_Click" Margin="0,0,7,7" ToolTip="Edit selected server">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE70F;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Edit" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,7" ToolTip="Forget pinned SSH host key">
+                                                <Button x:Name="ResetHostKeyButton" Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,7" ToolTip="Forget pinned SSH host key">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Reset trust" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource DangerButton}" Padding="10,6" Click="DeleteServer_Click" Margin="0,0,0,7" ToolTip="Delete selected server">
+                                                <Button x:Name="DeleteServerButton" Style="{StaticResource DangerButton}" Padding="10,6" Click="DeleteServer_Click" Margin="0,0,0,7" ToolTip="Delete selected server">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" FontSize="13" Foreground="{StaticResource GhostDanger}"/><TextBlock Text="Delete" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
                                             </WrapPanel>
@@ -778,9 +778,9 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Margin="0,0,0,10">
                             <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,8"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,8"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,8"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StartServiceButton" Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StopServiceButton" Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="RestartServiceButton" Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,8"/>
                             <Button Style="{StaticResource GhostButton}" Click="ServiceLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected service">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
@@ -809,9 +809,9 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Margin="0,0,0,10">
                             <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,8"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,8"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,8"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StartDockerButton" Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StopDockerButton" Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="RestartDockerButton" Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,8"/>
                             <Button Style="{StaticResource GhostButton}" Click="DockerLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected container">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
@@ -862,7 +862,7 @@
                                              ToolTip="Command runs as root through a dedicated Ghost Server oneshot service"/>
                                 </StackPanel>
 
-                                <Button Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
+                                <Button x:Name="CreateTaskButton" Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
                                         Click="CreateTask_Click" Margin="0,20,0,8">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE710;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
@@ -876,7 +876,7 @@
                             <Button Style="{StaticResource GhostButton}" Click="RefreshTasks_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Refresh" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <Button Style="{StaticResource DangerButton}" Click="DeleteTask_Click" Margin="0,0,12,8">
+                            <Button x:Name="DeleteTaskButton" Style="{StaticResource DangerButton}" Click="DeleteTask_Click" Margin="0,0,12,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostDanger}"/><TextBlock Text="Delete selected" Margin="7,0,0,0"/></StackPanel>
                             </Button>
                             <TextBlock x:Name="TasksStatusText" Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="0,0,0,8"
@@ -927,7 +927,7 @@
                                     <TextBlock Text="Refresh system" Margin="7,0,0,0" Foreground="#06121E"/>
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource DangerButton}" Click="TerminateProcess_Click" Margin="0,0,8,8">
+                            <Button x:Name="TerminateProcessButton" Style="{StaticResource DangerButton}" Click="TerminateProcess_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE711;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostDanger}"/>
                                     <TextBlock Text="Terminate selected" Margin="7,0,0,0"/>
@@ -1187,7 +1187,7 @@
                                     <ComboBoxItem Content="TCP" Tag="tcp"/>
                                     <ComboBoxItem Content="UDP" Tag="udp"/>
                                 </ComboBox>
-                                <Button Style="{StaticResource GhostButton}" Click="AllowFirewallPort_Click" Margin="0,0,0,8">
+                                <Button x:Name="AllowFirewallPortButton" Style="{StaticResource GhostButton}" Click="AllowFirewallPort_Click" Margin="0,0,0,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8FB;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Allow port" Margin="7,0,0,0"/></StackPanel>
                                 </Button>
                             </WrapPanel>
@@ -1209,10 +1209,10 @@
                             <Button Style="{StaticResource GhostButton}" Click="RefreshUpdates_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Preview updates" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <Button Style="{StaticResource AccentButton}" Click="RunSafeUpdate_Click" Margin="0,0,8,8">
+                            <Button x:Name="RunSafeUpdateButton" Style="{StaticResource AccentButton}" Click="RunSafeUpdate_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Run Safe Update" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                             </Button>
-                            <Button Style="{StaticResource GhostButton}" Click="RestoreConfigSnapshot_Click" Margin="0,0,8,8">
+                            <Button x:Name="RestoreConfigSnapshotButton" Style="{StaticResource GhostButton}" Click="RestoreConfigSnapshot_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE777;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Restore config snapshot" Margin="7,0,0,0"/></StackPanel>
                             </Button>
                             <Button Style="{StaticResource SubNavButton}" Click="BackupNav_Click">
@@ -1254,7 +1254,7 @@
                                     <TextBlock Text="Creates a temporary .tar.gz containing detected SSH, web server, systemd, Docker, Fail2ban and firewall configuration, downloads it over SFTP, then removes the temporary remote archive."
                                                Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,7,18,0" MaxWidth="720"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Style="{StaticResource AccentButton}" Click="CreateConfigBackup_Click" VerticalAlignment="Center">
+                                <Button x:Name="CreateConfigBackupButton" Grid.Column="1" Style="{StaticResource AccentButton}" Click="CreateConfigBackup_Click" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C7;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Create &amp; download" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                                 </Button>
                             </Grid>
@@ -1358,13 +1358,13 @@
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                                 <StackPanel>
                                     <TextBlock Text="Server profiles" FontSize="18" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Export or import connection profiles. Passwords and private-key passphrases are never included because Ghost Server never stores them."
+                                    <TextBlock Text="Export or import connection profiles. Passwords and private-key passphrases are never stored, and portable files do not carry pinned SSH trust or connection history."
                                                Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,12"/>
                                     <WrapPanel>
                                         <Button Style="{StaticResource GhostButton}" Click="ExportProfiles_Click" Margin="0,0,8,8">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Export profiles" Margin="7,0,0,0"/></StackPanel>
                                         </Button>
-                                        <Button Style="{StaticResource GhostButton}" Click="ImportProfiles_Click" Margin="0,0,0,8">
+                                        <Button x:Name="ImportProfilesButton" Style="{StaticResource GhostButton}" Click="ImportProfiles_Click" Margin="0,0,0,8">
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE898;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Import profiles" Margin="7,0,0,0"/></StackPanel>
                                         </Button>
                                     </WrapPanel>
@@ -1420,12 +1420,32 @@
 
         <Border Grid.Row="2" Background="#08182B" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,1,0,0">
             <Grid Margin="14,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <TextBlock x:Name="StatusText" Text="Ready" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" FontSize="11" Margin="0,0,12,0"
                            TextTrimming="CharacterEllipsis"
                            AutomationProperties.Name="Application status"
                            AutomationProperties.LiveSetting="Polite"/>
-                <TextBlock x:Name="StatusShortcutText" Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
+                <Border x:Name="AdministrativeBusyBadge" Grid.Column="1"
+                        Visibility="Collapsed"
+                        Background="{StaticResource GhostWarningSurface}"
+                        BorderBrush="{StaticResource GhostWarning}"
+                        BorderThickness="1" CornerRadius="8"
+                        Padding="8,3" Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Administrative action in progress">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="6" Height="6" Fill="{StaticResource GhostWarning}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Admin action" Foreground="{StaticResource GhostWarning}"
+                                   FontSize="10.5" FontWeight="SemiBold" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock x:Name="StatusShortcutText" Grid.Column="2"
+                           Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11"/>
             </Grid>
         </Border>

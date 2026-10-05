@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using GhostServer.Models;
 
@@ -60,10 +61,10 @@ public sealed class ProfileStore
         IEnumerable<ServerProfile> profiles,
         CancellationToken cancellationToken = default)
     {
-        var validated = NormalizeAndValidate(profiles);
+        var portable = NormalizePortableProfiles(profiles);
         return JsonFileStore.SaveExternalAsync(
             destinationPath,
-            validated,
+            portable,
             cancellationToken);
     }
 
@@ -75,7 +76,23 @@ public sealed class ProfileStore
             sourcePath,
             cancellationToken) ?? [];
 
-        return NormalizeAndValidate(imported);
+        return NormalizePortableProfiles(imported);
+    }
+
+    private static List<ServerProfile> NormalizePortableProfiles(
+        IEnumerable<ServerProfile> profiles)
+    {
+        var portable = NormalizeAndValidate(profiles);
+
+        foreach (var profile in portable)
+        {
+            // SSH trust and connection history are local machine state. An external
+            // profile file must never pre-approve a host key on another installation.
+            profile.HostKeyFingerprint = null;
+            profile.LastConnectedUtc = null;
+        }
+
+        return portable;
     }
 
     private static List<ServerProfile> NormalizeAndValidate(
@@ -83,6 +100,7 @@ public sealed class ProfileStore
     {
         var result = new List<ServerProfile>();
         var seenIds = new HashSet<Guid>();
+        var seenEndpoints = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var source in profiles)
         {
@@ -128,6 +146,16 @@ public sealed class ProfileStore
             {
                 profile.Id = Guid.NewGuid();
                 seenIds.Add(profile.Id);
+            }
+
+            var endpointIdentity = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{profile.Host.ToUpperInvariant()}\u001F{profile.Port}\u001F{profile.Username.ToUpperInvariant()}");
+
+            if (!seenEndpoints.Add(endpointIdentity))
+            {
+                throw new InvalidDataException(
+                    $"Duplicate SSH endpoint and username detected for '{profile.Name}'.");
             }
 
             result.Add(profile);

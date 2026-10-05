@@ -40,6 +40,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private readonly DispatcherTimer _windowSettingsTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
     private int _mutationActive;
+    private int _profileImportActive;
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
     private CancellationTokenSource? _terminalConnectCancellation;
@@ -56,6 +57,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _settingsDirty;
     private bool _settingsSaveBusy;
     private long _settingsEditGeneration;
+    private bool _mutationCloseApproved;
     private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
@@ -1814,7 +1816,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2005,7 +2007,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2180,7 +2182,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2382,7 +2384,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
             }
 
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2503,7 +2505,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
             }
 
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2605,7 +2607,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 BackupOutput.ScrollToEnd();
             }
 
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2739,7 +2741,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2800,7 +2802,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2939,7 +2941,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -3800,7 +3802,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void ResetHostKey_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var profile = SelectedProfile;
+        if (profile is null)
         {
             return;
         }
@@ -3809,19 +3812,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         await DisconnectTerminalAsync(
             "Terminal disconnected because SSH trust was reset.",
             appendMessage: true);
-        SelectedProfile.HostKeyFingerprint = null;
+
+        var previousFingerprint = profile.HostKeyFingerprint;
+        profile.HostKeyFingerprint = null;
+
         try
         {
             await _profileStore.SaveAsync(Profiles);
-            ConnectionStatus.Text = "Host key not approved";
-            ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
-            HostKeyPanel.Visibility = Visibility.Collapsed;
-            StatusText.Text = $"SSH trust reset for {SelectedProfile.Name}";
-            UpdateTerminalSessionUi();
+
+            if (SelectedProfile?.Id == profile.Id)
+            {
+                ConnectionStatus.Text = "Host key not approved";
+                ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
+                HostKeyPanel.Visibility = Visibility.Collapsed;
+                UpdateTerminalSessionUi();
+            }
+
+            StatusText.Text = $"SSH trust reset for {profile.Name}";
         }
         catch (Exception ex)
         {
-            StatusText.Text = SafeError(ex);
+            profile.HostKeyFingerprint = previousFingerprint;
+            StatusText.Text = $"SSH trust reset failed: {SafeError(ex)}";
         }
     }
 
@@ -4003,7 +4015,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             await ProfileStore.ExportAsync(dialog.FileName, Profiles);
-            SettingsStatusText.Text = $"Exported {Profiles.Count} profile(s). No passwords or passphrases were included.";
+            SettingsStatusText.Text = $"Exported {Profiles.Count} portable profile(s). Session secrets, pinned SSH trust and connection history were not included.";
             StatusText.Text = "Profiles exported";
         }
         catch (Exception ex)
@@ -4015,50 +4027,111 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void ImportProfiles_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
-        {
-            Title = "Import Ghost Server profiles",
-            Filter = "JSON files (*.json)|*.json|All files|*.*",
-            CheckFileExists = true,
-            Multiselect = false
-        };
-
-        if (dialog.ShowDialog(this) != true)
+        if (!TryBeginProfileImport())
         {
             return;
         }
 
         try
         {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Import Ghost Server profiles",
+                Filter = "JSON files (*.json)|*.json|All files|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog(this) != true)
+            {
+                return;
+            }
+
             var imported = await ProfileStore.ImportAsync(dialog.FileName);
+            if (imported.Count == 0)
+            {
+                SettingsStatusText.Text = "The selected file contains no validated server profiles.";
+                StatusText.Text = "No profiles imported";
+                return;
+            }
+
             if (!await ShowGhostConfirmationAsync(
                     "Import server profiles",
-                    $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
+                    $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets, pinned SSH trust and connection history are not imported.",
                     "Import profiles",
                     danger: false))
             {
                 return;
             }
 
+            var selectedBefore = SelectedProfile;
+            var terminalProfile = _terminalSession.ProfileId is Guid terminalProfileId
+                ? Profiles.FirstOrDefault(profile => profile.Id == terminalProfileId)
+                : null;
+
+            var selectedReplacement = selectedBefore is null
+                ? null
+                : imported.LastOrDefault(incoming => ProfilesMatchImportIdentity(selectedBefore, incoming));
+            var terminalProfileAffected = terminalProfile is not null &&
+                                          imported.Any(incoming => ProfilesMatchImportIdentity(terminalProfile, incoming));
+
+            var candidate = Profiles
+                .Select(CloneServerProfile)
+                .ToList();
+
+            foreach (var incoming in imported)
+            {
+                var candidateIndex = candidate.FindIndex(existing =>
+                    ProfilesMatchImportIdentity(existing, incoming));
+                var importedClone = CloneServerProfile(incoming);
+
+                if (candidateIndex >= 0)
+                {
+                    candidate[candidateIndex] = importedClone;
+                }
+                else
+                {
+                    candidate.Add(importedClone);
+                }
+            }
+
+            await _profileStore.SaveAsync(candidate);
+
+            if (selectedReplacement is not null || terminalProfileAffected)
+            {
+                CancelRemoteOperations();
+            }
+
+            if (terminalProfileAffected)
+            {
+                _terminalConnectCancellation?.Cancel();
+                await DisconnectTerminalAsync(
+                    "Terminal disconnected because an imported profile replaced its server context.",
+                    appendMessage: true);
+            }
+
             foreach (var incoming in imported)
             {
                 var existing = Profiles.FirstOrDefault(profile =>
-                    profile.Id == incoming.Id ||
-                    (string.Equals(profile.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
-                     profile.Port == incoming.Port &&
-                     string.Equals(profile.Username, incoming.Username, StringComparison.OrdinalIgnoreCase)));
+                    ProfilesMatchImportIdentity(profile, incoming));
+                var importedClone = CloneServerProfile(incoming);
 
                 if (existing is null)
                 {
-                    Profiles.Add(incoming);
+                    Profiles.Add(importedClone);
                     continue;
                 }
 
-                var index = Profiles.IndexOf(existing);
-                Profiles[index] = incoming;
+                Profiles[Profiles.IndexOf(existing)] = importedClone;
             }
 
-            await _profileStore.SaveAsync(Profiles);
+            if (selectedReplacement is not null)
+            {
+                ServerList.SelectedItem = Profiles.FirstOrDefault(profile =>
+                    profile.Id == selectedReplacement.Id);
+            }
+
+            RefreshFleetInventory();
             SettingsStatusText.Text = $"Imported and validated {imported.Count} profile(s).";
             StatusText.Text = "Profiles imported";
         }
@@ -4067,7 +4140,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             SettingsStatusText.Text = SafeError(ex);
             StatusText.Text = "Profile import failed";
         }
+        finally
+        {
+            EndProfileImport();
+        }
     }
+
+    private bool TryBeginProfileImport()
+    {
+        if (Interlocked.CompareExchange(ref _profileImportActive, 1, 0) != 0)
+        {
+            SettingsStatusText.Text = "A profile import is already running.";
+            return false;
+        }
+
+        UpdateImportProfilesButtonState();
+        return true;
+    }
+
+    private void EndProfileImport()
+    {
+        Interlocked.Exchange(ref _profileImportActive, 0);
+        UpdateImportProfilesButtonState();
+    }
+
+    private void UpdateImportProfilesButtonState()
+    {
+        ImportProfilesButton.IsEnabled =
+            Volatile.Read(ref _profileImportActive) == 0 &&
+            Volatile.Read(ref _mutationActive) == 0;
+    }
+
+    private static bool ProfilesMatchImportIdentity(
+        ServerProfile existing,
+        ServerProfile incoming) =>
+        existing.Id == incoming.Id ||
+        (string.Equals(existing.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
+         existing.Port == incoming.Port &&
+         string.Equals(existing.Username, incoming.Username, StringComparison.OrdinalIgnoreCase));
 
     private void OpenAppData_Click(object sender, RoutedEventArgs e)
     {
@@ -4391,7 +4501,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return Task.FromResult(false);
         }
 
-        _confirmationCompletion = new TaskCompletionSource<bool>();
+        _confirmationCompletion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         _focusBeforeOverlay = Keyboard.FocusedElement;
 
         GhostConfirmationTitle.Text = title;
@@ -4434,8 +4545,50 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return false;
         }
 
+        SetAdministrativeMutationBusy(true);
         StatusText.Text = message;
         return true;
+    }
+
+    private void ReleaseAdministrativeMutation()
+    {
+        Interlocked.Exchange(ref _mutationActive, 0);
+        SetAdministrativeMutationBusy(false);
+    }
+
+    private void SetAdministrativeMutationBusy(bool busy)
+    {
+        foreach (var button in GetAdministrativeMutationButtons())
+        {
+            button.IsEnabled = !busy;
+        }
+
+        ServerList.IsEnabled = !busy;
+        EditServerButton.IsEnabled = !busy;
+        ResetHostKeyButton.IsEnabled = !busy;
+        DeleteServerButton.IsEnabled = !busy;
+        UpdateImportProfilesButtonState();
+
+        AdministrativeBusyBadge.Visibility = busy
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private IEnumerable<Button> GetAdministrativeMutationButtons()
+    {
+        yield return StartServiceButton;
+        yield return StopServiceButton;
+        yield return RestartServiceButton;
+        yield return StartDockerButton;
+        yield return StopDockerButton;
+        yield return RestartDockerButton;
+        yield return AllowFirewallPortButton;
+        yield return RunSafeUpdateButton;
+        yield return RestoreConfigSnapshotButton;
+        yield return CreateConfigBackupButton;
+        yield return CreateTaskButton;
+        yield return DeleteTaskButton;
+        yield return TerminateProcessButton;
     }
 
     private void ShowAddError(string message)
@@ -4895,6 +5048,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (Volatile.Read(ref _mutationActive) != 0)
+        {
+            e.Cancel = true;
+
+            var closeAnyway = await ShowGhostConfirmationAsync(
+                "Administrative action in progress",
+                "A remote administrative action is still running. Closing Ghost Server will stop local waiting and close the current operation context, but a command already started on the server may continue or may have partially completed. Keep Ghost Server open until the action finishes unless you intentionally want to stop monitoring it.",
+                "Close anyway",
+                danger: true);
+
+            if (!closeAnyway)
+            {
+                StatusText.Text = "Close cancelled; administrative action is still running.";
+                return;
+            }
+
+            _mutationCloseApproved = true;
+
+            if (_settingsDirty)
+            {
+                ShowUnsavedSettingsCloseOverlay();
+                return;
+            }
+
+            await FinalizeApprovedCloseAsync();
+            return;
+        }
+
         if (_settingsDirty)
         {
             e.Cancel = true;
@@ -4924,6 +5105,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void CancelUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
     {
+        _mutationCloseApproved = false;
         UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
         RestoreOverlayFocus();
         StatusText.Text = "Close cancelled";
@@ -4934,7 +5116,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _settingsDirty = false;
         SaveSettingsButton.IsEnabled = false;
         UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
-        await FlushWindowSettingsAndCloseAsync();
+        await FinalizeApprovedCloseAsync();
     }
 
     private async void SaveUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
@@ -4946,6 +5128,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        await FinalizeApprovedCloseAsync();
+    }
+
+    private async Task FinalizeApprovedCloseAsync()
+    {
+        if (_mutationCloseApproved &&
+            Volatile.Read(ref _mutationActive) != 0)
+        {
+            CancelRemoteOperations();
+        }
+
+        _mutationCloseApproved = false;
         await FlushWindowSettingsAndCloseAsync();
     }
 

@@ -25,6 +25,7 @@
     <SolidColorBrush x:Key="GhostSuccess" Color="{StaticResource GhostSuccessColor}"/>
     <SolidColorBrush x:Key="GhostWarning" Color="{StaticResource GhostWarningColor}"/>
     <SolidColorBrush x:Key="GhostDangerSurface" Color="#3519222C"/>
+    <SolidColorBrush x:Key="GhostWarningSurface" Color="#24FFCB63"/>
     <SolidColorBrush x:Key="GhostBlueSurface" Color="#1838ABFF"/>
     <SolidColorBrush x:Key="GhostSelectedSurface" Color="#1D3F63"/>
 
@@ -287,6 +288,7 @@
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Border" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
