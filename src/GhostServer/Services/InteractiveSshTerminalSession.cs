@@ -134,9 +134,7 @@ public sealed class InteractiveSshTerminalSession : IDisposable
 
             var payload = Encoding.UTF8.GetBytes(command + "\n");
             await shellStream.WriteAsync(
-                payload,
-                0,
-                payload.Length,
+                payload.AsMemory(),
                 cancellationToken).ConfigureAwait(false);
             await shellStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -294,9 +292,7 @@ public sealed class InteractiveSshTerminalSession : IDisposable
             while (!cancellationToken.IsCancellationRequested)
             {
                 var bytesRead = await shellStream.ReadAsync(
-                    buffer,
-                    0,
-                    buffer.Length,
+                    buffer.AsMemory(),
                     cancellationToken).ConfigureAwait(false);
 
                 if (bytesRead == 0)
@@ -382,10 +378,9 @@ public sealed class InteractiveSshTerminalSession : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (Volatile.Read(ref _disposed) != 0)
-        {
-            throw new ObjectDisposedException(nameof(InteractiveSshTerminalSession));
-        }
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
     }
 
     private static string SafeMessage(Exception exception)
