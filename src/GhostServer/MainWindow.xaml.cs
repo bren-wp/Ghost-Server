@@ -4477,9 +4477,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         UpdateExclusiveOperationUiState();
     }
 
-    private void UpdateImportProfilesButtonState() =>
-        UpdateExclusiveOperationUiState();
-
     private static bool ProfilesMatchImportIdentity(
         ServerProfile existing,
         ServerProfile incoming) =>
