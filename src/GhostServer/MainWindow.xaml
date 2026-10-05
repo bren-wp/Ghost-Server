@@ -89,6 +89,9 @@
                             <Button x:Name="DashboardNavButton" Style="{StaticResource NavButton}" Click="DashboardNav_Click" ToolTip="Dashboard">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Dashboard" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
+                            <Button x:Name="FleetNavButton" Style="{StaticResource NavButton}" Click="FleetNav_Click" ToolTip="Fleet overview">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE716;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Fleet" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
                             <Button x:Name="FilesNavButton" Style="{StaticResource NavButton}" Click="FilesNav_Click" ToolTip="SFTP files">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Files" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
@@ -369,6 +372,97 @@
                                 </StackPanel>
                             </ScrollViewer>
                         </Grid>
+                    </Grid>
+
+                    <Grid x:Name="FleetPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="FleetFilterBox" Style="{StaticResource GhostTextBox}"
+                                     ToolTip="Filter fleet by name, endpoint, user, health or operating system"
+                                     TextChanged="FleetFilterBox_TextChanged"/>
+                            <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                    Click="RefreshFleetInventory_Click">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Refresh inventory" Margin="7,0,0,0"/></StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" Style="{StaticResource AccentButton}" Margin="8,0,0,0"
+                                    Click="ProbeFleetKeyProfiles_Click" ToolTip="Read-only health probe for trusted private-key profiles that do not require a passphrase">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Probe key profiles" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                                <StackPanel><TextBlock Text="SAVED" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetSavedValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                                <StackPanel><TextBlock Text="TRUSTED" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetTrustedValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                                <StackPanel><TextBlock Text="HEALTHY" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetHealthyValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardBorder}">
+                                <StackPanel><TextBlock Text="ATTENTION" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetAttentionValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="240"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <Label Content="Selected server session secret"/>
+                                    <PasswordBox x:Name="FleetSecretBox" Style="{StaticResource GhostPasswordBox}"
+                                                 ToolTip="Used once for the selected Fleet row and cleared after the probe"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Style="{StaticResource AccentButton}" Margin="8,20,0,0"
+                                        VerticalAlignment="Center" Click="ProbeSelectedFleet_Click">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Probe selected" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                </Button>
+                                <Button Grid.Column="2" Style="{StaticResource GhostButton}" Margin="8,20,0,0"
+                                        VerticalAlignment="Center" Click="OpenFleetServer_Click">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Open on Dashboard" Margin="7,0,0,0"/></StackPanel>
+                                </Button>
+                                <TextBlock Grid.Column="3" x:Name="FleetStatusText" Foreground="{StaticResource GhostMuted}"
+                                           VerticalAlignment="Center" Margin="14,20,0,0" TextWrapping="Wrap"
+                                           Text="Bulk probes skip password profiles and SSH identities that are not yet trusted."/>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8">
+                            <ListView x:Name="FleetList" Background="Transparent" BorderThickness="0"
+                                      Foreground="{StaticResource GhostIce}">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Server" DisplayMemberBinding="{Binding Name}" Width="150"/>
+                                        <GridViewColumn Header="Endpoint" DisplayMemberBinding="{Binding Endpoint}" Width="155"/>
+                                        <GridViewColumn Header="User" DisplayMemberBinding="{Binding Username}" Width="105"/>
+                                        <GridViewColumn Header="Auth" DisplayMemberBinding="{Binding Authentication}" Width="95"/>
+                                        <GridViewColumn Header="Trust" DisplayMemberBinding="{Binding Trust}" Width="95"/>
+                                        <GridViewColumn Header="Health" DisplayMemberBinding="{Binding Health}" Width="130"/>
+                                        <GridViewColumn Header="OS" DisplayMemberBinding="{Binding OperatingSystem}" Width="185"/>
+                                        <GridViewColumn Header="CPU" DisplayMemberBinding="{Binding Cpu}" Width="70"/>
+                                        <GridViewColumn Header="RAM" DisplayMemberBinding="{Binding Memory}" Width="100"/>
+                                        <GridViewColumn Header="Load" DisplayMemberBinding="{Binding Load}" Width="90"/>
+                                        <GridViewColumn Header="Last connected" DisplayMemberBinding="{Binding LastConnected}" Width="145"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
                     </Grid>
 
                     <Grid x:Name="FilesPage" Visibility="Collapsed" Margin="24">
