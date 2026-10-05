@@ -42,17 +42,18 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.11.0
+## 🚀 Current release — 0.12.0
 
-Ghost Server 0.11.0 adds a dedicated **read-only Database workspace** and an additional CI guard for WPF UI wiring.
+Ghost Server 0.12.0 adds **local Fleet health history and attention detection** while keeping health data private on the Windows machine running Ghost Server.
 
-### New in 0.11.0
+### New in 0.12.0
 
-- 🗄️ PostgreSQL, MySQL/MariaDB and SQLite engine discovery.
-- 🔎 Engine version, service state and non-interactive access visibility.
-- 📚 Database-name listing when the remote server already permits local non-interactive authentication.
-- 🔐 No stored database passwords, table reads or SQL mutation controls.
-- 🧪 CI now verifies that XAML event bindings resolve to real code-behind handlers before compilation.
+- 📈 Persistent local Fleet health timeline for successful and failed probes.
+- 🚨 Local Attention state when CPU, RAM or disk reaches 90% or higher.
+- 💾 Last known Fleet health restored after application restart.
+- 🧹 Explicit per-server history clearing with confirmation.
+- 🔐 No credentials or session secrets are written to Fleet history.
+- 🌐 No health history is uploaded or sent to a third-party service.
 
 ---
 
@@ -84,6 +85,9 @@ Fleet gives you one place to review every saved server profile without introduci
 
 - Filter by server name, endpoint, username, health or operating system.
 - See **Saved / Trusted / Healthy / Attention** counters immediately.
+- Restore the last known local health state after restarting Ghost Server.
+- Inspect up to 100 recent local probe records for the selected server.
+- Flag CPU, RAM or disk utilization at 90%+ as local Attention.
 - Run parallel read-only probes against trusted private-key profiles.
 - Probe a selected password/passphrase-protected server using a **session-only secret**.
 - Jump directly from a Fleet row to the normal single-server Dashboard workflow.
@@ -352,7 +356,7 @@ Current priorities after 0.11.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the new read-only discovery layer;
 - 🔔 optional notification channels and fleet alerting;
-- 📊 richer Fleet history and health comparison;
+- 📊 richer Fleet comparison, trends and export;
 - 🔏 signed Windows distribution;
 - 🧪 broader automated operational regression tests.
 
