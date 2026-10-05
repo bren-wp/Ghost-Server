@@ -20,6 +20,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly ProfileStore _profileStore = new();
     private readonly SettingsStore _settingsStore = new();
+    private readonly FleetHistoryStore _fleetHistoryStore = new();
     private AppSettings _settings = new();
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
@@ -28,6 +29,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private ServerProfile? _pendingDeleteProfile;
     private readonly List<string> _commandHistory = [];
     private readonly List<FleetServerStatus> _fleetRows = [];
+    private readonly List<FleetHealthRecord> _fleetHistory = [];
     private int _commandHistoryIndex;
     private string _rawLogs = string.Empty;
     private Button? _activeNavButton;
@@ -78,6 +80,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 Profiles.Add(profile);
             }
+
+            var fleetHistory = await _fleetHistoryStore.LoadAsync();
+            _fleetHistory.AddRange(fleetHistory);
 
             if (_settings.LastSelectedServerId is Guid selectedId)
             {
