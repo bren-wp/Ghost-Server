@@ -539,11 +539,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
         }
 
-        await PersistFleetHistoryAsync();
+        var historySaved = await PersistFleetHistoryAsync();
         ApplyFleetFilter();
         UpdateFleetSummary();
-        FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
-        StatusText.Text = "Fleet health probes completed";
+
+        if (historySaved)
+        {
+            FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
+            StatusText.Text = "Fleet health probes completed";
+        }
+        else
+        {
+            FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s), but local health history could not be saved.";
+            StatusText.Text = "Fleet probes completed; history save failed";
+        }
     }
 
     private async void ProbeSelectedFleet_Click(object sender, RoutedEventArgs e)
@@ -596,9 +605,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             FleetSecretBox.Clear();
         }
 
-        await PersistFleetHistoryAsync();
+        var selectedHistorySaved = await PersistFleetHistoryAsync();
         ApplyFleetFilter();
         UpdateFleetSummary();
+
+        if (!selectedHistorySaved)
+        {
+            FleetStatusText.Text = $"{profile.Name} probe completed, but local health history could not be saved.";
+            StatusText.Text = "Fleet probe completed; history save failed";
+        }
     }
 
     private void FleetList_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
@@ -656,10 +671,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        var previousHistory = _fleetHistory.ToArray();
         _fleetHistory.RemoveAll(record => record.ProfileId == row.ProfileId);
-        await PersistFleetHistoryAsync();
+
+        if (!await PersistFleetHistoryAsync())
+        {
+            _fleetHistory.Clear();
+            _fleetHistory.AddRange(previousHistory);
+            RefreshFleetInventory();
+            FleetStatusText.Text = $"Could not clear local Fleet health history for {row.Name}. The previous history was restored.";
+            StatusText.Text = "Fleet history clear failed";
+            return;
+        }
+
         RefreshFleetInventory();
         FleetStatusText.Text = $"Cleared local Fleet health history for {row.Name}.";
+        StatusText.Text = "Fleet history cleared";
     }
 
     private void OpenFleetServer_Click(object sender, RoutedEventArgs e)
@@ -750,21 +777,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         };
     }
 
-    private async Task PersistFleetHistoryAsync()
+    private async Task<bool> PersistFleetHistoryAsync()
     {
         TrimFleetHistory();
 
         try
         {
             await _fleetHistoryStore.SaveAsync(_fleetHistory);
+            UpdateFleetHistoryView();
+            return true;
         }
         catch (Exception ex)
         {
             FleetStatusText.Text = $"Fleet history could not be saved locally: {SafeError(ex)}";
             StatusText.Text = "Fleet history save failed";
+            UpdateFleetHistoryView();
+            return false;
         }
-
-        UpdateFleetHistoryView();
     }
 
     private void TrimFleetHistory()
@@ -896,8 +925,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        var previousAcknowledgement = item.Record.AcknowledgedUtc;
         item.Record.AcknowledgedUtc = DateTimeOffset.UtcNow;
-        await PersistFleetHistoryAsync();
+
+        if (!await PersistFleetHistoryAsync())
+        {
+            item.Record.AcknowledgedUtc = previousAcknowledgement;
+            RefreshAlertCenter();
+            AlertsStatusText.Text = $"Could not acknowledge the local alert for {item.ServerName}. The alert remains active.";
+            StatusText.Text = "Alert acknowledgement failed";
+            return;
+        }
+
         RefreshAlertCenter();
         AlertsStatusText.Text = $"Acknowledged local alert for {item.ServerName}.";
         StatusText.Text = "Local alert acknowledged";
