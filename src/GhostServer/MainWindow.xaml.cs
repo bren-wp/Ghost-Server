@@ -3832,6 +3832,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    private void ClearBackupFolder_Click(object sender, RoutedEventArgs e)
+    {
+        DefaultBackupFolderBox.Clear();
+        SettingsStatusText.Text = "Default backup folder cleared. Save settings to apply.";
+    }
+
     private void BrowseBackupFolder_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
