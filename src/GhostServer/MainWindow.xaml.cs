@@ -4669,8 +4669,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         if (_allowCloseAfterSettingsFlush ||
             !_settingsLoaded ||
             !_windowSizeSettingsDirty ||
-            !_settings.RememberWindowSize ||
-            _fitWindowActive)
+            !_settings.RememberWindowSize)
         {
             return;
         }
