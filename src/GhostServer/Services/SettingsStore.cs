@@ -6,6 +6,7 @@ namespace GhostServer.Services;
 public sealed class SettingsStore
 {
     private readonly string _path;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public SettingsStore()
     {
@@ -19,22 +20,38 @@ public sealed class SettingsStore
     public async Task<AppSettings> LoadAsync(
         CancellationToken cancellationToken = default)
     {
-        var settings = await JsonFileStore.LoadAsync<AppSettings>(
-            _path,
-            cancellationToken) ?? new AppSettings();
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var settings = await JsonFileStore.LoadAsync<AppSettings>(
+                _path,
+                cancellationToken) ?? new AppSettings();
 
-        settings.Normalize();
-        return settings;
+            settings.Normalize();
+            return settings;
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public async Task SaveAsync(
         AppSettings settings,
         CancellationToken cancellationToken = default)
     {
-        settings.Normalize();
-        await JsonFileStore.SaveAsync(
-            _path,
-            settings,
-            cancellationToken);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            settings.Normalize();
+            await JsonFileStore.SaveAsync(
+                _path,
+                settings,
+                cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 }
