@@ -3896,32 +3896,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         try
         {
-            _settings.DashboardRefreshSeconds = ReadRefreshInterval();
-            _settings.DefaultBackupDirectory = string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text)
-                ? null
-                : DefaultBackupFolderBox.Text.Trim();
-            _settings.RememberWindowSize = RememberWindowSizeToggle.IsChecked == true;
+            var candidate = CreateSettingsCandidateFromUi();
+            var selectedServerChangedDuringSave = false;
 
-            if (_settings.RememberWindowSize && !_fitWindowActive)
-            {
-                CaptureCurrentWindowSize();
-            }
-            else if (!_settings.RememberWindowSize)
+            await _settingsStore.SaveAsync(candidate);
+
+            selectedServerChangedDuringSave =
+                _settings.LastSelectedServerId != candidate.LastSelectedServerId;
+
+            _settings.DashboardRefreshSeconds = candidate.DashboardRefreshSeconds;
+            _settings.DefaultBackupDirectory = candidate.DefaultBackupDirectory;
+            _settings.RememberWindowSize = candidate.RememberWindowSize;
+
+            if (!candidate.RememberWindowSize)
             {
                 _settings.WindowWidth = null;
                 _settings.WindowHeight = null;
+                _windowSizeSettingsDirty = false;
+                _windowSettingsTimer.Stop();
+            }
+            else if (!_windowSizeSettingsDirty)
+            {
+                _settings.WindowWidth = candidate.WindowWidth;
+                _settings.WindowHeight = candidate.WindowHeight;
             }
 
             _settings.Normalize();
-
             _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
-            await _settingsStore.SaveAsync(_settings);
+
+            if (selectedServerChangedDuringSave)
+            {
+                _ = PersistSettingsQuietlyAsync();
+            }
 
             if (saveGeneration == _settingsEditGeneration)
             {
                 _settingsDirty = false;
-                _windowSizeSettingsDirty = false;
-                _windowSettingsTimer.Stop();
                 SettingsStatusText.Text = "Settings saved.";
                 StatusText.Text = "Settings saved";
                 return true;
@@ -4080,6 +4090,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         _settingsDirty = false;
         SaveSettingsButton.IsEnabled = false;
+    }
+
+    private AppSettings CreateSettingsCandidateFromUi()
+    {
+        var candidate = new AppSettings
+        {
+            DashboardRefreshSeconds = ReadRefreshInterval(),
+            DefaultBackupDirectory = string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text)
+                ? null
+                : DefaultBackupFolderBox.Text.Trim(),
+            LastSelectedServerId = _settings.LastSelectedServerId,
+            RememberWindowSize = RememberWindowSizeToggle.IsChecked == true,
+            WindowWidth = _settings.WindowWidth,
+            WindowHeight = _settings.WindowHeight
+        };
+
+        if (!candidate.RememberWindowSize)
+        {
+            candidate.WindowWidth = null;
+            candidate.WindowHeight = null;
+        }
+        else if (!_fitWindowActive)
+        {
+            candidate.WindowWidth = Math.Round(Math.Clamp(ActualWidth, MinWidth, MaxWidth), 0);
+            candidate.WindowHeight = Math.Round(Math.Clamp(ActualHeight, MinHeight, MaxHeight), 0);
+        }
+
+        candidate.Normalize();
+        return candidate;
     }
 
     private void SettingsControl_Changed(object sender, RoutedEventArgs e) =>
