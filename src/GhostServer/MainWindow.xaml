@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Ghost Server"
         Width="1180" Height="760"
-        MinWidth="680" MinHeight="500"
+        MinWidth="640" MinHeight="440"
         WindowStartupLocation="CenterScreen"
         WindowState="Normal"
         WindowStyle="None"
