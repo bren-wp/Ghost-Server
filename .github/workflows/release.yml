@@ -86,6 +86,21 @@ jobs:
             if ((Get-Item $file).Length -lt 1MB) { throw "$file is unexpectedly small." }
           }
 
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = @(
+            "artifacts/release/GhostServer-Portable.exe",
+            "artifacts/release/GhostServer-Setup.exe"
+          )
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant()
+            $name = Split-Path $file -Leaf
+            "$hash  $name"
+          }
+          $lines | Set-Content artifacts/release/SHA256SUMS.txt -Encoding ascii
+          Get-Content artifacts/release/SHA256SUMS.txt
+
       - name: Publish GitHub Release
         shell: pwsh
         env:
@@ -96,7 +111,7 @@ jobs:
           $notes = "docs/releases/$env:VERSION.md"
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe --clobber --repo $env:GITHUB_REPOSITORY
+            gh release upload $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe artifacts/release/SHA256SUMS.txt --clobber --repo $env:GITHUB_REPOSITORY
           } else {
-            gh release create $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe --target $env:VALIDATED_SHA --title "Ghost Server $env:VERSION" --notes-file $notes --repo $env:GITHUB_REPOSITORY
+            gh release create $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe artifacts/release/SHA256SUMS.txt --target $env:VALIDATED_SHA --title "Ghost Server $env:VERSION" --notes-file $notes --repo $env:GITHUB_REPOSITORY
           }

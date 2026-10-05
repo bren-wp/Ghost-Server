@@ -37,6 +37,19 @@ jobs:
           }
           Write-Host "Version metadata verified: $projectVersion"
 
+      - name: Verify release notes
+        shell: pwsh
+        run: |
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          $notes = "docs/releases/$($metadata.version).md"
+          if (-not (Test-Path $notes)) {
+            throw "Release notes are missing: $notes"
+          }
+          if ((Get-Item $notes).Length -lt 100) {
+            throw "Release notes are unexpectedly short: $notes"
+          }
+          Write-Host "Release notes verified: $notes"
+
       - name: Source hygiene audit
         shell: pwsh
         run: |

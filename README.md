@@ -4,7 +4,7 @@
 
 The project follows the established **Ghost FTP** visual system: Electric Blue `#38ABFF`, Deep Navy `#0B1E36`, Slate Blue `#132D52`, Ice White `#EAF6FF`, a 51 px custom title bar and a 216 px navigation rail.
 
-## Current release — 0.8.0
+## Current release — 0.9.0
 
 This development milestone contains real application code rather than seeded demo data:
 
@@ -26,6 +26,9 @@ This development milestone contains real application code rather than seeded dem
 - validated configuration restore for allowlisted Ghost Server snapshot paths;
 - Scheduled Operations workspace for isolated Ghost Server systemd timers;
 - System workspace with top process inventory, filesystem/mount overview and logged-in users;
+- Fleet workspace with filterable multi-server inventory and summary KPIs;
+- parallel read-only health probes for trusted private-key profiles that do not require a passphrase;
+- selected-server Fleet probe with a session-only secret and fast Dashboard jump;
 - guarded SIGTERM action for the explicitly selected PID;
 - Hourly/Daily/Weekly scheduled task creation with validated names and base64-transferred task scripts;
 - read-only current-user crontab visibility without editing unrelated cron configuration;
@@ -44,7 +47,9 @@ This development milestone contains real application code rather than seeded dem
 - bounded local crash diagnostics for unexpected failures;
 - .NET analyzers enabled with warnings treated as build errors;
 - source-hygiene CI audit blocking TODO/FIXME/NotImplementedException leftovers;
-- automatic GitHub Release publication only after a successful main CI run.
+- release-notes CI gate for every declared version;
+- automatic GitHub Release publication only after a successful main CI run;
+- SHA-256 checksum manifest published with every Windows release.
 
 ## Technology
 
@@ -81,7 +86,7 @@ See [SECURITY.md](SECURITY.md).
 
 ## Product direction
 
-Next milestones focus on database tooling, notification channels, fleet views and signed Windows packaging.
+Next milestones focus on database tooling, notification channels, richer fleet alerting and signed Windows packaging.
 
 ## License
 

@@ -80,3 +80,14 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Restore config snapshot is visually distinct from package rollback and states that it restores only validated allowlisted configuration;
 - restore reports validation failures instead of attempting partial extraction;
 - all Safe Update and restore operations use the existing single-mutation gate so they cannot overlap service, Docker, firewall or backup changes.
+
+
+## v0.9 Fleet UX
+
+- Fleet is a separate workspace rather than expanding the Dashboard server rail;
+- the top row contains one filter plus local refresh and safe key-profile probe actions;
+- four compact counters summarize saved, trusted, healthy and attention-needed profiles;
+- the selected-server secret is visually scoped to the selected Fleet row and is cleared after probing;
+- Fleet exposes no bulk restart, update, terminate or firewall mutation actions;
+- "Open on Dashboard" moves the user into the existing single-server workflow before any broader administration;
+- filtering covers server name, endpoint, username, health and operating system.
