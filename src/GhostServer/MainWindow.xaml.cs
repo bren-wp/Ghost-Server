@@ -164,6 +164,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         await RefreshTasksAsync();
     }
 
+    private async void SystemNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(SystemNavButton);
+        ShowPage(SystemPage, "System", "Processes, filesystems, logged-in users and current host state.");
+        await RefreshSystemAsync();
+    }
+
     private void SecurityNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(SecurityNavButton);
@@ -189,6 +196,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                      UpdatesNavButton,
                      BackupNavButton,
                      TasksNavButton,
+                     SystemNavButton,
                      LogsNavButton,
                      TerminalNavButton,
                      SecurityNavButton,
@@ -214,6 +222,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdatesPage.Visibility = Visibility.Collapsed;
         BackupPage.Visibility = Visibility.Collapsed;
         TasksPage.Visibility = Visibility.Collapsed;
+        SystemPage.Visibility = Visibility.Collapsed;
         LogsPage.Visibility = Visibility.Collapsed;
         TerminalPage.Visibility = Visibility.Collapsed;
         SecurityPage.Visibility = Visibility.Collapsed;
@@ -268,6 +277,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TasksList.ItemsSource = null;
         TasksStatusText.Text = "Only Ghost Server timers named ghost-server-* are managed here.";
         CrontabOutput.Text = "Current user crontab is shown here for visibility only. Ghost Server does not edit it.";
+        ProcessesList.ItemsSource = null;
+        SystemStatusText.Text = "Processes, filesystems and signed-in users are loaded read-only.";
+        SystemOverviewOutput.Text = "Select a server to inspect memory, filesystems, block devices, logged-in users and load.";
         UpdateSelectedLabels();
     }
 
@@ -1371,6 +1383,107 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void RefreshSystem_Click(object sender, RoutedEventArgs e) =>
+        await RefreshSystemAsync();
+
+    private async Task RefreshSystemAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            ProcessesList.ItemsSource = null;
+            SystemStatusText.Text = "Select a server on Dashboard first.";
+            SystemOverviewOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Loading system state…";
+
+            var processesTask = SshServerClient.GetProcessesAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+            var overviewTask = SshServerClient.GetSystemOverviewAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            await Task.WhenAll(processesTask, overviewTask);
+
+            ProcessesList.ItemsSource = await processesTask;
+            SystemOverviewOutput.Text = await overviewTask;
+            SystemOverviewOutput.ScrollToHome();
+            SystemStatusText.Text = $"{((IReadOnlyList<ProcessStatus>)ProcessesList.ItemsSource).Count} process(es) loaded.";
+            StatusText.Text = "System state refreshed";
+        }
+        catch (Exception ex)
+        {
+            ProcessesList.ItemsSource = null;
+            SystemStatusText.Text = SafeError(ex);
+            SystemOverviewOutput.Text = SafeError(ex);
+            StatusText.Text = "System refresh failed";
+        }
+    }
+
+    private void ProcessesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ProcessesList.SelectedItem is not ProcessStatus process)
+        {
+            SystemStatusText.Text = "Select a process to inspect or terminate it.";
+            return;
+        }
+
+        SystemStatusText.Text =
+            $"PID {process.Pid} • {process.User} • CPU {process.CpuPercent:0.0}% • RAM {process.MemoryPercent:0.0}% • {process.Command}";
+    }
+
+    private async void TerminateProcess_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedProfile is null)
+        {
+            SystemStatusText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (ProcessesList.SelectedItem is not ProcessStatus process)
+        {
+            SystemStatusText.Text = "Select a process first.";
+            return;
+        }
+
+        if (!ConfirmAdministrativeAction(
+                "Terminate process?",
+                $"Send SIGTERM to PID {process.Pid} ({process.Command}) on {SelectedProfile.Name}?"))
+        {
+            return;
+        }
+
+        if (!TryAcquireMutation("Terminating selected process…"))
+        {
+            return;
+        }
+
+        try
+        {
+            var output = await SshServerClient.TerminateProcessAsync(
+                SelectedProfile,
+                SessionSecretBox.Password,
+                process.Pid);
+
+            SystemStatusText.Text = output;
+            StatusText.Text = $"SIGTERM sent to PID {process.Pid}";
+            await RefreshSystemAsync();
+        }
+        catch (Exception ex)
+        {
+            SystemStatusText.Text = SafeError(ex);
+            StatusText.Text = "Process termination failed";
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _mutationActive, 0);
+        }
+    }
+
     private async void RefreshLogs_Click(object sender, RoutedEventArgs e) =>
         await RefreshLogsAsync();
 
@@ -2208,6 +2321,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else if (_activeNavButton == TasksNavButton)
         {
             await RefreshTasksAsync();
+        }
+        else if (_activeNavButton == SystemNavButton)
+        {
+            await RefreshSystemAsync();
         }
         else if (_activeNavButton == LogsNavButton)
         {

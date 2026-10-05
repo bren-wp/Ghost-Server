@@ -4,7 +4,7 @@
 
 The project follows the established **Ghost FTP** visual system: Electric Blue `#38ABFF`, Deep Navy `#0B1E36`, Slate Blue `#132D52`, Ice White `#EAF6FF`, a 51 px custom title bar and a 216 px navigation rail.
 
-## Current release — 0.7.0
+## Current release — 0.8.0
 
 This development milestone contains real application code rather than seeded demo data:
 
@@ -25,6 +25,8 @@ This development milestone contains real application code rather than seeded dem
 - post-update health verification with no automatic reboot;
 - validated configuration restore for allowlisted Ghost Server snapshot paths;
 - Scheduled Operations workspace for isolated Ghost Server systemd timers;
+- System workspace with top process inventory, filesystem/mount overview and logged-in users;
+- guarded SIGTERM action for the explicitly selected PID;
 - Hourly/Daily/Weekly scheduled task creation with validated names and base64-transferred task scripts;
 - read-only current-user crontab visibility without editing unrelated cron configuration;
 - configuration snapshot workflow with SFTP download and temporary-archive cleanup;
@@ -41,6 +43,7 @@ This development milestone contains real application code rather than seeded dem
 - Settings & About workspace with default backup folder and profile import/export;
 - bounded local crash diagnostics for unexpected failures;
 - .NET analyzers enabled with warnings treated as build errors;
+- source-hygiene CI audit blocking TODO/FIXME/NotImplementedException leftovers;
 - automatic GitHub Release publication only after a successful main CI run.
 
 ## Technology

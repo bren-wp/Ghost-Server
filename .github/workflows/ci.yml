@@ -37,6 +37,17 @@ jobs:
           }
           Write-Host "Version metadata verified: $projectVersion"
 
+      - name: Source hygiene audit
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem src -Recurse -File | Where-Object { $_.Extension -in @(".cs", ".xaml") }
+          $matches = $files | Select-String -Pattern "\bTODO\b|\bFIXME\b|NotImplementedException" -CaseSensitive:$false
+          if ($matches) {
+            $matches | ForEach-Object { Write-Host "$($_.Path):$($_.LineNumber): $($_.Line.Trim())" }
+            throw "Source hygiene audit found unfinished code markers."
+          }
+          Write-Host "Source hygiene audit passed."
+
       - name: Restore
         run: dotnet restore GhostServer.sln
 

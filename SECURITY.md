@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.7.x`
+The active development line is `0.8.x`
 
 ## SSH trust model
 
@@ -94,3 +94,16 @@ Ghost Server scheduled tasks are isolated from unrelated systemd timers and user
 - the current user's crontab is displayed read-only and is never modified by this workspace.
 
 Scheduled commands are intentionally administrator-supplied commands and run as root. Ghost Server does not silently generate or schedule commands on behalf of the user.
+
+
+## System workspace
+
+Process, filesystem, block-device, load and logged-in-user discovery are read-only. Process termination is the only mutation exposed by the System workspace in 0.8.x.
+
+Ghost Server:
+- accepts only the numeric PID selected from the current process inventory;
+- rejects PID 1 and lower;
+- requires explicit user confirmation;
+- sends SIGTERM only;
+- does not automatically escalate to SIGKILL;
+- uses non-interactive sudo only when the connected account cannot signal the process directly.

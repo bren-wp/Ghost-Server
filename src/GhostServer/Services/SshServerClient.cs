@@ -785,6 +785,121 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
+    public static Task<IReadOnlyList<ProcessStatus>> GetProcessesAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command =
+            "ps -eo pid=,user=,pcpu=,pmem=,etime=,comm= --sort=-pcpu 2>/dev/null | head -n 100";
+
+        return Task.Run<IReadOnlyList<ProcessStatus>>(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var client = CreateVerifiedClient(profile, secret);
+            client.Connect();
+            using var result = client.RunCommand(command);
+
+            if (result.ExitStatus != 0)
+            {
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(result.Error)
+                        ? "Unable to read process list."
+                        : result.Error.Trim());
+            }
+
+            var processes = new List<ProcessStatus>();
+            foreach (var raw in result.Result.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = raw.Trim()
+                    .Split((char[]?)null, 6, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length != 6 ||
+                    !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid) ||
+                    !double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var cpu) ||
+                    !double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var memory))
+                {
+                    continue;
+                }
+
+                processes.Add(new ProcessStatus
+                {
+                    Pid = pid,
+                    User = parts[1],
+                    CpuPercent = cpu,
+                    MemoryPercent = memory,
+                    Elapsed = parts[4],
+                    Command = parts[5]
+                });
+            }
+
+            return processes;
+        }, cancellationToken);
+    }
+
+    public static Task<string> GetSystemOverviewAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+echo "Memory"
+echo "------"
+free -h 2>/dev/null || true
+echo
+echo "Filesystems"
+echo "-----------"
+df -hPT 2>/dev/null || true
+echo
+echo "Block devices"
+echo "-------------"
+lsblk -o NAME,TYPE,FSTYPE,SIZE,FSAVAIL,FSUSE%,MOUNTPOINTS 2>/dev/null || true
+echo
+echo "Logged-in users"
+echo "---------------"
+who 2>/dev/null || true
+echo
+echo "Load"
+echo "----"
+uptime 2>/dev/null || true
+""";
+
+        return RunCommandAsync(profile, secret, command, cancellationToken);
+    }
+
+    public static Task<string> TerminateProcessAsync(
+        ServerProfile profile,
+        string? secret,
+        int pid,
+        CancellationToken cancellationToken = default)
+    {
+        if (pid <= 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(pid),
+                "PID must be greater than 1.");
+        }
+
+        var command = $"""
+pid={pid}
+if ! kill -0 "$pid" 2>/dev/null && ! sudo -n kill -0 "$pid" 2>/dev/null; then
+  echo "Process $pid no longer exists." >&2
+  exit 44
+fi
+
+if kill -TERM "$pid" 2>/dev/null; then
+  echo "SIGTERM sent to process $pid."
+elif sudo -n kill -TERM "$pid"; then
+  echo "SIGTERM sent to process $pid with sudo."
+else
+  echo "Unable to terminate process $pid." >&2
+  exit 45
+fi
+""";
+
+        return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
+    }
+
     public static Task<string> GetRecentLogsAsync(
         ServerProfile profile,
         string? secret,
