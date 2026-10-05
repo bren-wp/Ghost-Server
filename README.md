@@ -42,19 +42,20 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.14.0
+## 🚀 Current release — 0.15.0
 
-Ghost Server 0.14.0 adds **Fleet Trends** and exact-artifact release provenance.
+Ghost Server 0.15.0 adds a **persistent interactive SSH terminal** while keeping the existing pinned-host trust model intact.
 
-### New in 0.14.0
+### New in 0.15.0
 
-- 📊 Fleet Trends workspace comparing the latest 10, 25 or 50 local probe records per server.
-- 📈 Average and maximum CPU, RAM and disk utilization.
-- ✅ Healthy / Attention / failure counts and latest status per server.
-- 📤 CSV export of the current comparison view.
-- 🔗 Fast jump from a trend row to the matching Dashboard server.
-- 🔏 GitHub Releases now publish the exact Portable and Setup binaries that already passed main CI smoke tests.
-- 🧾 Every release includes `BUILD-PROVENANCE.txt` plus `SHA256SUMS.txt`.
+- ⌨️ Persistent SSH `ShellStream` session instead of command-per-request Terminal execution.
+- 🔌 Explicit Connect shell / Disconnect lifecycle with visible connection state.
+- 🧭 Working directory and normal shell state persist between commands.
+- 🔐 The shell uses the same pinned SHA-256 host-key verification as the rest of Ghost Server.
+- 🧹 Automatic terminal teardown on server switch, profile edit/delete, trust reset, Lock session and window close.
+- 🧠 Up/Down history and Quick Commands remain local convenience features; presets still never auto-run.
+- 🧯 Bounded in-memory terminal output and modal shortcut gating improve stability and UX.
+
 
 ---
 
@@ -76,7 +77,7 @@ Ghost Server 0.14.0 adds **Fleet Trends** and exact-artifact release provenance.
 | 🧠 **System** | Process inventory, filesystems, block devices, sessions and load | Read-only + confirmed SIGTERM |
 | 🗄️ **Databases** | PostgreSQL, MySQL/MariaDB and SQLite discovery with database-name visibility where non-interactive local auth is already available | Read-only |
 | 📜 **Logs** | Server, service and Docker logs with client-side filtering | Read-only |
-| ⌨️ **Terminal** | Run explicit SSH commands with history and read-only presets | User-controlled |
+| ⌨️ **Terminal** | Persistent line-oriented SSH shell with history and insert-only presets | User-controlled |
 | 🔒 **Security** | Baseline read-only server security checks | Read-only |
 | 🛠️ **Settings** | Monitoring cadence, backup folder, profile import/export and app data | Local settings |
 
@@ -152,9 +153,22 @@ See [SECURITY.md](SECURITY.md) for the current security boundaries.
 
 ---
 
-## ⌨️ Terminal Quick Commands
+## ⌨️ Persistent interactive terminal
 
-0.10.0 adds a small read-only preset library for common inspection tasks:
+Ghost Server 0.15.0 keeps one verified SSH shell open for the selected server until you explicitly disconnect or a security/lifecycle boundary closes it.
+
+- **Connect shell** opens the persistent session only after the profile has an approved host-key fingerprint.
+- **Send** writes the reviewed command into that existing shell.
+- Working directory, exported environment values and normal shell state persist between commands.
+- **Disconnect** closes the shell without changing the remote server.
+- Switching servers, editing/deleting the active profile, resetting SSH trust, locking the session or closing Ghost Server disposes the shell automatically.
+- Terminal output is local and bounded in memory.
+
+The terminal is intentionally **line-oriented** in this release. Ghost Server does not claim full-screen terminal-emulator behavior for tools such as `vim`, `less` or interactive `top`.
+
+### Quick Commands
+
+The preset library remains inspection-oriented:
 
 - **System summary**
 - **Top processes**
@@ -163,9 +177,8 @@ See [SECURITY.md](SECURITY.md) for the current security boundaries.
 - **Docker containers**
 - **Recent journal errors**
 
-Selecting a preset only inserts the command into the command box. You can review or edit it before pressing **Run**.
+Selecting a preset only inserts it into the editor. It is never sent until you press **Send**.
 
-The normal command history remains available with **↑ / ↓**.
 
 ---
 
@@ -361,7 +374,7 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.14.0:
+Current priorities after 0.15.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;
