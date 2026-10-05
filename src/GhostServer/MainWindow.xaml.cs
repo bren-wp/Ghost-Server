@@ -4395,6 +4395,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         if (e.Key == Key.Escape)
         {
+            if (UnsavedSettingsOverlay.Visibility == Visibility.Visible)
+            {
+                CancelUnsavedSettingsClose_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+
             if (ConfirmOverlay.Visibility == Visibility.Visible)
             {
                 CancelDelete_Click(sender, new RoutedEventArgs());
@@ -4410,7 +4417,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
         }
 
-        if (ConfirmOverlay.Visibility == Visibility.Visible ||
+        if (UnsavedSettingsOverlay.Visibility == Visibility.Visible ||
+            ConfirmOverlay.Visibility == Visibility.Visible ||
             AddServerOverlay.Visibility == Visibility.Visible)
         {
             return;
@@ -4788,26 +4796,91 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (_allowCloseAfterSettingsFlush ||
-            !_settingsLoaded ||
-            !_windowSizeSettingsDirty ||
-            !_settings.RememberWindowSize)
+        if (_allowCloseAfterSettingsFlush || !_settingsLoaded)
+        {
+            return;
+        }
+
+        if (_settingsSaveBusy)
+        {
+            e.Cancel = true;
+            StatusText.Text = "Settings are still saving. Close again when the save finishes.";
+            return;
+        }
+
+        if (_settingsDirty)
+        {
+            e.Cancel = true;
+            ShowUnsavedSettingsCloseOverlay();
+            return;
+        }
+
+        if (!_windowSizeSettingsDirty || !_settings.RememberWindowSize)
         {
             return;
         }
 
         e.Cancel = true;
-        _windowSettingsTimer.Stop();
-        CaptureCurrentWindowSize();
+        await FlushWindowSettingsAndCloseAsync();
+    }
 
-        try
+    private void ShowUnsavedSettingsCloseOverlay()
+    {
+        if (UnsavedSettingsOverlay.Visibility != Visibility.Visible)
         {
-            await _settingsStore.SaveAsync(_settings);
-            _windowSizeSettingsDirty = false;
+            _focusBeforeOverlay = Keyboard.FocusedElement;
+            UnsavedSettingsOverlay.Visibility = Visibility.Visible;
         }
-        catch
+
+        UnsavedSettingsCancelButton.Focus();
+    }
+
+    private void CancelUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
+    {
+        UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        RestoreOverlayFocus();
+        StatusText.Text = "Close cancelled";
+    }
+
+    private async void DiscardUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsDirty = false;
+        SaveSettingsButton.IsEnabled = false;
+        UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        await FlushWindowSettingsAndCloseAsync();
+    }
+
+    private async void SaveUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
+    {
+        if (!await SaveSettingsAsync())
         {
-            // Window geometry persistence is best-effort and must never trap the user.
+            UnsavedSettingsCancelButton.Focus();
+            return;
+        }
+
+        UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        await FlushWindowSettingsAndCloseAsync();
+    }
+
+    private async Task FlushWindowSettingsAndCloseAsync()
+    {
+        _windowSettingsTimer.Stop();
+
+        if (_settingsLoaded &&
+            _windowSizeSettingsDirty &&
+            _settings.RememberWindowSize)
+        {
+            CaptureCurrentWindowSize();
+
+            try
+            {
+                await _settingsStore.SaveAsync(_settings);
+                _windowSizeSettingsDirty = false;
+            }
+            catch
+            {
+                // Window geometry persistence is best-effort and must never trap the user.
+            }
         }
 
         _allowCloseAfterSettingsFlush = true;
