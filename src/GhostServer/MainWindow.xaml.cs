@@ -1920,6 +1920,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CommandInput.Focus();
     }
 
+    private void InsertQuickCommand_Click(object sender, RoutedEventArgs e)
+    {
+        if (QuickCommandBox.SelectedItem is not ComboBoxItem item ||
+            string.IsNullOrWhiteSpace(item.Tag?.ToString()))
+        {
+            return;
+        }
+
+        CommandInput.Text = item.Tag!.ToString()!;
+        CommandInput.CaretIndex = CommandInput.Text.Length;
+        CommandInput.Focus();
+        StatusText.Text = "Quick Command inserted for review";
+    }
+
     private async void SecurityScan_Click(object sender, RoutedEventArgs e)
     {
         if (SelectedProfile is null)
