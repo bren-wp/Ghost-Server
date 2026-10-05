@@ -20,6 +20,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly ProfileStore _profileStore = new();
     private readonly SettingsStore _settingsStore = new();
+    private readonly SshServerClient _ssh = new();
     private AppSettings _settings = new();
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
@@ -284,7 +285,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             FilesStatusText.Text = "Loading…";
             StatusText.Text = "Loading remote files…";
 
-            var files = await SshServerClient.GetRemoteFilesAsync(
+            var files = await _ssh.GetRemoteFilesAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 path);
@@ -367,7 +368,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             FilesStatusText.Text = $"Uploading {Path.GetFileName(dialog.FileName)}…";
-            await SshServerClient.UploadFileAsync(
+            await _ssh.UploadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 dialog.FileName,
@@ -422,7 +423,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             FilesStatusText.Text = $"Downloading {item.Name}…";
-            await SshServerClient.DownloadFileAsync(
+            await _ssh.DownloadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 item.FullPath,
@@ -472,7 +473,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (string.IsNullOrWhiteSpace(SelectedProfile.HostKeyFingerprint))
             {
-                var probe = await SshServerClient.ProbeAsync(SelectedProfile, SessionSecretBox.Password);
+                var probe = await _ssh.ProbeAsync(SelectedProfile, SessionSecretBox.Password);
                 if (probe.RequiresTrust && !string.IsNullOrWhiteSpace(probe.PresentedFingerprint))
                 {
                     _pendingFingerprint = probe.PresentedFingerprint;
@@ -486,7 +487,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 }
             }
 
-            var snapshot = await SshServerClient.GetSnapshotAsync(SelectedProfile, SessionSecretBox.Password);
+            var snapshot = await _ssh.GetSnapshotAsync(SelectedProfile, SessionSecretBox.Password);
             ApplySnapshot(snapshot);
             SelectedProfile.LastConnectedUtc = DateTimeOffset.UtcNow;
             await _profileStore.SaveAsync(Profiles);
@@ -554,7 +555,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             SetBusy("Loading services…");
-            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
+            ServicesList.ItemsSource = await _ssh.GetRunningServicesAsync(
                 SelectedProfile, SessionSecretBox.Password);
             StatusText.Text = "Service list refreshed";
         }
@@ -579,7 +580,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading services…";
-            ServicesManagerList.ItemsSource = await SshServerClient.GetServicesAsync(
+            ServicesManagerList.ItemsSource = await _ssh.GetServicesAsync(
                 SelectedProfile, SessionSecretBox.Password);
             SelectedServiceText.Text = "Select a service to manage it.";
             StatusText.Text = "Services refreshed";
@@ -638,7 +639,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"{char.ToUpperInvariant(action[0])}{action[1..]}ing {service.Name}…";
-            var output = await SshServerClient.ServiceActionAsync(
+            var output = await _ssh.ServiceActionAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 service.Name,
@@ -675,7 +676,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Loading logs for {service.Name}…";
-            _rawLogs = await SshServerClient.GetServiceLogsAsync(
+            _rawLogs = await _ssh.GetServiceLogsAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 service.Name);
@@ -707,7 +708,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading Docker containers…";
-            DockerList.ItemsSource = await SshServerClient.GetDockerContainersAsync(
+            DockerList.ItemsSource = await _ssh.GetDockerContainersAsync(
                 SelectedProfile, SessionSecretBox.Password);
             SelectedDockerText.Text = "Select a Docker container.";
             StatusText.Text = "Docker containers refreshed";
@@ -766,7 +767,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Docker {action}: {container.Name}…";
-            var output = await SshServerClient.DockerActionAsync(
+            var output = await _ssh.DockerActionAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 container.Id,
@@ -802,7 +803,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Loading logs for {container.Name}…";
-            _rawLogs = await SshServerClient.GetDockerLogsAsync(
+            _rawLogs = await _ssh.GetDockerLogsAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 container.Id);
@@ -833,7 +834,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading network state…";
-            NetworkOutput.Text = await SshServerClient.GetNetworkOverviewAsync(
+            NetworkOutput.Text = await _ssh.GetNetworkOverviewAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             NetworkOutput.ScrollToHome();
@@ -882,7 +883,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = $"Allowing firewall port {port}/{protocol}…";
-            var output = await SshServerClient.AllowFirewallPortAsync(
+            var output = await _ssh.AllowFirewallPortAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 port,
@@ -916,7 +917,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Checking package updates…";
-            var output = await SshServerClient.GetUpdateOverviewAsync(
+            var output = await _ssh.GetUpdateOverviewAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             UpdatesOutput.Text = string.IsNullOrWhiteSpace(output)
@@ -977,14 +978,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             BackupOutput.Text = "Creating remote configuration snapshot…";
             StatusText.Text = "Creating configuration snapshot…";
-            remoteArchive = await SshServerClient.CreateConfigurationSnapshotAsync(
+            remoteArchive = await _ssh.CreateConfigurationSnapshotAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
 
             BackupOutput.AppendText($"{Environment.NewLine}Remote archive: {remoteArchive}");
             BackupOutput.AppendText($"{Environment.NewLine}Downloading securely over SFTP…");
 
-            await SshServerClient.DownloadFileAsync(
+            await _ssh.DownloadFileAsync(
                 SelectedProfile,
                 SessionSecretBox.Password,
                 remoteArchive,
@@ -1006,7 +1007,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 try
                 {
-                    await SshServerClient.DeleteRemoteFileAsync(
+                    await _ssh.DeleteRemoteFileAsync(
                         SelectedProfile,
                         SessionSecretBox.Password,
                         remoteArchive);
@@ -1039,7 +1040,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Loading recent logs…";
-            _rawLogs = await SshServerClient.GetRecentLogsAsync(
+            _rawLogs = await _ssh.GetRecentLogsAsync(
                 SelectedProfile, SessionSecretBox.Password);
             ApplyLogFilter();
             LogsOutput.ScrollToEnd();
@@ -1143,7 +1144,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Running command…";
-            var output = await SshServerClient.RunCommandAsync(SelectedProfile, SessionSecretBox.Password, command);
+            var output = await _ssh.RunCommandAsync(SelectedProfile, SessionSecretBox.Password, command);
             TerminalOutput.AppendText($"> {command}{Environment.NewLine}");
             TerminalOutput.AppendText(string.IsNullOrWhiteSpace(output) ? "(no output)" : output);
             TerminalOutput.AppendText(Environment.NewLine + Environment.NewLine);
@@ -1206,7 +1207,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             StatusText.Text = "Running read-only security scan…";
-            SecurityOutput.Text = await SshServerClient.RunSecurityScanAsync(
+            SecurityOutput.Text = await _ssh.RunSecurityScanAsync(
                 SelectedProfile, SessionSecretBox.Password);
             StatusText.Text = "Security scan completed";
         }
@@ -1701,11 +1702,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _autoRefreshBusy = true;
         try
         {
-            var snapshot = await SshServerClient.GetSnapshotAsync(
+            var snapshot = await _ssh.GetSnapshotAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             ApplySnapshot(snapshot);
-            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
+            ServicesList.ItemsSource = await _ssh.GetRunningServicesAsync(
                 SelectedProfile,
                 SessionSecretBox.Password);
             ConnectionStatus.Text = "Connected • auto-refreshed";
