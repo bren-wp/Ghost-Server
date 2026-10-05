@@ -130,14 +130,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void AlertsNav_Click(object sender, RoutedEventArgs e)
     {
-        SetActiveNavigation(AlertsNavButton);
+        SetActiveNavigation(FleetNavButton);
         ShowPage(AlertsPage, "Alerts", "Review and acknowledge local Fleet health incidents.");
         RefreshAlertCenter();
     }
 
     private void TrendsNav_Click(object sender, RoutedEventArgs e)
     {
-        SetActiveNavigation(TrendsNavButton);
+        SetActiveNavigation(FleetNavButton);
         ShowPage(TrendsPage, "Trends", "Compare recent local Fleet health across saved servers.");
         RefreshTrends();
     }
@@ -165,7 +165,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void LogsNav_Click(object sender, RoutedEventArgs e)
     {
-        SetActiveNavigation(LogsNavButton);
+        SetActiveNavigation(SystemNavButton);
         ShowPage(LogsPage, "Logs", "Recent server, service or container output.");
         await RefreshLogsAsync();
     }
@@ -195,13 +195,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void BackupNav_Click(object sender, RoutedEventArgs e)
     {
-        SetActiveNavigation(BackupNavButton);
+        SetActiveNavigation(UpdatesNavButton);
         ShowPage(BackupPage, "Backup", "Create and download a temporary configuration snapshot.");
     }
 
     private async void TasksNav_Click(object sender, RoutedEventArgs e)
     {
-        SetActiveNavigation(TasksNavButton);
+        SetActiveNavigation(UpdatesNavButton);
         ShowPage(TasksPage, "Tasks", "Manage isolated Ghost Server systemd timers and inspect the current user crontab.");
         await RefreshTasksAsync();
     }
@@ -215,7 +215,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void DatabasesNav_Click(object sender, RoutedEventArgs e)
     {
-        SetActiveNavigation(DatabasesNavButton);
+        SetActiveNavigation(SystemNavButton);
         ShowPage(DatabasesPage, "Databases", "Read-only database engine and database-name discovery.");
         await RefreshDatabasesAsync();
     }
