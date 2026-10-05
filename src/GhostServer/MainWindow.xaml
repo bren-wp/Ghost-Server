@@ -904,11 +904,8 @@
                             </Border>
 
                             <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                                <TextBox x:Name="CrontabOutput" IsReadOnly="True" AcceptsReturn="True"
-                                         Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                         FontFamily="Cascadia Code, Consolas" Padding="14"
-                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                         Text="Current user crontab is shown here for visibility only. Ghost Server does not edit it."/>
+                                <TextBox x:Name="CrontabOutput"
+                                         Text="Current user crontab is shown here for visibility only. Ghost Server does not edit it." Style="{StaticResource GhostOutputBox}"/>
                             </Border>
                         </Grid>
                     </Grid>
@@ -965,11 +962,8 @@
                         </Border>
 
                         <Border Grid.Row="4" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="SystemOverviewOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Text="Select a server to inspect memory, filesystems, block devices, logged-in users and load."/>
+                            <TextBox x:Name="SystemOverviewOutput"
+                                     Text="Select a server to inspect memory, filesystems, block devices, logged-in users and load." Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1031,16 +1025,7 @@
                                                Margin="14,12,14,8"/>
                                     <TextBox Grid.Row="1"
                                              x:Name="DatabaseNamesOutput"
-                                             IsReadOnly="True"
-                                             AcceptsReturn="True"
-                                             Background="#071522"
-                                             Foreground="{StaticResource GhostIce}"
-                                             BorderThickness="0"
-                                             FontFamily="Cascadia Code, Consolas"
-                                             Padding="14"
-                                             VerticalScrollBarVisibility="Auto"
-                                             HorizontalScrollBarVisibility="Auto"
-                                             Text="Select a database engine to inspect discovered database names."/>
+                                             Text="Select a database engine to inspect discovered database names." Style="{StaticResource GhostOutputBox}"/>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -1066,10 +1051,7 @@
                                      ToolTip="Filter visible log lines" TextChanged="LogsFilter_TextChanged"/>
                         </Grid>
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="LogsOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                            <TextBox x:Name="LogsOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1175,10 +1157,7 @@
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,8"/>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="TerminalOutput" IsReadOnly="True" TextWrapping="NoWrap"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14" AcceptsReturn="True"/>
+                            <TextBox x:Name="TerminalOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1218,10 +1197,7 @@
                         </Border>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="NetworkOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                            <TextBox x:Name="NetworkOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1259,11 +1235,8 @@
                         </Border>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="UpdatesOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Text="Preview pending updates first. Safe Update will require a local configuration snapshot before making package changes."/>
+                            <TextBox x:Name="UpdatesOutput"
+                                     Text="Preview pending updates first. Safe Update will require a local configuration snapshot before making package changes." Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1291,11 +1264,8 @@
                         </Border>
 
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="BackupOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Text="Ready. Select a server, unlock the session, then create a configuration snapshot."/>
+                            <TextBox x:Name="BackupOutput"
+                                     Text="Ready. Select a server, unlock the session, then create a configuration snapshot." Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1311,10 +1281,7 @@
                                        VerticalAlignment="Center" Margin="0,0,0,8"/>
                         </WrapPanel>
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="SecurityOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                            <TextBox x:Name="SecurityOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
