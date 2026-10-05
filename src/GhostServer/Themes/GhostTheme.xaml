@@ -63,6 +63,19 @@
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
     </Style>
 
+    <Style x:Key="GhostSummaryLabel" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource GhostMuted}"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <Style x:Key="GhostSummaryValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="24"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Margin" Value="0,5,0,0"/>
+    </Style>
+
     <Style x:Key="GhostFocusVisual" TargetType="{x:Type Control}">
         <Setter Property="Template">
             <Setter.Value>
@@ -558,5 +571,9 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Padding" Value="16"/>
+    </Style>
+
+    <Style x:Key="GhostSummaryCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">
+        <Setter Property="Margin" Value="0,0,8,8"/>
     </Style>
 </ResourceDictionary>

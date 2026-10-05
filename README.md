@@ -42,22 +42,22 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.21.0
+## 🚀 Current release — 0.22.0
 
-Ghost Server 0.21.0 focuses on **remote-operation safety and profile integrity**.
+Ghost Server 0.22.0 focuses on **durable local state, race-safe interaction and narrow-window reliability**.
 
-### New in 0.21.0
+### New in 0.22.0
 
-- 🔒 Remote administrative mutations now share one visible busy state and cannot overlap.
-- 🟡 A persistent **Admin action** badge explains why mutation controls are temporarily locked.
-- 🧭 Server selection plus Edit / Reset trust / Delete profile are protected while a remote mutation is running.
-- 🛑 Closing during an active administrative action requires an explicit Ghost warning; remote cancellation happens only after the full close flow is approved.
-- ♻️ Ghost confirmation continuations run asynchronously to avoid UI reentrancy inside button click handlers.
-- ↩️ Reset SSH trust rolls back the previous fingerprint if local persistence fails.
-- 📥 Profile import is candidate-first and transactional: disk validation/write succeeds before the live profile collection changes.
-- 🧱 Parallel profile imports are blocked and imported replacements safely invalidate affected remote/terminal context.
-- 🔐 Portable profile files never carry pinned SSH host-key trust or LastConnectedUtc history.
-- 🧩 Duplicate host:port + username identities are rejected centrally.
+- 🔐 Profile save/delete, SSH trust changes, profile import, Fleet-history writes and remote administrative mutations are mutually coordinated.
+- 🧱 Duplicate clicks cannot start overlapping profile or Fleet-history mutations.
+- ↩️ Failed profile/Fleet persistence restores the previous in-memory state instead of leaving UI state ahead of disk.
+- 🧷 SSH host-key approval stays pending until the pinned fingerprint is durably written; failed writes restore the previous trust state.
+- 🕒 Successful connections no longer become false connection failures when only LastConnectedUtc persistence fails.
+- 🔒 Session lock cancels an in-flight terminal connection, waits for the terminal transition to settle, then explicitly disconnects the shell.
+- 🪟 Reset window size is transactional and restores prior geometry/settings when settings persistence fails.
+- 📊 Fleet, Alerts and Trends summary cards switch from four to two columns at the tight responsive breakpoint.
+- 🧩 Shared Ghost summary-card typography keeps long labels readable at the 640×440 minimum window size.
+- ✅ Existing 0.21.0 administrative-operation safety, transactional profile import and portable-profile security remain enforced.
 
 
 ---
@@ -377,7 +377,7 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.21.0:
+Current priorities after 0.22.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;

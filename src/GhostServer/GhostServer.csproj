@@ -11,14 +11,14 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <AssemblyName>GhostServer</AssemblyName>
     <RootNamespace>GhostServer</RootNamespace>
-    <Version>0.21.0</Version>
+    <Version>0.22.0</Version>
     <Authors>Brendigo</Authors>
     <Product>Ghost Server</Product>
     <Description>Secure Windows server management for SSH-connected Linux servers.</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\GhostServer.ico</ApplicationIcon>
-    <FileVersion>0.21.0.0</FileVersion>
-    <AssemblyVersion>0.21.0.0</AssemblyVersion>
+    <FileVersion>0.22.0.0</FileVersion>
+    <AssemblyVersion>0.22.0.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="SSH.NET" Version="2026.0.0" />

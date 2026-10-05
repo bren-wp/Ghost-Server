@@ -284,3 +284,18 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - portable profile files never transfer pinned SSH host-key trust or local connection-history timestamps;
 - imported servers always require local host-key approval;
 - ProfileStore rejects duplicate SSH endpoint+username identities.
+
+## v0.22 Local mutation, persistence and responsive-summary contract
+
+- profile edits, profile deletion, SSH trust changes, profile import, Fleet-history writes and remote administrative mutations must not overlap in ways that can invalidate shared local state;
+- local operation guards must be bidirectional: an administrative mutation cannot start during a local profile/Fleet mutation, and a local profile/Fleet mutation cannot start during an administrative mutation;
+- Save server and Delete profile are single-flight and disable their active modal actions while persistence is in progress;
+- SSH trust approval must not clear the pending fingerprint until profile persistence succeeds; failed persistence restores the previous trust state;
+- Reset SSH trust must restore the previous fingerprint if durable profile persistence fails;
+- LastConnectedUtc persistence failure must not turn an otherwise successful SSH connection into a false connection failure;
+- Fleet history trimming must be staged as a persistence snapshot so a failed disk write does not silently discard older in-memory history;
+- Fleet probes, history clearing and alert acknowledgement must restore their previous local history/acknowledgement state when persistence fails;
+- Lock session remains an emergency action, cancels an in-flight terminal connection, waits for the current terminal transition to settle and then explicitly disconnects the shell;
+- Reset window size is transactional with respect to Settings persistence and restores previous geometry/settings when the write fails;
+- Fleet, Alerts and Trends summary grids use four columns normally and two columns below the tight responsive breakpoint;
+- summary-card labels use a shared wrapping style so long labels remain readable at the 640×440 minimum window size.
