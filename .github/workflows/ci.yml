@@ -68,7 +68,7 @@ jobs:
           $codePath = "src/GhostServer/MainWindow.xaml.cs"
           $xaml = Get-Content $xamlPath -Raw
           $code = Get-Content $codePath -Raw
-          $eventNames = "Click|Loaded|SelectionChanged|TextChanged|Checked|Unchecked|KeyDown|MouseDoubleClick|MouseLeftButtonDown|Closing|PreviewKeyDown|PasswordChanged"
+          $eventNames = "Click|Loaded|Closed|SelectionChanged|TextChanged|Checked|Unchecked|KeyDown|MouseDoubleClick|MouseLeftButtonDown|Closing|PreviewKeyDown|PasswordChanged"
           $pattern = '(?:' + $eventNames + ')="([A-Za-z_][A-Za-z0-9_]*)"'
           $handlers = [regex]::Matches($xaml, $pattern) |
             ForEach-Object { $_.Groups[1].Value } |

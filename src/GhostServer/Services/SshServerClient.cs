@@ -1310,7 +1310,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         return client;
     }
 
-    private static SshClient CreateVerifiedClient(ServerProfile profile, string? secret)
+    internal static SshClient CreateVerifiedClient(ServerProfile profile, string? secret)
     {
         if (string.IsNullOrWhiteSpace(profile.HostKeyFingerprint))
         {

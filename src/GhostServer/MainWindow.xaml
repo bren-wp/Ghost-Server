@@ -10,6 +10,7 @@
         Background="{StaticResource GhostNavy}"
         Foreground="{StaticResource GhostIce}"
         Loaded="Window_Loaded"
+        Closed="Window_Closed"
         PreviewKeyDown="Window_PreviewKeyDown"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
@@ -1053,7 +1054,43 @@
 
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Text="Command" Foreground="{StaticResource GhostMuted}" FontSize="11"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Interactive shell" FontWeight="SemiBold"/>
+                                        <TextBlock Text="•" Foreground="{StaticResource GhostMuted}" Margin="8,0"/>
+                                        <TextBlock x:Name="TerminalSessionStatus" Text="Disconnected"
+                                                   Foreground="{StaticResource GhostMuted}"/>
+                                    </StackPanel>
+                                    <Button x:Name="ConnectTerminalButton" Grid.Column="1"
+                                            Style="{StaticResource AccentButton}" Margin="8,0,0,0"
+                                            Click="ConnectTerminal_Click" ToolTip="Connect a persistent SSH shell session">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE703;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
+                                            <TextBlock Text="Connect shell" Margin="7,0,0,0" Foreground="#06121E"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="DisconnectTerminalButton" Grid.Column="2"
+                                            Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                            Click="DisconnectTerminal_Click" IsEnabled="False"
+                                            ToolTip="Disconnect the current interactive SSH shell">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE711;" Style="{StaticResource FluentIcon}"/>
+                                            <TextBlock Text="Disconnect" Margin="7,0,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <TextBlock Text="Persistent line-oriented SSH shell. Working directory and shell state are preserved until you disconnect, switch servers, lock the session or close Ghost Server."
+                                           Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="2,8,0,0"
+                                           TextWrapping="Wrap"/>
+
+                                <TextBlock Text="Command" Foreground="{StaticResource GhostMuted}" FontSize="11"
+                                           Margin="0,14,0,0"/>
                                 <Grid Margin="0,8,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -1063,12 +1100,18 @@
                                     <TextBox x:Name="CommandInput" Style="{StaticResource GhostTextBox}"
                                              FontFamily="Cascadia Code, Consolas" KeyDown="CommandInput_KeyDown"
                                              ToolTip="Enter command. Use Up/Down for command history."/>
-                                    <Button Grid.Column="1" Style="{StaticResource AccentButton}"
-                                            Margin="8,0,0,0" Click="RunCommand_Click" ToolTip="Run command">
-                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Run" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
+                                    <Button x:Name="SendTerminalButton" Grid.Column="1"
+                                            Style="{StaticResource AccentButton}"
+                                            Margin="8,0,0,0" Click="RunCommand_Click" IsEnabled="False"
+                                            ToolTip="Send command to the connected shell">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE768;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
+                                            <TextBlock Text="Send" Margin="7,0,0,0" Foreground="#06121E"/>
+                                        </StackPanel>
                                     </Button>
                                     <Button Grid.Column="2" Style="{StaticResource GhostButton}"
-                                            Margin="8,0,0,0" Click="ClearTerminal_Click" ToolTip="Clear terminal output">
+                                            Margin="8,0,0,0" Click="ClearTerminal_Click"
+                                            ToolTip="Clear terminal output locally">
                                         <TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}"/>
                                     </Button>
                                 </Grid>
@@ -1079,7 +1122,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <ComboBox x:Name="QuickCommandBox" Style="{StaticResource GhostComboBox}" SelectedIndex="0"
-                                              ToolTip="Read-only command presets. Insert first, then review and run manually.">
+                                              ToolTip="Read-only command presets. Insert first, then review and send manually.">
                                         <ComboBoxItem Content="System summary" Tag="uptime; printf '\nMemory\n'; free -h; printf '\nRoot filesystem\n'; df -h /"/>
                                         <ComboBoxItem Content="Top processes" Tag="ps -eo pid,user,pcpu,pmem,etime,comm --sort=-pcpu | head -n 20"/>
                                         <ComboBoxItem Content="Listening sockets" Tag="ss -lntup 2>/dev/null || netstat -lntup 2>/dev/null"/>
@@ -1088,20 +1131,20 @@
                                         <ComboBoxItem Content="Recent errors" Tag="journalctl -p err -n 80 --no-pager"/>
                                     </ComboBox>
                                     <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
-                                            Click="InsertQuickCommand_Click" ToolTip="Insert preset into the command editor without running it">
+                                            Click="InsertQuickCommand_Click" ToolTip="Insert preset into the command editor without sending it">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE8B5;" Style="{StaticResource FluentIcon}"/>
                                             <TextBlock Text="Insert preset" Margin="7,0,0,0"/>
                                         </StackPanel>
                                     </Button>
                                 </Grid>
-                                <TextBlock Text="Quick Commands are read-only presets. Ghost Server never runs a preset until you press Run."
+                                <TextBlock Text="Quick Commands are read-only presets. Ghost Server never sends a preset until you press Send."
                                            Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="2,7,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <TextBlock Grid.Row="1" x:Name="TerminalServerLabel" Foreground="{StaticResource GhostMuted}"
-                                   Margin="2,0,0,8"/>
+                        <TextBlock Grid.Row="1" x:Name="TerminalServerLabel"
+                                   Foreground="{StaticResource GhostMuted}" Margin="2,0,0,8"/>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
                             <TextBox x:Name="TerminalOutput" IsReadOnly="True" TextWrapping="NoWrap"

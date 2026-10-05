@@ -17,11 +17,12 @@ using Microsoft.Win32;
 
 namespace GhostServer;
 
-public partial class MainWindow : Window, INotifyPropertyChanged
+public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
     private readonly ProfileStore _profileStore = new();
     private readonly SettingsStore _settingsStore = new();
     private readonly FleetHistoryStore _fleetHistoryStore = new();
+    private readonly InteractiveSshTerminalSession _terminalSession = new();
     private AppSettings _settings = new();
     private string? _pendingFingerprint;
     private string? _pendingAlgorithm;
@@ -40,6 +41,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private int _mutationActive;
     private bool _autoRefreshBusy;
+    private bool _terminalTransitionBusy;
+    private CancellationTokenSource? _terminalConnectCancellation;
+    private int _windowDisposed;
+    private const int TerminalOutputMaxCharacters = 500_000;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
 
@@ -65,6 +70,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         InitializeComponent();
         DataContext = this;
         _dashboardTimer.Tick += DashboardTimer_Tick;
+        _terminalSession.OutputReceived += TerminalSession_OutputReceived;
+        _terminalSession.Disconnected += TerminalSession_Disconnected;
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -163,8 +170,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void TerminalNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(TerminalNavButton);
-        ShowPage(TerminalPage, "Terminal", "Run commands on the currently selected SSH server.");
+        ShowPage(TerminalPage, "Terminal", "Persistent interactive shell for the currently selected SSH server.");
         UpdateSelectedLabels();
+        UpdateTerminalSessionUi();
         CommandInput.Focus();
     }
 
@@ -280,7 +288,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void ServerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        SelectedProfile = ServerList.SelectedItem as ServerProfile;
+        var nextProfile = ServerList.SelectedItem as ServerProfile;
+        if (SelectedProfile?.Id != nextProfile?.Id)
+        {
+            _terminalConnectCancellation?.Cancel();
+            await DisconnectTerminalAsync(
+                "Terminal disconnected because the selected server changed.",
+                appendMessage: false);
+            TerminalOutput.Clear();
+        }
+
+        SelectedProfile = nextProfile;
         _pendingFingerprint = null;
         _pendingAlgorithm = null;
         HostKeyPanel.Visibility = Visibility.Collapsed;
@@ -292,6 +310,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             await PersistSettingsQuietlyAsync();
             EmptyState.Visibility = Visibility.Visible;
             ServerDetail.Visibility = Visibility.Collapsed;
+            UpdateSelectedLabels();
+            UpdateTerminalSessionUi();
             return;
         }
 
@@ -330,12 +350,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DatabasesStatusText.Text = "Select a server, then refresh database engines.";
         DatabaseNamesOutput.Text = "Select a database engine to inspect discovered database names.";
         UpdateSelectedLabels();
+        UpdateTerminalSessionUi();
     }
 
     private void UpdateSelectedLabels()
     {
         TerminalServerLabel.Text = SelectedProfile is null
-            ? "Select a server on Dashboard before running commands."
+            ? "Select a server on Dashboard before connecting the interactive shell."
             : $"Target: {SelectedProfile.Username}@{SelectedProfile.Endpoint}";
     }
 
@@ -2518,11 +2539,155 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
     }
 
+    private async void ConnectTerminal_Click(object sender, RoutedEventArgs e)
+    {
+        if (_terminalTransitionBusy)
+        {
+            return;
+        }
+
+        var profile = SelectedProfile;
+        if (profile is null)
+        {
+            AppendTerminalSystemLine("Select a server on Dashboard before connecting.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.HostKeyFingerprint))
+        {
+            AppendTerminalSystemLine("SSH host key must be approved before opening an interactive shell.");
+            TerminalSessionStatus.Text = "Trust required";
+            TerminalSessionStatus.Foreground = (Brush)FindResource("GhostWarning");
+            UpdateTerminalSessionUi();
+            return;
+        }
+
+        _terminalConnectCancellation?.Cancel();
+        _terminalConnectCancellation?.Dispose();
+        var cancellation = new CancellationTokenSource();
+        _terminalConnectCancellation = cancellation;
+
+        _terminalTransitionBusy = true;
+        TerminalSessionStatus.Text = "Connecting…";
+        TerminalSessionStatus.Foreground = (Brush)FindResource("GhostMuted");
+        StatusText.Text = $"Opening interactive shell to {profile.Name}…";
+        UpdateTerminalSessionUi();
+
+        try
+        {
+            await _terminalSession.ConnectAsync(
+                profile,
+                SessionSecretBox.Password,
+                cancellation.Token);
+
+            if (cancellation.IsCancellationRequested ||
+                SelectedProfile?.Id != profile.Id ||
+                (ServerList.SelectedItem as ServerProfile)?.Id != profile.Id)
+            {
+                await _terminalSession.DisconnectAsync();
+                return;
+            }
+
+            TerminalSessionStatus.Text = "Connected";
+            TerminalSessionStatus.Foreground = (Brush)FindResource("GhostSuccess");
+            AppendTerminalSystemLine(
+                $"Connected to {profile.Username}@{profile.Endpoint}. Shell state persists until disconnect.");
+            StatusText.Text = $"Interactive terminal connected to {profile.Name}";
+            CommandInput.Focus();
+        }
+        catch (OperationCanceledException)
+        {
+            TerminalSessionStatus.Text = "Disconnected";
+            TerminalSessionStatus.Foreground = (Brush)FindResource("GhostMuted");
+            StatusText.Text = "Interactive terminal connection cancelled";
+        }
+        catch (Exception ex)
+        {
+            TerminalSessionStatus.Text = "Connection failed";
+            TerminalSessionStatus.Foreground = (Brush)FindResource("GhostWarning");
+            AppendTerminalSystemLine($"Connection failed: {SafeError(ex)}");
+            StatusText.Text = "Interactive terminal connection failed";
+        }
+        finally
+        {
+            if (ReferenceEquals(_terminalConnectCancellation, cancellation))
+            {
+                _terminalConnectCancellation = null;
+            }
+
+            cancellation.Dispose();
+            _terminalTransitionBusy = false;
+            UpdateTerminalSessionUi();
+        }
+    }
+
+    private async void DisconnectTerminal_Click(object sender, RoutedEventArgs e)
+    {
+        if (_terminalTransitionBusy)
+        {
+            return;
+        }
+
+        _terminalTransitionBusy = true;
+        UpdateTerminalSessionUi();
+
+        try
+        {
+            await DisconnectTerminalAsync(
+                "Interactive terminal disconnected.",
+                appendMessage: true);
+            StatusText.Text = "Interactive terminal disconnected";
+        }
+        catch (Exception ex)
+        {
+            AppendTerminalSystemLine($"Disconnect failed: {SafeError(ex)}");
+            StatusText.Text = "Interactive terminal disconnect failed";
+        }
+        finally
+        {
+            _terminalTransitionBusy = false;
+            UpdateTerminalSessionUi();
+        }
+    }
+
+    private async Task DisconnectTerminalAsync(
+        string message,
+        bool appendMessage)
+    {
+        _terminalConnectCancellation?.Cancel();
+
+        var hadSession = _terminalSession.IsConnected ||
+                         _terminalSession.ProfileId is not null;
+
+        if (hadSession)
+        {
+            await _terminalSession.DisconnectAsync();
+        }
+
+        if (appendMessage && hadSession)
+        {
+            AppendTerminalSystemLine(message);
+        }
+
+        TerminalSessionStatus.Text = "Disconnected";
+        TerminalSessionStatus.Foreground = (Brush)FindResource("GhostMuted");
+        UpdateTerminalSessionUi();
+    }
+
     private async void RunCommand_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var profile = SelectedProfile;
+        if (profile is null)
         {
-            TerminalOutput.Text = "Select a server on Dashboard first.";
+            AppendTerminalSystemLine("Select a server on Dashboard first.");
+            return;
+        }
+
+        if (!_terminalSession.IsConnected ||
+            _terminalSession.ProfileId != profile.Id)
+        {
+            AppendTerminalSystemLine("Connect the interactive shell before sending commands.");
+            UpdateTerminalSessionUi();
             return;
         }
 
@@ -2546,20 +2711,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            StatusText.Text = "Running command…";
-            var output = await SshServerClient.RunCommandAsync(SelectedProfile, SessionSecretBox.Password, command);
-            TerminalOutput.AppendText($"> {command}{Environment.NewLine}");
-            TerminalOutput.AppendText(string.IsNullOrWhiteSpace(output) ? "(no output)" : output);
-            TerminalOutput.AppendText(Environment.NewLine + Environment.NewLine);
-            TerminalOutput.ScrollToEnd();
+            await _terminalSession.SendLineAsync(command);
             CommandInput.Clear();
-            StatusText.Text = "Command completed";
+            StatusText.Text = "Command sent to interactive shell";
         }
         catch (Exception ex)
         {
-            TerminalOutput.AppendText($"> {command}{Environment.NewLine}[error] {SafeError(ex)}{Environment.NewLine}{Environment.NewLine}");
-            TerminalOutput.ScrollToEnd();
-            StatusText.Text = "Command failed";
+            AppendTerminalSystemLine($"Send failed: {SafeError(ex)}");
+            StatusText.Text = "Terminal command failed";
+            UpdateTerminalSessionUi();
         }
     }
 
@@ -2595,7 +2755,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ClearTerminal_Click(object sender, RoutedEventArgs e)
     {
         TerminalOutput.Clear();
-        StatusText.Text = "Terminal output cleared";
+        StatusText.Text = "Terminal output cleared locally";
         CommandInput.Focus();
     }
 
@@ -2611,6 +2771,108 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CommandInput.CaretIndex = CommandInput.Text.Length;
         CommandInput.Focus();
         StatusText.Text = "Quick Command inserted for review";
+    }
+
+    private void TerminalSession_OutputReceived(object? sender, TerminalOutputEventArgs e)
+    {
+        if (Dispatcher.HasShutdownStarted || string.IsNullOrEmpty(e.Text))
+        {
+            return;
+        }
+
+        _ = Dispatcher.InvokeAsync(() => AppendTerminalOutput(e.Text));
+    }
+
+    private void TerminalSession_Disconnected(object? sender, EventArgs e)
+    {
+        if (Dispatcher.HasShutdownStarted)
+        {
+            return;
+        }
+
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            if (!_terminalTransitionBusy)
+            {
+                TerminalSessionStatus.Text = "Disconnected";
+                TerminalSessionStatus.Foreground = (Brush)FindResource("GhostMuted");
+            }
+
+            UpdateTerminalSessionUi();
+        });
+    }
+
+    private void AppendTerminalSystemLine(string message)
+    {
+        var prefix = TerminalOutput.Text.Length == 0
+            ? string.Empty
+            : Environment.NewLine;
+
+        AppendTerminalOutput(
+            $"{prefix}[ghost] {message}{Environment.NewLine}");
+    }
+
+    private void AppendTerminalOutput(string output)
+    {
+        if (string.IsNullOrEmpty(output))
+        {
+            return;
+        }
+
+        TerminalOutput.AppendText(output);
+
+        if (TerminalOutput.Text.Length > TerminalOutputMaxCharacters)
+        {
+            var start = TerminalOutput.Text.Length - TerminalOutputMaxCharacters;
+            TerminalOutput.Text = TerminalOutput.Text[start..];
+            TerminalOutput.CaretIndex = TerminalOutput.Text.Length;
+        }
+
+        TerminalOutput.ScrollToEnd();
+    }
+
+    private void UpdateTerminalSessionUi()
+    {
+        var profile = SelectedProfile;
+        var connectedToSelection = profile is not null &&
+                                   _terminalSession.IsConnected &&
+                                   _terminalSession.ProfileId == profile.Id;
+
+        ConnectTerminalButton.IsEnabled =
+            !_terminalTransitionBusy &&
+            !connectedToSelection &&
+            profile is not null &&
+            !string.IsNullOrWhiteSpace(profile.HostKeyFingerprint);
+
+        DisconnectTerminalButton.IsEnabled =
+            !_terminalTransitionBusy &&
+            _terminalSession.IsConnected;
+
+        SendTerminalButton.IsEnabled =
+            !_terminalTransitionBusy &&
+            connectedToSelection;
+
+        if (_terminalTransitionBusy)
+        {
+            return;
+        }
+
+        if (connectedToSelection)
+        {
+            TerminalSessionStatus.Text = "Connected";
+            TerminalSessionStatus.Foreground = (Brush)FindResource("GhostSuccess");
+        }
+        else if (profile is not null &&
+                 string.IsNullOrWhiteSpace(profile.HostKeyFingerprint))
+        {
+            TerminalSessionStatus.Text = "Trust required";
+            TerminalSessionStatus.Foreground = (Brush)FindResource("GhostWarning");
+        }
+        else
+        {
+            TerminalSessionStatus.Text = "Disconnected";
+            TerminalSessionStatus.Foreground = (Brush)FindResource("GhostMuted");
+        }
     }
 
     private async void SecurityScan_Click(object sender, RoutedEventArgs e)
@@ -2769,6 +3031,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var replaceIndex = oldProfile is null ? -1 : Profiles.IndexOf(oldProfile);
 
+        if (editedExisting &&
+            oldProfile is not null &&
+            _terminalSession.ProfileId == oldProfile.Id)
+        {
+            _terminalConnectCancellation?.Cancel();
+            await DisconnectTerminalAsync(
+                "Terminal disconnected because the active server profile was edited.",
+                appendMessage: true);
+        }
+
         try
         {
             if (editedExisting && replaceIndex >= 0)
@@ -2835,6 +3107,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var index = Profiles.IndexOf(profile);
         try
         {
+            if (_terminalSession.ProfileId == profile.Id)
+            {
+                _terminalConnectCancellation?.Cancel();
+                await DisconnectTerminalAsync(
+                    "Terminal disconnected because the active server profile is being deleted.",
+                    appendMessage: true);
+            }
+
             Profiles.Remove(profile);
             await _profileStore.SaveAsync(Profiles);
             ConfirmOverlay.Visibility = Visibility.Collapsed;
@@ -2873,6 +3153,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        await DisconnectTerminalAsync(
+            "Terminal disconnected because SSH trust was reset.",
+            appendMessage: true);
         SelectedProfile.HostKeyFingerprint = null;
         try
         {
@@ -2881,6 +3164,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
             HostKeyPanel.Visibility = Visibility.Collapsed;
             StatusText.Text = $"SSH trust reset for {SelectedProfile.Name}";
+            UpdateTerminalSessionUi();
         }
         catch (Exception ex)
         {
@@ -2888,9 +3172,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void LockSession_Click(object sender, RoutedEventArgs e)
+    private async void LockSession_Click(object sender, RoutedEventArgs e)
     {
+        _terminalConnectCancellation?.Cancel();
         SessionSecretBox.Clear();
+        await DisconnectTerminalAsync(
+            "Terminal disconnected because the session was locked.",
+            appendMessage: true);
         _dashboardTimer.Stop();
         if (AutoRefreshToggle is not null)
         {
@@ -3235,6 +3523,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         }
 
+        if (ConfirmOverlay.Visibility == Visibility.Visible ||
+            AddServerOverlay.Visibility == Visibility.Visible)
+        {
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
         {
             OpenAddServer_Click(sender, new RoutedEventArgs());
@@ -3312,6 +3606,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             Connect_Click(sender, new RoutedEventArgs());
         }
+    }
+
+    private void Window_Closed(object? sender, EventArgs e) => Dispose();
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _windowDisposed, 1) != 0)
+        {
+            return;
+        }
+
+        _terminalConnectCancellation?.Cancel();
+        _terminalConnectCancellation?.Dispose();
+        _terminalConnectCancellation = null;
+        _terminalSession.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
