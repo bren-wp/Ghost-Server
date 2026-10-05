@@ -248,7 +248,8 @@
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <Border x:Name="ServerCard" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
-                                                    BorderThickness="1" CornerRadius="10" Padding="12" Width="258">
+                                                    BorderThickness="1" CornerRadius="10" Padding="12"
+                                                    HorizontalAlignment="Stretch">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
