@@ -3030,6 +3030,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var replaceIndex = oldProfile is null ? -1 : Profiles.IndexOf(oldProfile);
 
+        if (editedExisting &&
+            oldProfile is not null &&
+            _terminalSession.ProfileId == oldProfile.Id)
+        {
+            _terminalConnectCancellation?.Cancel();
+            await DisconnectTerminalAsync(
+                "Terminal disconnected because the active server profile was edited.",
+                appendMessage: true);
+        }
+
         try
         {
             if (editedExisting && replaceIndex >= 0)
@@ -3096,6 +3106,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var index = Profiles.IndexOf(profile);
         try
         {
+            if (_terminalSession.ProfileId == profile.Id)
+            {
+                _terminalConnectCancellation?.Cancel();
+                await DisconnectTerminalAsync(
+                    "Terminal disconnected because the active server profile is being deleted.",
+                    appendMessage: true);
+            }
+
             Profiles.Remove(profile);
             await _profileStore.SaveAsync(Profiles);
             ConfirmOverlay.Visibility = Visibility.Collapsed;
@@ -3145,6 +3163,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
             HostKeyPanel.Visibility = Visibility.Collapsed;
             StatusText.Text = $"SSH trust reset for {SelectedProfile.Name}";
+            UpdateTerminalSessionUi();
         }
         catch (Exception ex)
         {
@@ -3501,6 +3520,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 e.Handled = true;
                 return;
             }
+        }
+
+        if (ConfirmOverlay.Visibility == Visibility.Visible ||
+            AddServerOverlay.Visibility == Visibility.Visible)
+        {
+            return;
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
