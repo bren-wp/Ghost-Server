@@ -181,3 +181,22 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - duplicate refresh protection is scoped by operation generation;
 - changing servers, locking the session, editing/deleting the active profile or resetting trust invalidates stale remote work;
 - Safe Update, restore and backup cleanup remains targeted to the captured original server profile.
+
+
+## v0.17 Responsive window and complete UI pass
+
+- Ghost Server launches as a centered normal window and never intentionally enters Windows Maximized/full-screen state;
+- initial and fitted sizes are calculated from the available Windows work area and capped below full-screen dimensions;
+- the former maximize control is a bounded Fit window action;
+- custom-title-bar double-click toggles between comfortable and fitted normal-window sizes;
+- the sidebar uses a 198 px full mode and a 72 px icon-only compact mode;
+- compact sidebar mode preserves tooltips and hides section labels/footer before content becomes cramped;
+- the content header reduces height and title size when space is constrained;
+- subtitle, Add server label and status-bar shortcut legend collapse progressively instead of overlapping;
+- Dashboard server-list width adapts with the window;
+- add-server and destructive-confirmation cards resize to the available window;
+- Fleet, Alerts, Trends, Files, Network, Tasks and Security command surfaces wrap instead of clipping;
+- Dashboard server identity/actions and session-secret controls wrap into separate rows when required;
+- Settings monitoring and profile import/export controls wrap on narrow layouts;
+- tables retain their own scrolling where their data columns are wider than the current viewport;
+- the minimum supported interactive window remains intentionally bounded so controls stay usable rather than being scaled unreadably.

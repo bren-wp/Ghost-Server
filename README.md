@@ -42,22 +42,20 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.16.0
+## 🚀 Current release — 0.17.0
 
-Ghost Server 0.16.0 focuses on **operation safety and UI cleanup across all major workspaces**.
+Ghost Server 0.17.0 completes a **responsive Windows UI pass** and ensures the application stays a resizable normal window instead of taking over the entire screen.
 
-### New in 0.16.0
+### New in 0.17.0
 
-- 🧭 Selected-server SSH operations now run against a captured immutable server snapshot.
-- 🛑 Server switch, Lock session, trust reset, profile edit/delete and shutdown cancel stale remote work.
-- 🔒 Old asynchronous results can no longer overwrite a newly selected server's UI.
-- 🧹 Safe Update, restore and backup cleanup remains pinned to the original server even after a UI switch.
-- 🧱 Generation-aware refresh gates prevent duplicate work without mixing old and new server operations.
-- 🎛️ Sidebar reduced from 17 visible destinations to 11 grouped top-level workspaces.
-- 📊 Alerts + Trends now live under Fleet; Backup + Tasks under Safe Update; Databases + Logs under System.
-- 🎨 Combo boxes, list rows, GridView headers, check boxes and scroll surfaces now use the same dark Ghost visual language.
-- 📐 Navigation icons and labels use fixed columns for consistent alignment and a denser, cleaner sidebar.
-- ⌨️ F5 refresh follows the visible page, including grouped child workspaces.
+- 🪟 Starts centered in a normal window sized from the available Windows work area.
+- 📏 Window maximums stay below the full work area; true Maximized/full-screen state is no longer used.
+- ↗️ The title-bar maximize control is now **Fit window to screen**, still leaving desktop space around the app.
+- 🧭 Sidebar automatically changes from a full aligned 198 px rail to a 72 px icon rail on narrower windows.
+- 📐 Workspace margins, headers, Dashboard columns and modal cards adapt to available space.
+- ↩️ Fleet, Alerts, Trends, Network, Tasks, Files, Security and key Dashboard/Settings forms wrap instead of clipping.
+- 🧹 Status chrome collapses secondary text before it can overlap.
+- ✅ Main-window UI audit confirms all 91 buttons are actionable and all 104 XAML handlers resolve.
 
 
 ---
@@ -377,7 +375,7 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.16.0:
+Current priorities after 0.17.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;
