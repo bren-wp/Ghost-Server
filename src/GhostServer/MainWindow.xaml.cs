@@ -52,6 +52,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _fitWindowActive;
     private bool _windowSizeSettingsDirty;
     private bool _settingsLoaded;
+    private bool _settingsUiUpdate;
+    private bool _settingsDirty;
     private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
@@ -248,7 +250,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         SetActiveNavigation(SettingsNavButton);
         ShowPage(SettingsPage, "Settings", "Monitoring, profile portability and application information.");
-        ApplySettingsToUi();
+
+        if (!_settingsDirty)
+        {
+            ApplySettingsToUi();
+        }
     }
 
     private void SetActiveNavigation(Button button)
@@ -3811,11 +3817,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         _settings.WindowWidth = null;
         _settings.WindowHeight = null;
-        _settings.RememberWindowSize = RememberWindowSizeToggle.IsChecked == true;
         _windowSizeSettingsDirty = false;
         _windowSettingsTimer.Stop();
 
         RestoreComfortableWindowSize();
+        _windowSettingsTimer.Stop();
+        _windowSizeSettingsDirty = false;
 
         if (_settings.RememberWindowSize)
         {
@@ -3825,7 +3832,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             await _settingsStore.SaveAsync(_settings);
-            SettingsStatusText.Text = "Window size reset to the safe default.";
+            SettingsStatusText.Text = _settingsDirty
+                ? "Window size reset. Other settings still have unsaved changes."
+                : "Window size reset to the safe default.";
             StatusText.Text = "Window size reset";
         }
         catch (Exception ex)
@@ -3837,8 +3846,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void ClearBackupFolder_Click(object sender, RoutedEventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text))
+        {
+            return;
+        }
+
         DefaultBackupFolderBox.Clear();
-        SettingsStatusText.Text = "Default backup folder cleared. Save settings to apply.";
+        MarkSettingsDirty();
     }
 
     private void BrowseBackupFolder_Click(object sender, RoutedEventArgs e)
@@ -3851,9 +3865,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
         };
 
-        if (dialog.ShowDialog(this) == true)
+        if (dialog.ShowDialog(this) == true &&
+            !string.Equals(DefaultBackupFolderBox.Text, dialog.FolderName, StringComparison.OrdinalIgnoreCase))
         {
             DefaultBackupFolderBox.Text = dialog.FolderName;
+            MarkSettingsDirty();
         }
     }
 
@@ -3881,6 +3897,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
             await _settingsStore.SaveAsync(_settings);
+            _settingsDirty = false;
+            SaveSettingsButton.IsEnabled = false;
             SettingsStatusText.Text = "Settings saved.";
             StatusText.Text = "Settings saved";
         }
@@ -4000,20 +4018,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private void ApplySettingsToUi()
     {
         _settings.Normalize();
-        _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
-        DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
-        RememberWindowSizeToggle.IsChecked = _settings.RememberWindowSize;
-        AutoRefreshToggle.Content = $"Auto refresh • {_settings.DashboardRefreshSeconds}s";
-
-        var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
-        foreach (var item in RefreshIntervalBox.Items.OfType<ComboBoxItem>())
+        _settingsUiUpdate = true;
+        try
         {
-            if (string.Equals(item.Tag?.ToString(), tag, StringComparison.Ordinal))
+            _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
+            DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
+            RememberWindowSizeToggle.IsChecked = _settings.RememberWindowSize;
+            AutoRefreshToggle.Content = $"Auto refresh • {_settings.DashboardRefreshSeconds}s";
+
+            var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
+            foreach (var item in RefreshIntervalBox.Items.OfType<ComboBoxItem>())
             {
-                RefreshIntervalBox.SelectedItem = item;
-                break;
+                if (string.Equals(item.Tag?.ToString(), tag, StringComparison.Ordinal))
+                {
+                    RefreshIntervalBox.SelectedItem = item;
+                    break;
+                }
             }
         }
+        finally
+        {
+            _settingsUiUpdate = false;
+        }
+
+        _settingsDirty = false;
+        SaveSettingsButton.IsEnabled = false;
+    }
+
+    private void SettingsControl_Changed(object sender, RoutedEventArgs e) =>
+        MarkSettingsDirty();
+
+    private void MarkSettingsDirty()
+    {
+        if (_settingsUiUpdate)
+        {
+            return;
+        }
+
+        _settingsDirty = true;
+        SaveSettingsButton.IsEnabled = true;
+        SettingsStatusText.Text = "Unsaved changes.";
     }
 
     private int ReadRefreshInterval()
