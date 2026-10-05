@@ -1545,6 +1545,38 @@
             </Border>
         </Grid>
 
+        <Grid x:Name="GhostConfirmationOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed" Panel.ZIndex="110">
+            <Border x:Name="GhostConfirmationCard" Width="520" MaxWidth="520" Style="{StaticResource CardBorder}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" Margin="20"
+                    BorderBrush="{StaticResource GhostWarning}"
+                    FocusManager.IsFocusScope="True"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    KeyboardNavigation.ControlTabNavigation="Cycle">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="38" Height="38" CornerRadius="10" Background="{StaticResource GhostDangerSurface}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostWarning}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock x:Name="GhostConfirmationTitle" Text="Confirm action" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="Review the action before continuing."
+                                       Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,0" MaxWidth="390"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock x:Name="GhostConfirmationMessage" Margin="0,18,0,18" TextWrapping="Wrap" MaxWidth="450"/>
+
+                    <WrapPanel HorizontalAlignment="Right">
+                        <Button x:Name="GhostConfirmationCancelButton" Content="Cancel" Style="{StaticResource GhostButton}"
+                                Margin="0,0,8,8" Click="CancelGhostConfirmation_Click" IsCancel="True"/>
+                        <Button x:Name="GhostConfirmationConfirmButton" Content="Continue" Style="{StaticResource AccentButton}"
+                                Margin="0,0,0,8" Click="ConfirmGhostConfirmation_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
         <Grid x:Name="UnsavedSettingsOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed" Panel.ZIndex="120">
             <Border x:Name="UnsavedSettingsCard" Width="500" MaxWidth="500" Style="{StaticResource CardBorder}"
                     HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" Margin="20"
