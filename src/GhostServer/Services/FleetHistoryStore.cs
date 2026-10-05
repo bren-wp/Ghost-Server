@@ -9,6 +9,7 @@ public sealed class FleetHistoryStore
     private const int MaxTotalRecords = 2000;
 
     private readonly string _path;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public FleetHistoryStore()
     {
@@ -22,21 +23,39 @@ public sealed class FleetHistoryStore
     public async Task<IReadOnlyList<FleetHealthRecord>> LoadAsync(
         CancellationToken cancellationToken = default)
     {
-        var records = await JsonFileStore.LoadAsync<List<FleetHealthRecord>>(
-            _path,
-            cancellationToken) ?? [];
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var records = await JsonFileStore.LoadAsync<List<FleetHealthRecord>>(
+                _path,
+                cancellationToken) ?? [];
 
-        return Normalize(records);
+            return Normalize(records);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
-    public Task SaveAsync(
+    public async Task SaveAsync(
         IEnumerable<FleetHealthRecord> records,
         CancellationToken cancellationToken = default)
     {
-        return JsonFileStore.SaveAsync(
-            _path,
-            Normalize(records),
-            cancellationToken);
+        var normalized = Normalize(records);
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await JsonFileStore.SaveAsync(
+                _path,
+                normalized,
+                cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private static List<FleetHealthRecord> Normalize(
