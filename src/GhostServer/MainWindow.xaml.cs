@@ -4050,7 +4050,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void MarkSettingsDirty()
     {
-        if (_settingsUiUpdate)
+        if (!_settingsLoaded || _settingsUiUpdate)
         {
             return;
         }
