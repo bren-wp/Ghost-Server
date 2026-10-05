@@ -136,3 +136,15 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - CSV export covers the full local alert history rather than only the visible filter;
 - deleted server profiles remain visible in historical alerts as "(deleted profile)" but cannot be opened;
 - F5 refreshes the local Alert Center without contacting remote servers.
+
+
+## v0.14 Fleet Trends UX
+
+- Trends is a dedicated local-only workspace next to Fleet and Alerts;
+- the sample selector supports the latest 10, 25 or 50 records per server;
+- four summary cards show servers with history, latest-risk count, highest average CPU and highest average disk utilization;
+- risk rows sort ahead of healthy rows, then by failures, Attention count and disk peak;
+- averages and maxima are calculated only from Healthy or Attention records that contain health metrics;
+- failed probes contribute to failure counts but do not artificially lower metric averages with zero values;
+- Open server transfers the user to the existing single-server Dashboard workflow;
+- CSV export reflects the currently selected sample window and never contacts remote servers.
