@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using GhostServer.Models;
 
@@ -99,6 +100,7 @@ public sealed class ProfileStore
     {
         var result = new List<ServerProfile>();
         var seenIds = new HashSet<Guid>();
+        var seenEndpoints = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var source in profiles)
         {
@@ -144,6 +146,16 @@ public sealed class ProfileStore
             {
                 profile.Id = Guid.NewGuid();
                 seenIds.Add(profile.Id);
+            }
+
+            var endpointIdentity = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{profile.Host.ToUpperInvariant()}\u001F{profile.Port}\u001F{profile.Username.ToUpperInvariant()}");
+
+            if (!seenEndpoints.Add(endpointIdentity))
+            {
+                throw new InvalidDataException(
+                    $"Duplicate SSH endpoint and username detected for '{profile.Name}'.");
             }
 
             result.Add(profile);
