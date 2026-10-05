@@ -216,3 +216,18 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - vertical and horizontal scrollbar paging must remain functional after custom theming;
 - every visible sidebar destination uses the same fixed icon slot, glyph box and label offset;
 - grouped child workspaces must highlight a real visible parent navigation item and must not require hidden navigation controls.
+
+
+## v0.19 Accessibility and interaction-performance contract
+
+- every keyboard-focusable Ghost control must expose a visible focus indicator against the dark surface;
+- modal workflows must keep Tab and Shift+Tab inside the active overlay;
+- non-destructive primary forms may expose a default Enter action, while destructive confirmation must not default to the destructive action;
+- closing a modal should restore focus to the invoking visible control when possible;
+- server-editor labels must be associated with their corresponding fields;
+- compact icon-only navigation must retain explicit automation names;
+- status changes important to assistive technology use polite live announcements, while validation failures use assertive announcements;
+- ListView and ListBox surfaces use recycling virtualization and content scrolling;
+- responsive layout code may update continuously sized modal bounds during resize, but heavier breakpoint-dependent layout rewrites should run only when the breakpoint signature changes;
+- Dashboard auto-refresh must not poll SSH while the app is minimized or not visible;
+- focus, virtualization and accessibility additions remain subject to the dead-code, XAML-wiring and analyzer gates.
