@@ -42,21 +42,21 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.18.0
+## 🚀 Current release — 0.19.0
 
-Ghost Server 0.18.0 focuses on **dead-code removal and permanent maintainability gates** after the responsive 0.17 release.
+Ghost Server 0.19.0 completes an **accessibility and UI-performance pass** across the Windows application.
 
-### New in 0.18.0
+### New in 0.19.0
 
-- 🧹 Removes confirmed obsolete C# and generated XAML fields.
-- 🔎 Adds a repository-wide CI dead-code audit for private methods and fields.
-- 🧩 Detects unused service methods across the complete production source tree.
-- 🎨 Detects unused keyed XAML resources before they accumulate.
-- 🏷️ Detects unnecessary `x:Name` declarations that generate unused backing fields.
-- 🪟 Extends the XAML event-wiring gate to include responsive `SizeChanged` and `StateChanged` handlers.
-- 🎚️ Replaces Windows-default scrollbars with a dark Ghost scrollbar template and aligned paging behavior.
-- 📐 Rebuilds sidebar item geometry so every visible icon and label starts on the same fixed alignment grid.
-- 🛡️ Keeps deletion conservative: CI reports candidates and never removes code automatically.
+- ⌨️ Visible Ghost focus rings across buttons, inputs, combo boxes, check boxes and list rows.
+- ♿ Add/Edit and destructive confirmation overlays use cyclic keyboard focus scopes.
+- 🧭 Keyboard focus returns to the invoking control after closing a modal whenever possible.
+- 🛡️ Delete confirmation focuses the safe Cancel action instead of the destructive action.
+- 🔊 Application/connection status are screen-reader live regions; validation errors use assertive announcements.
+- 🏷️ All 11 visible sidebar destinations have explicit automation names, including compact icon-only mode.
+- ♻️ ListView/ListBox surfaces use recycling virtualization for better large-list performance.
+- 📐 Responsive layout rewrites only when a breakpoint changes instead of on every resize pixel.
+- 💤 Dashboard SSH auto-refresh pauses while the window is minimized or not visible.
 
 
 ---
@@ -376,7 +376,7 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.18.0:
+Current priorities after 0.19.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;
