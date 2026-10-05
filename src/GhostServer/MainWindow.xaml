@@ -1358,7 +1358,7 @@
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                                 <StackPanel>
                                     <TextBlock Text="Server profiles" FontSize="18" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Export or import connection profiles. Passwords and private-key passphrases are never included because Ghost Server never stores them."
+                                    <TextBlock Text="Export or import connection profiles. Passwords and private-key passphrases are never stored, and portable files do not carry pinned SSH trust or connection history."
                                                Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,12"/>
                                     <WrapPanel>
                                         <Button Style="{StaticResource GhostButton}" Click="ExportProfiles_Click" Margin="0,0,8,8">
