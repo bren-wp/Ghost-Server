@@ -6,9 +6,13 @@ using Renci.SshNet;
 
 namespace GhostServer.Services;
 
-public static class SshServerClient
+public sealed class SshServerClient
 {
-    public static Task<ConnectionProbe> ProbeAsync(
+    private readonly TimeSpan _connectionTimeout = TimeSpan.FromSeconds(15);
+    private readonly TimeSpan _keepAliveInterval = TimeSpan.FromSeconds(20);
+    private readonly TimeSpan _sftpOperationTimeout = TimeSpan.FromSeconds(45);
+
+    public Task<ConnectionProbe> ProbeAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -41,7 +45,7 @@ public static class SshServerClient
         }, cancellationToken);
     }
 
-    public static Task<ServerSnapshot> GetSnapshotAsync(
+    public Task<ServerSnapshot> GetSnapshotAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -74,7 +78,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static Task<IReadOnlyList<ServiceStatus>> GetRunningServicesAsync(
+    public Task<IReadOnlyList<ServiceStatus>> GetRunningServicesAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -111,7 +115,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static Task<IReadOnlyList<ServiceStatus>> GetServicesAsync(
+    public Task<IReadOnlyList<ServiceStatus>> GetServicesAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -138,7 +142,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static Task<string> ServiceActionAsync(
+    public Task<string> ServiceActionAsync(
         ServerProfile profile,
         string? secret,
         string serviceName,
@@ -160,7 +164,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             cancellationToken);
     }
 
-    public static Task<IReadOnlyList<DockerContainerStatus>> GetDockerContainersAsync(
+    public Task<IReadOnlyList<DockerContainerStatus>> GetDockerContainersAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -206,7 +210,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
         }, cancellationToken);
     }
 
-    public static Task<string> DockerActionAsync(
+    public Task<string> DockerActionAsync(
         ServerProfile profile,
         string? secret,
         string container,
@@ -228,7 +232,7 @@ printf 'DOCKER='; docker --version 2>/dev/null || echo "Not detected"
             cancellationToken);
     }
 
-    public static Task<string> GetNetworkOverviewAsync(
+    public Task<string> GetNetworkOverviewAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -274,7 +278,7 @@ fi
         return RunCommandAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Task<string> AllowFirewallPortAsync(
+    public Task<string> AllowFirewallPortAsync(
         ServerProfile profile,
         string? secret,
         int port,
@@ -307,7 +311,7 @@ fi
         return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Task<string> GetUpdateOverviewAsync(
+    public Task<string> GetUpdateOverviewAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -345,7 +349,7 @@ fi
         return RunCommandAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Task<string> CreateConfigurationSnapshotAsync(
+    public Task<string> CreateConfigurationSnapshotAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -376,7 +380,7 @@ printf '%s' "$archive"
         return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Task DeleteRemoteFileAsync(
+    public Task DeleteRemoteFileAsync(
         ServerProfile profile,
         string? secret,
         string remotePath,
@@ -396,7 +400,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Task<string> GetRecentLogsAsync(
+    public Task<string> GetRecentLogsAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -407,7 +411,7 @@ printf '%s' "$archive"
         return RunCommandAsync(profile, secret, command, cancellationToken);
     }
 
-    public static Task<IReadOnlyList<RemoteFileItem>> GetRemoteFilesAsync(
+    public Task<IReadOnlyList<RemoteFileItem>> GetRemoteFilesAsync(
         ServerProfile profile,
         string? secret,
         string remotePath,
@@ -436,7 +440,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Task UploadFileAsync(
+    public Task UploadFileAsync(
         ServerProfile profile,
         string? secret,
         string localPath,
@@ -465,7 +469,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Task DownloadFileAsync(
+    public Task DownloadFileAsync(
         ServerProfile profile,
         string? secret,
         string remotePath,
@@ -483,7 +487,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Task<string> GetServiceLogsAsync(
+    public Task<string> GetServiceLogsAsync(
         ServerProfile profile,
         string? secret,
         string serviceName,
@@ -497,7 +501,7 @@ printf '%s' "$archive"
             cancellationToken);
     }
 
-    public static Task<string> GetDockerLogsAsync(
+    public Task<string> GetDockerLogsAsync(
         ServerProfile profile,
         string? secret,
         string container,
@@ -511,7 +515,7 @@ printf '%s' "$archive"
             cancellationToken);
     }
 
-    public static Task<string> RunCommandAsync(
+    public Task<string> RunCommandAsync(
         ServerProfile profile,
         string? secret,
         string command,
@@ -540,7 +544,7 @@ printf '%s' "$archive"
         }, cancellationToken);
     }
 
-    public static Task<string> RunSecurityScanAsync(
+    public Task<string> RunSecurityScanAsync(
         ServerProfile profile,
         string? secret,
         CancellationToken cancellationToken = default)
@@ -601,7 +605,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         return normalized;
     }
 
-    private static SftpClient CreateVerifiedSftpClient(ServerProfile profile, string? secret)
+    private SftpClient CreateVerifiedSftpClient(ServerProfile profile, string? secret)
     {
         if (string.IsNullOrWhiteSpace(profile.HostKeyFingerprint))
         {
@@ -610,8 +614,8 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
 
         var client = new SftpClient(CreateConnectionInfo(profile, secret))
         {
-            KeepAliveInterval = TimeSpan.FromSeconds(20),
-            OperationTimeout = TimeSpan.FromSeconds(45)
+            KeepAliveInterval = _keepAliveInterval,
+            OperationTimeout = _sftpOperationTimeout
         };
 
         client.HostKeyReceived += (_, e) =>
@@ -622,7 +626,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         return client;
     }
 
-    private static SshClient CreateVerifiedClient(ServerProfile profile, string? secret)
+    private SshClient CreateVerifiedClient(ServerProfile profile, string? secret)
     {
         if (string.IsNullOrWhiteSpace(profile.HostKeyFingerprint))
         {
@@ -632,7 +636,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         return CreateClient(profile, secret, out _);
     }
 
-    private static SshClient CreateClient(
+    private SshClient CreateClient(
         ServerProfile profile,
         string? secret,
         out HostKeyState hostKeyState)
@@ -640,7 +644,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         var state = new HostKeyState();
         var client = new SshClient(CreateConnectionInfo(profile, secret))
         {
-            KeepAliveInterval = TimeSpan.FromSeconds(20)
+            KeepAliveInterval = _keepAliveInterval
         };
 
         client.HostKeyReceived += (_, e) =>
@@ -655,7 +659,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         return client;
     }
 
-    private static ConnectionInfo CreateConnectionInfo(
+    private ConnectionInfo CreateConnectionInfo(
         ServerProfile profile,
         string? secret)
     {
@@ -667,11 +671,11 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
             profile.Username,
             authentication)
         {
-            Timeout = TimeSpan.FromSeconds(15)
+            Timeout = _connectionTimeout
         };
     }
 
-    private static AuthenticationMethod CreateAuthenticationMethod(
+    private AuthenticationMethod CreateAuthenticationMethod(
         ServerProfile profile,
         string? secret)
     {
@@ -760,7 +764,7 @@ printf "Docker socket permissions: "; if [ -S /var/run/docker.sock ]; then stat 
         return services;
     }
 
-    private static Task<string> ExecuteCheckedAsync(
+    private Task<string> ExecuteCheckedAsync(
         ServerProfile profile,
         string? secret,
         string command,
