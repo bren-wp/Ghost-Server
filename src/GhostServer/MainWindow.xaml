@@ -1037,20 +1037,16 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="280"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Style="{StaticResource AccentButton}" Click="RefreshLogs_Click">
+                        <WrapPanel Margin="0,0,0,4">
+                            <Button Style="{StaticResource AccentButton}" Click="RefreshLogs_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Refresh logs" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                             </Button>
-                            <TextBlock Grid.Column="1" Text="Latest 200 entries. Service and Docker log shortcuts also open here."
-                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,12,0"/>
-                            <TextBox Grid.Column="2" x:Name="LogsFilterBox" Style="{StaticResource GhostTextBox}"
-                                     ToolTip="Filter visible log lines" TextChanged="LogsFilter_TextChanged"/>
-                        </Grid>
+                            <TextBlock Text="Latest 200 entries. Service and Docker log shortcuts also open here."
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" MaxWidth="360" Margin="0,0,12,8"/>
+                            <TextBox x:Name="LogsFilterBox" Width="240" Style="{StaticResource GhostTextBox}"
+                                     Margin="0,0,0,8" ToolTip="Filter visible log lines" TextChanged="LogsFilter_TextChanged"/>
+                        </WrapPanel>
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
                             <TextBox x:Name="LogsOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
