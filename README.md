@@ -55,6 +55,9 @@ Ghost Server 0.20.0 focuses on **local-state reliability and interaction polish*
 - ♻️ Settings includes **Remember normal window size** and **Reset window size**.
 - 📁 Optional backup location can now be both selected and cleared.
 - 🔒 Settings, profile and Fleet-history stores use process-lifetime per-store serialization to prevent overlapping atomic-write races without shutdown disposal hazards.
+- 💾 Settings now exposes an explicit unsaved-changes state and only enables Save settings when needed.
+- 🧭 Pending Settings edits survive navigation away from and back to the Settings page.
+- 🚦 Windows CI now cancels stale grouped runs after newer commits on the same PR.
 - 🔑 Session-only password/passphrase handling is unchanged.
 
 
