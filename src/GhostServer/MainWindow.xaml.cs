@@ -2632,7 +2632,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void CreateTask_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             TasksStatusText.Text = "Select a server on Dashboard first.";
             return;
@@ -2650,7 +2651,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         if (!ConfirmAdministrativeAction(
                 "Create scheduled task?",
-                $"Create Ghost Server task '{name}' on {SelectedProfile.Name} with schedule {schedule}?\n\nThe command will run as root through a dedicated systemd oneshot service."))
+                $"Create Ghost Server task '{name}' on {operation.Profile.Name} with schedule {schedule}?\n\nThe command will run as root through a dedicated systemd oneshot service."))
         {
             return;
         }
@@ -2663,21 +2664,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var output = await SshServerClient.CreateScheduledTaskAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 name,
                 schedule,
-                command);
+                command,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             TasksStatusText.Text = output;
             TaskNameBox.Clear();
             TaskCommandBox.Clear();
             await RefreshTasksAsync();
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            TasksStatusText.Text = SafeError(ex);
-            StatusText.Text = "Scheduled task creation failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                TasksStatusText.Text = SafeError(ex);
+                StatusText.Text = "Scheduled task creation failed";
+            }
         }
         finally
         {
@@ -2687,7 +2700,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void DeleteTask_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             TasksStatusText.Text = "Select a server on Dashboard first.";
             return;
@@ -2701,7 +2715,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         if (!ConfirmAdministrativeAction(
                 "Delete scheduled task?",
-                $"Delete Ghost Server task '{task.Name}' from {SelectedProfile.Name}?"))
+                $"Delete Ghost Server task '{task.Name}' from {operation.Profile.Name}?"))
         {
             return;
         }
@@ -2714,17 +2728,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var output = await SshServerClient.DeleteScheduledTaskAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
-                task.Name);
+                operation.Profile,
+                operation.Secret,
+                task.Name,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             TasksStatusText.Text = output;
             await RefreshTasksAsync();
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            TasksStatusText.Text = SafeError(ex);
-            StatusText.Text = "Scheduled task deletion failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                TasksStatusText.Text = SafeError(ex);
+                StatusText.Text = "Scheduled task deletion failed";
+            }
         }
         finally
         {
@@ -2811,7 +2837,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void TerminateProcess_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             SystemStatusText.Text = "Select a server on Dashboard first.";
             return;
@@ -2825,7 +2852,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         if (!ConfirmAdministrativeAction(
                 "Terminate process?",
-                $"Send SIGTERM to PID {process.Pid} ({process.Command}) on {SelectedProfile.Name}?"))
+                $"Send SIGTERM to PID {process.Pid} ({process.Command}) on {operation.Profile.Name}?"))
         {
             return;
         }
@@ -2838,18 +2865,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var output = await SshServerClient.TerminateProcessAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
-                process.Pid);
+                operation.Profile,
+                operation.Secret,
+                process.Pid,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             SystemStatusText.Text = output;
             StatusText.Text = $"SIGTERM sent to PID {process.Pid}";
             await RefreshSystemAsync();
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            SystemStatusText.Text = SafeError(ex);
-            StatusText.Text = "Process termination failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                SystemStatusText.Text = SafeError(ex);
+                StatusText.Text = "Process termination failed";
+            }
         }
         finally
         {
