@@ -2186,7 +2186,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void RunSafeUpdate_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             UpdatesOutput.Text = "Select a server on Dashboard first.";
             return;
@@ -2194,7 +2195,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var confirmed = MessageBox.Show(
             this,
-            $"Run Safe Update on {SelectedProfile.Name}?\n\nGhost Server will first create and download a configuration snapshot. It will then install regular updates using the detected supported package manager. No automatic reboot is performed. Package managers may update dependencies.",
+            $"Run Safe Update on {operation.Profile.Name}?\n\nGhost Server will first create and download a configuration snapshot. It will then install regular updates using the detected supported package manager. No automatic reboot is performed. Package managers may update dependencies.",
             "Run Safe Update",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -2224,17 +2225,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             UpdatesOutput.Text = "Step 1/4 • Creating configuration snapshot…";
             remoteArchive = await SshServerClient.CreateConfigurationSnapshotAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             UpdatesOutput.AppendText(
                 $"{Environment.NewLine}Step 2/4 • Downloading snapshot over verified SFTP…");
 
             await SshServerClient.DownloadFileAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 remoteArchive,
-                snapshotDialog.FileName);
+                snapshotDialog.FileName,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             var snapshotSize = new FileInfo(snapshotDialog.FileName).Length;
             UpdatesOutput.AppendText(
@@ -2247,8 +2260,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             StatusText.Text = "Safe Update is installing package updates…";
             var updateOutput = await SshServerClient.RunSafeUpdateAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             UpdatesOutput.AppendText(
                 $"{Environment.NewLine}{Environment.NewLine}{updateOutput}");
@@ -2257,8 +2276,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             UpdatesOutput.ScrollToEnd();
 
             var healthOutput = await SshServerClient.GetSafeUpdateHealthAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             UpdatesOutput.AppendText(
                 $"{Environment.NewLine}{Environment.NewLine}{healthOutput}");
@@ -2267,14 +2292,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             UpdatesOutput.ScrollToEnd();
             StatusText.Text = "Safe Update completed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            UpdatesOutput.AppendText(
-                $"{Environment.NewLine}{Environment.NewLine}[Safe Update stopped] {SafeError(ex)}");
-            UpdatesOutput.AppendText(
-                $"{Environment.NewLine}No automatic reboot was attempted. The pre-update snapshot remains on this PC if its download completed.");
-            UpdatesOutput.ScrollToEnd();
-            StatusText.Text = "Safe Update stopped";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                UpdatesOutput.AppendText(
+                    $"{Environment.NewLine}{Environment.NewLine}[Safe Update stopped] {SafeError(ex)}");
+                UpdatesOutput.AppendText(
+                    $"{Environment.NewLine}No automatic reboot was attempted. The pre-update snapshot remains on this PC if its download completed.");
+                UpdatesOutput.ScrollToEnd();
+                StatusText.Text = "Safe Update stopped";
+            }
         }
         finally
         {
@@ -2283,16 +2314,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 try
                 {
                     await SshServerClient.DeleteRemoteFileAsync(
-                        SelectedProfile,
-                        SessionSecretBox.Password,
+                        operation.Profile,
+                        operation.Secret,
                         remoteArchive);
-                    UpdatesOutput.AppendText(
-                        $"{Environment.NewLine}Temporary remote snapshot removed.");
+                    if (IsRemoteOperationCurrent(operation))
+                    {
+                        UpdatesOutput.AppendText(
+                            $"{Environment.NewLine}Temporary remote snapshot removed.");
+                    }
                 }
                 catch (Exception cleanupEx)
                 {
-                    UpdatesOutput.AppendText(
-                        $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                    if (IsRemoteOperationCurrent(operation))
+                    {
+                        UpdatesOutput.AppendText(
+                            $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                    }
                 }
             }
 
@@ -2302,7 +2339,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void RestoreConfigSnapshot_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             UpdatesOutput.Text = "Select a server on Dashboard first.";
             return;
@@ -2323,7 +2361,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var confirmed = MessageBox.Show(
             this,
-            $"Restore allowlisted configuration from {Path.GetFileName(dialog.FileName)} to {SelectedProfile.Name}?\n\nThis can overwrite SSH, web server, systemd, Docker, Fail2ban or UFW configuration contained in the snapshot. Ghost Server validates archive paths and file types first. It will not downgrade packages, restart services or reboot automatically.",
+            $"Restore allowlisted configuration from {Path.GetFileName(dialog.FileName)} to {operation.Profile.Name}?\n\nThis can overwrite SSH, web server, systemd, Docker, Fail2ban or UFW configuration contained in the snapshot. Ghost Server validates archive paths and file types first. It will not downgrade packages, restart services or reboot automatically.",
             "Restore configuration snapshot",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -2344,18 +2382,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             UpdatesOutput.Text = "Uploading snapshot over verified SFTP…";
             await SshServerClient.UploadFileToPathAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 dialog.FileName,
-                remotePath);
+                remotePath,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             UpdatesOutput.AppendText(
                 $"{Environment.NewLine}Validating allowlisted paths and archive entry types…");
 
             var restoreOutput = await SshServerClient.RestoreConfigurationSnapshotAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
-                remotePath);
+                operation.Profile,
+                operation.Secret,
+                remotePath,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             UpdatesOutput.AppendText(
                 $"{Environment.NewLine}{Environment.NewLine}{restoreOutput}");
@@ -2363,34 +2413,49 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 $"{Environment.NewLine}{Environment.NewLine}Running post-restore health check…");
 
             var healthOutput = await SshServerClient.GetSafeUpdateHealthAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             UpdatesOutput.AppendText(
                 $"{Environment.NewLine}{Environment.NewLine}{healthOutput}");
             UpdatesOutput.ScrollToEnd();
             StatusText.Text = "Configuration restore completed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            UpdatesOutput.AppendText(
-                $"{Environment.NewLine}{Environment.NewLine}[restore stopped] {SafeError(ex)}");
-            UpdatesOutput.ScrollToEnd();
-            StatusText.Text = "Configuration restore stopped";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                UpdatesOutput.AppendText(
+                    $"{Environment.NewLine}{Environment.NewLine}[restore stopped] {SafeError(ex)}");
+                UpdatesOutput.ScrollToEnd();
+                StatusText.Text = "Configuration restore stopped";
+            }
         }
         finally
         {
             try
             {
                 await SshServerClient.DeleteRemoteFileAsync(
-                    SelectedProfile,
-                    SessionSecretBox.Password,
+                    operation.Profile,
+                    operation.Secret,
                     remotePath);
             }
             catch (Exception cleanupEx)
             {
-                UpdatesOutput.AppendText(
-                    $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                if (IsRemoteOperationCurrent(operation))
+                {
+                    UpdatesOutput.AppendText(
+                        $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                }
             }
 
             Interlocked.Exchange(ref _mutationActive, 0);
@@ -2399,7 +2464,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void CreateConfigBackup_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             BackupOutput.Text = "Select a server on Dashboard first.";
             return;
@@ -2424,27 +2490,45 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             BackupOutput.Text = "Creating remote configuration snapshot…";
             StatusText.Text = "Creating configuration snapshot…";
             remoteArchive = await SshServerClient.CreateConfigurationSnapshotAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             BackupOutput.AppendText($"{Environment.NewLine}Remote archive: {remoteArchive}");
             BackupOutput.AppendText($"{Environment.NewLine}Downloading securely over SFTP…");
 
             await SshServerClient.DownloadFileAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 remoteArchive,
-                dialog.FileName);
+                dialog.FileName,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             var size = new FileInfo(dialog.FileName).Length;
             BackupOutput.AppendText($"{Environment.NewLine}Saved: {dialog.FileName}");
             BackupOutput.AppendText($"{Environment.NewLine}Size: {size:N0} bytes");
             StatusText.Text = "Configuration snapshot downloaded";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            BackupOutput.AppendText($"{Environment.NewLine}[error] {SafeError(ex)}");
-            StatusText.Text = "Configuration snapshot failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                BackupOutput.AppendText($"{Environment.NewLine}[error] {SafeError(ex)}");
+                StatusText.Text = "Configuration snapshot failed";
+            }
         }
         finally
         {
@@ -2453,19 +2537,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 try
                 {
                     await SshServerClient.DeleteRemoteFileAsync(
-                        SelectedProfile,
-                        SessionSecretBox.Password,
+                        operation.Profile,
+                        operation.Secret,
                         remoteArchive);
-                    BackupOutput.AppendText($"{Environment.NewLine}Temporary remote archive removed.");
+                    if (IsRemoteOperationCurrent(operation))
+                    {
+                        BackupOutput.AppendText($"{Environment.NewLine}Temporary remote archive removed.");
+                    }
                 }
                 catch (Exception cleanupEx)
                 {
-                    BackupOutput.AppendText(
-                        $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                    if (IsRemoteOperationCurrent(operation))
+                    {
+                        BackupOutput.AppendText(
+                            $"{Environment.NewLine}[cleanup warning] {SafeError(cleanupEx)}");
+                    }
                 }
             }
 
-            BackupOutput.ScrollToEnd();
+            if (IsRemoteOperationCurrent(operation))
+            {
+                BackupOutput.ScrollToEnd();
+            }
+
             Interlocked.Exchange(ref _mutationActive, 0);
         }
     }
