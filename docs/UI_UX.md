@@ -231,3 +231,37 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - responsive layout code may update continuously sized modal bounds during resize, but heavier breakpoint-dependent layout rewrites should run only when the breakpoint signature changes;
 - Dashboard auto-refresh must not poll SSH while the app is minimized or not visible;
 - focus, virtualization and accessibility additions remain subject to the dead-code, XAML-wiring and analyzer gates.
+
+
+## v0.20 Window-state and local-storage reliability contract
+
+- only normal-window dimensions may be remembered between launches;
+- Fit window is a temporary bounded layout and must never become the persisted startup full-screen/maximized state;
+- remembered window dimensions are normalized and clamped against the active Windows work area before use;
+- resize persistence is debounced and must not write on every resize pixel;
+- startup resize events must not persist settings before the existing settings file has loaded;
+- pending normal-window size persistence is flushed before close when necessary;
+- Settings must expose both Remember normal window size and Reset window size;
+- optional backup-folder configuration must support both setting and clearing the path;
+- settings, profile and Fleet-history load/save operations are serialized by process-lifetime per-store gates so atomic temp/backup writes cannot overlap and shutdown cannot dispose a gate underneath a late async completion;
+- the additional local-state persistence must never store passwords or private-key passphrases.
+- Settings must clearly distinguish persisted values from unsaved form changes;
+- Save settings stays disabled until a user-visible setting changes and returns to disabled after a successful save;
+- navigating away from Settings must not silently discard pending Settings edits when returning to the page;
+- immediate actions such as Reset window size must not silently persist unrelated pending form values;
+- Settings change events raised during XAML initialization must not create a false dirty state.
+- closing the application with unsaved Settings must require an explicit Save, Discard or Cancel choice;
+- unsaved-settings confirmation must use Ghost modal styling rather than platform-default light dialog chrome;
+- Discard must never copy pending form values into the persisted settings model;
+- explicit Settings save must stage form values in a candidate model and update persisted in-memory state only after a successful write;
+- Escape on the unsaved-settings overlay maps to Cancel and focus remains trapped in the active overlay;
+- window-geometry persistence remains independent from unsaved form persistence.
+- application confirmations must use the shared Ghost modal system rather than platform-default MessageBox chrome;
+- confirmation modals default focus to Cancel, trap focus, map Escape to Cancel and block background shortcuts;
+- dangerous remote mutations use Danger confirmation styling while non-destructive confirmations may use Accent styling;
+- closing the window while an async confirmation is pending cancels the confirmation before any close flow continues;
+- local UI must not report successful history mutation when persistence failed;
+- destructive local-history mutations must roll back in-memory state when their durable write fails.
+- Dashboard server cards must stretch to the available server-column width and must not keep a fixed card width when responsive breakpoints narrow the column;
+- workspace toolbars containing descriptive text and controls must wrap instead of squeezing intermediate content to zero width on narrow windows;
+- dense GridView data may remain horizontally scrollable, but ordinary page chrome must prefer wrapping over clipping.

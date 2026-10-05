@@ -25,6 +25,7 @@
     <SolidColorBrush x:Key="GhostSuccess" Color="{StaticResource GhostSuccessColor}"/>
     <SolidColorBrush x:Key="GhostWarning" Color="{StaticResource GhostWarningColor}"/>
     <SolidColorBrush x:Key="GhostDangerSurface" Color="#3519222C"/>
+    <SolidColorBrush x:Key="GhostBlueSurface" Color="#1838ABFF"/>
     <SolidColorBrush x:Key="GhostSelectedSurface" Color="#1D3F63"/>
 
     <Style x:Key="FluentIcon" TargetType="TextBlock">
@@ -110,6 +111,20 @@
         <Setter Property="CaretBrush" Value="{StaticResource GhostBlue}"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
+    </Style>
+
+    <Style x:Key="GhostOutputBox" TargetType="TextBox">
+        <Setter Property="IsReadOnly" Value="True"/>
+        <Setter Property="AcceptsReturn" Value="True"/>
+        <Setter Property="Background" Value="#071522"/>
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontFamily" Value="Cascadia Code, Consolas"/>
+        <Setter Property="Padding" Value="14"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
+        <Setter Property="TextWrapping" Value="NoWrap"/>
     </Style>
 
     <Style x:Key="GhostPasswordBox" TargetType="PasswordBox">

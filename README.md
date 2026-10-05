@@ -42,21 +42,27 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.19.0
+## 🚀 Current release — 0.20.0
 
-Ghost Server 0.19.0 completes an **accessibility and UI-performance pass** across the Windows application.
+Ghost Server 0.20.0 focuses on **local-state reliability and interaction polish**.
 
-### New in 0.19.0
+### New in 0.20.0
 
-- ⌨️ Visible Ghost focus rings across buttons, inputs, combo boxes, check boxes and list rows.
-- ♿ Add/Edit and destructive confirmation overlays use cyclic keyboard focus scopes.
-- 🧭 Keyboard focus returns to the invoking control after closing a modal whenever possible.
-- 🛡️ Delete confirmation focuses the safe Cancel action instead of the destructive action.
-- 🔊 Application/connection status are screen-reader live regions; validation errors use assertive announcements.
-- 🏷️ All 11 visible sidebar destinations have explicit automation names, including compact icon-only mode.
-- ♻️ ListView/ListBox surfaces use recycling virtualization for better large-list performance.
-- 📐 Responsive layout rewrites only when a breakpoint changes instead of on every resize pixel.
-- 💤 Dashboard SSH auto-refresh pauses while the window is minimized or not visible.
+- 🪟 Remembers the last safe normal-window size without ever restoring a true full-screen/maximized state.
+- 📏 Saved window dimensions are validated and clamped to the current Windows work area.
+- ⏱️ Resize persistence is debounced and the final pending size is flushed before close.
+- 🛡️ Startup resize events cannot overwrite settings before the existing settings file is loaded.
+- ♻️ Settings includes **Remember normal window size** and **Reset window size**.
+- 📁 Optional backup location can now be both selected and cleared.
+- 🔒 Settings, profile and Fleet-history stores use process-lifetime per-store serialization to prevent overlapping atomic-write races without shutdown disposal hazards.
+- 💾 Settings now exposes an explicit unsaved-changes state and only enables Save settings when needed.
+- 🛑 Closing with pending Settings now uses a Ghost-styled Save, Discard or Cancel workflow.
+- 💬 All in-app confirmations now use Ghost-styled modals; platform-default confirmation boxes are gone.
+- ↩️ Fleet history clear and alert acknowledgement roll back automatically if local persistence fails.
+- 🧱 Failed Settings writes cannot leak rejected form values into later background persistence.
+- 🧭 Pending Settings edits survive navigation away from and back to the Settings page.
+- 🚦 Windows CI now cancels stale grouped runs after newer commits on the same PR.
+- 🔑 Session-only password/passphrase handling is unchanged.
 
 
 ---
@@ -376,7 +382,7 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.19.0:
+Current priorities after 0.20.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;

@@ -12,6 +12,7 @@
         Background="{StaticResource GhostNavy}"
         Foreground="{StaticResource GhostIce}"
         Loaded="Window_Loaded"
+        Closing="Window_Closing"
         Closed="Window_Closed"
         SizeChanged="Window_SizeChanged"
         StateChanged="Window_StateChanged"
@@ -247,7 +248,8 @@
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <Border x:Name="ServerCard" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
-                                                    BorderThickness="1" CornerRadius="10" Padding="12" Width="258">
+                                                    BorderThickness="1" CornerRadius="10" Padding="12"
+                                                    HorizontalAlignment="Stretch">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
@@ -903,11 +905,8 @@
                             </Border>
 
                             <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                                <TextBox x:Name="CrontabOutput" IsReadOnly="True" AcceptsReturn="True"
-                                         Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                         FontFamily="Cascadia Code, Consolas" Padding="14"
-                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                         Text="Current user crontab is shown here for visibility only. Ghost Server does not edit it."/>
+                                <TextBox x:Name="CrontabOutput"
+                                         Text="Current user crontab is shown here for visibility only. Ghost Server does not edit it." Style="{StaticResource GhostOutputBox}"/>
                             </Border>
                         </Grid>
                     </Grid>
@@ -964,11 +963,8 @@
                         </Border>
 
                         <Border Grid.Row="4" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="SystemOverviewOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Text="Select a server to inspect memory, filesystems, block devices, logged-in users and load."/>
+                            <TextBox x:Name="SystemOverviewOutput"
+                                     Text="Select a server to inspect memory, filesystems, block devices, logged-in users and load." Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1030,16 +1026,7 @@
                                                Margin="14,12,14,8"/>
                                     <TextBox Grid.Row="1"
                                              x:Name="DatabaseNamesOutput"
-                                             IsReadOnly="True"
-                                             AcceptsReturn="True"
-                                             Background="#071522"
-                                             Foreground="{StaticResource GhostIce}"
-                                             BorderThickness="0"
-                                             FontFamily="Cascadia Code, Consolas"
-                                             Padding="14"
-                                             VerticalScrollBarVisibility="Auto"
-                                             HorizontalScrollBarVisibility="Auto"
-                                             Text="Select a database engine to inspect discovered database names."/>
+                                             Text="Select a database engine to inspect discovered database names." Style="{StaticResource GhostOutputBox}"/>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -1050,25 +1037,18 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="280"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Style="{StaticResource AccentButton}" Click="RefreshLogs_Click">
+                        <WrapPanel Margin="0,0,0,4">
+                            <Button Style="{StaticResource AccentButton}" Click="RefreshLogs_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Refresh logs" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                             </Button>
-                            <TextBlock Grid.Column="1" Text="Latest 200 entries. Service and Docker log shortcuts also open here."
-                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,12,0"/>
-                            <TextBox Grid.Column="2" x:Name="LogsFilterBox" Style="{StaticResource GhostTextBox}"
-                                     ToolTip="Filter visible log lines" TextChanged="LogsFilter_TextChanged"/>
-                        </Grid>
+                            <TextBlock Text="Latest 200 entries. Service and Docker log shortcuts also open here."
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" MaxWidth="360" Margin="0,0,12,8"/>
+                            <TextBox x:Name="LogsFilterBox" Width="240" Style="{StaticResource GhostTextBox}"
+                                     Margin="0,0,0,8" ToolTip="Filter visible log lines" TextChanged="LogsFilter_TextChanged"/>
+                        </WrapPanel>
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="LogsOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                            <TextBox x:Name="LogsOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1174,10 +1154,7 @@
                                    Foreground="{StaticResource GhostMuted}" Margin="2,0,0,8"/>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="TerminalOutput" IsReadOnly="True" TextWrapping="NoWrap"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14" AcceptsReturn="True"/>
+                            <TextBox x:Name="TerminalOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1217,10 +1194,7 @@
                         </Border>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="NetworkOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                            <TextBox x:Name="NetworkOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1258,11 +1232,8 @@
                         </Border>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="UpdatesOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Text="Preview pending updates first. Safe Update will require a local configuration snapshot before making package changes."/>
+                            <TextBox x:Name="UpdatesOutput"
+                                     Text="Preview pending updates first. Safe Update will require a local configuration snapshot before making package changes." Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1290,11 +1261,8 @@
                         </Border>
 
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="BackupOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                     Text="Ready. Select a server, unlock the session, then create a configuration snapshot."/>
+                            <TextBox x:Name="BackupOutput"
+                                     Text="Ready. Select a server, unlock the session, then create a configuration snapshot." Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1310,10 +1278,7 @@
                                        VerticalAlignment="Center" Margin="0,0,0,8"/>
                         </WrapPanel>
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="0">
-                            <TextBox x:Name="SecurityOutput" IsReadOnly="True" AcceptsReturn="True"
-                                     Background="#071522" Foreground="{StaticResource GhostIce}" BorderThickness="0"
-                                     FontFamily="Cascadia Code, Consolas" Padding="14"
-                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                            <TextBox x:Name="SecurityOutput" Style="{StaticResource GhostOutputBox}"/>
                         </Border>
                     </Grid>
 
@@ -1329,7 +1294,8 @@
                                     </StackPanel>
                                     <StackPanel Width="200" Margin="0,0,0,8">
                                         <Label Content="Refresh interval"/>
-                                        <ComboBox x:Name="RefreshIntervalBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1">
+                                        <ComboBox x:Name="RefreshIntervalBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1"
+                                                  SelectionChanged="SettingsControl_Changed">
                                             <ComboBoxItem Content="15 seconds" Tag="15"/>
                                             <ComboBoxItem Content="30 seconds" Tag="30"/>
                                             <ComboBoxItem Content="60 seconds" Tag="60"/>
@@ -1349,13 +1315,44 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="DefaultBackupFolderBox" Style="{StaticResource GhostTextBox}" IsReadOnly="True"/>
-                                        <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
-                                                Click="BrowseBackupFolder_Click">
-                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Choose folder" Margin="7,0,0,0"/></StackPanel>
-                                        </Button>
+                                        <TextBox x:Name="DefaultBackupFolderBox" Style="{StaticResource GhostTextBox}" IsReadOnly="True"
+                                                 AutomationProperties.Name="Default backup folder"/>
+                                        <WrapPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                                    Click="BrowseBackupFolder_Click">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Choose folder" Margin="7,0,0,0"/></StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource GhostButton}"
+                                                    Click="ClearBackupFolder_Click"
+                                                    AutomationProperties.Name="Clear default backup folder">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE894;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Clear" Margin="7,0,0,0"/></StackPanel>
+                                            </Button>
+                                        </WrapPanel>
                                     </Grid>
                                 </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                                <WrapPanel>
+                                    <StackPanel Width="440" Margin="0,0,14,8">
+                                        <TextBlock Text="Window layout" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Remember the last comfortable normal-window size. Fit window is never stored as a startup full-screen state."
+                                                   Foreground="{StaticResource GhostMuted}" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                        <CheckBox x:Name="RememberWindowSizeToggle"
+                                                  Content="Remember normal window size"
+                                                  AutomationProperties.Name="Remember normal window size"
+                                                  Checked="SettingsControl_Changed"
+                                                  Unchecked="SettingsControl_Changed"/>
+                                    </StackPanel>
+                                    <Button Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                            Click="ResetWindowLayout_Click"
+                                            AutomationProperties.Name="Reset window size">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE777;" Style="{StaticResource FluentIcon}"/>
+                                            <TextBlock Text="Reset window size" Margin="7,0,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </WrapPanel>
                             </Border>
 
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
@@ -1406,8 +1403,9 @@
                                         <TextBlock Text="SSH host-key pinning, session-only secrets and verified SFTP are enforced across remote operations."
                                                    Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,8,20,0"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Style="{StaticResource AccentButton}" VerticalAlignment="Center"
-                                            Click="SaveSettings_Click">
+                                    <Button x:Name="SaveSettingsButton" Grid.Column="1" Style="{StaticResource AccentButton}" VerticalAlignment="Center"
+                                            Click="SaveSettings_Click" IsEnabled="False"
+                                             AutomationProperties.Name="Save settings">
                                         <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74E;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Save settings" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                                     </Button>
                                 </Grid>
@@ -1508,6 +1506,73 @@
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="GhostConfirmationOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed" Panel.ZIndex="110">
+            <Border x:Name="GhostConfirmationCard" Width="520" MaxWidth="520" Style="{StaticResource CardBorder}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" Margin="20"
+                    BorderBrush="{StaticResource GhostWarning}"
+                    FocusManager.IsFocusScope="True"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    KeyboardNavigation.ControlTabNavigation="Cycle">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="38" Height="38" CornerRadius="10" Background="{StaticResource GhostDangerSurface}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostWarning}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock x:Name="GhostConfirmationTitle" Text="Confirm action" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="Review the action before continuing."
+                                       Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,0" MaxWidth="390"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock x:Name="GhostConfirmationMessage" Margin="0,18,0,18" TextWrapping="Wrap" MaxWidth="450"/>
+
+                    <WrapPanel HorizontalAlignment="Right">
+                        <Button x:Name="GhostConfirmationCancelButton" Content="Cancel" Style="{StaticResource GhostButton}"
+                                Margin="0,0,8,8" Click="CancelGhostConfirmation_Click" IsCancel="True"/>
+                        <Button x:Name="GhostConfirmationConfirmButton" Content="Continue" Style="{StaticResource AccentButton}"
+                                Margin="0,0,0,8" Click="ConfirmGhostConfirmation_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="UnsavedSettingsOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed" Panel.ZIndex="120">
+            <Border x:Name="UnsavedSettingsCard" Width="500" MaxWidth="500" Style="{StaticResource CardBorder}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" Margin="20"
+                    BorderBrush="{StaticResource GhostBlue}"
+                    FocusManager.IsFocusScope="True"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    KeyboardNavigation.ControlTabNavigation="Cycle">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="38" Height="38" CornerRadius="10" Background="{StaticResource GhostBlueSurface}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE74E;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostBlue}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Unsaved settings" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="You changed application settings that have not been saved yet."
+                                       Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,5,0,0" MaxWidth="370"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="Save the changes before closing Ghost Server?"
+                               Margin="0,18,0,18" TextWrapping="Wrap"/>
+
+                    <WrapPanel HorizontalAlignment="Right">
+                        <Button x:Name="UnsavedSettingsCancelButton" Content="Cancel" Style="{StaticResource GhostButton}"
+                                Margin="0,0,8,8" Click="CancelUnsavedSettingsClose_Click" IsCancel="True"/>
+                        <Button Content="Discard" Style="{StaticResource DangerButton}"
+                                Margin="0,0,8,8" Click="DiscardUnsavedSettingsClose_Click"/>
+                        <Button Content="Save &amp; close" Style="{StaticResource AccentButton}"
+                                Margin="0,0,0,8" Click="SaveUnsavedSettingsClose_Click" IsDefault="True"/>
+                    </WrapPanel>
+                </StackPanel>
             </Border>
         </Grid>
 

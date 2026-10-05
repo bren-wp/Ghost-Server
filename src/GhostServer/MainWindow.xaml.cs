@@ -38,6 +38,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private int _commandHistoryIndex;
     private string _rawLogs = string.Empty;
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly DispatcherTimer _windowSettingsTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
     private int _mutationActive;
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
@@ -49,8 +50,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private int _windowDisposed;
     private bool _windowStateCorrection;
     private bool _fitWindowActive;
+    private bool _windowSizeSettingsDirty;
+    private bool _settingsLoaded;
+    private bool _settingsUiUpdate;
+    private bool _settingsDirty;
+    private bool _settingsSaveBusy;
+    private long _settingsEditGeneration;
+    private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
+    private TaskCompletionSource<bool>? _confirmationCompletion;
     private const double StandardWindowWidth = 1180;
     private const double StandardWindowHeight = 760;
     private const double CompactSidebarBreakpoint = 1040;
@@ -81,6 +90,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         InitializeComponent();
         DataContext = this;
         _dashboardTimer.Tick += DashboardTimer_Tick;
+        _windowSettingsTimer.Tick += WindowSettingsTimer_Tick;
         _terminalSession.OutputReceived += TerminalSession_OutputReceived;
         _terminalSession.Disconnected += TerminalSession_Disconnected;
     }
@@ -99,6 +109,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             _settings = await _settingsStore.LoadAsync();
             ApplySettingsToUi();
+            ApplySavedWindowSize();
+            _settingsLoaded = true;
 
             var profiles = await _profileStore.LoadAsync();
             foreach (var profile in profiles)
@@ -241,7 +253,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         SetActiveNavigation(SettingsNavButton);
         ShowPage(SettingsPage, "Settings", "Monitoring, profile portability and application information.");
-        ApplySettingsToUi();
+
+        if (!_settingsDirty)
+        {
+            ApplySettingsToUi();
+        }
     }
 
     private void SetActiveNavigation(Button button)
@@ -524,11 +540,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
         }
 
-        await PersistFleetHistoryAsync();
+        var historySaved = await PersistFleetHistoryAsync();
         ApplyFleetFilter();
         UpdateFleetSummary();
-        FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
-        StatusText.Text = "Fleet health probes completed";
+
+        if (historySaved)
+        {
+            FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
+            StatusText.Text = "Fleet health probes completed";
+        }
+        else
+        {
+            FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s), but local health history could not be saved.";
+            StatusText.Text = "Fleet probes completed; history save failed";
+        }
     }
 
     private async void ProbeSelectedFleet_Click(object sender, RoutedEventArgs e)
@@ -581,9 +606,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             FleetSecretBox.Clear();
         }
 
-        await PersistFleetHistoryAsync();
+        var selectedHistorySaved = await PersistFleetHistoryAsync();
         ApplyFleetFilter();
         UpdateFleetSummary();
+
+        if (!selectedHistorySaved)
+        {
+            FleetStatusText.Text = $"{profile.Name} probe completed, but local health history could not be saved.";
+            StatusText.Text = "Fleet probe completed; history save failed";
+        }
     }
 
     private void FleetList_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
@@ -628,23 +659,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var confirmed = MessageBox.Show(
-            this,
-            $"Delete {count} local Fleet health record(s) for {row.Name}?\n\nThis does not change the remote server.",
-            "Clear Fleet health history",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Clear Fleet health history",
+                $"Delete {count} local Fleet health record(s) for {row.Name}?\n\nThis does not change the remote server.",
+                "Clear history",
+                danger: true))
         {
             return;
         }
 
+        var previousHistory = _fleetHistory.ToArray();
         _fleetHistory.RemoveAll(record => record.ProfileId == row.ProfileId);
-        await PersistFleetHistoryAsync();
+
+        if (!await PersistFleetHistoryAsync())
+        {
+            _fleetHistory.Clear();
+            _fleetHistory.AddRange(previousHistory);
+            RefreshFleetInventory();
+            FleetStatusText.Text = $"Could not clear local Fleet health history for {row.Name}. The previous history was restored.";
+            StatusText.Text = "Fleet history clear failed";
+            return;
+        }
+
         RefreshFleetInventory();
         FleetStatusText.Text = $"Cleared local Fleet health history for {row.Name}.";
+        StatusText.Text = "Fleet history cleared";
     }
 
     private void OpenFleetServer_Click(object sender, RoutedEventArgs e)
@@ -735,21 +774,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         };
     }
 
-    private async Task PersistFleetHistoryAsync()
+    private async Task<bool> PersistFleetHistoryAsync()
     {
         TrimFleetHistory();
 
         try
         {
             await _fleetHistoryStore.SaveAsync(_fleetHistory);
+            UpdateFleetHistoryView();
+            return true;
         }
         catch (Exception ex)
         {
             FleetStatusText.Text = $"Fleet history could not be saved locally: {SafeError(ex)}";
             StatusText.Text = "Fleet history save failed";
+            UpdateFleetHistoryView();
+            return false;
         }
-
-        UpdateFleetHistoryView();
     }
 
     private void TrimFleetHistory()
@@ -881,8 +922,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        var previousAcknowledgement = item.Record.AcknowledgedUtc;
         item.Record.AcknowledgedUtc = DateTimeOffset.UtcNow;
-        await PersistFleetHistoryAsync();
+
+        if (!await PersistFleetHistoryAsync())
+        {
+            item.Record.AcknowledgedUtc = previousAcknowledgement;
+            RefreshAlertCenter();
+            AlertsStatusText.Text = $"Could not acknowledge the local alert for {item.ServerName}. The alert remains active.";
+            StatusText.Text = "Alert acknowledgement failed";
+            return;
+        }
+
         RefreshAlertCenter();
         AlertsStatusText.Text = $"Acknowledged local alert for {item.ServerName}.";
         StatusText.Text = "Local alert acknowledged";
@@ -1718,9 +1769,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         if (action is "stop" or "restart" &&
-            !ConfirmAdministrativeAction(
+            !await ConfirmAdministrativeActionAsync(
                 $"{char.ToUpperInvariant(action[0])}{action[1..]} service?",
-                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {operation.Profile.Name}?"))
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {operation.Profile.Name}?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} service"))
         {
             return;
         }
@@ -1909,9 +1961,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         if (action is "stop" or "restart" &&
-            !ConfirmAdministrativeAction(
+            !await ConfirmAdministrativeActionAsync(
                 $"{char.ToUpperInvariant(action[0])}{action[1..]} container?",
-                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {operation.Profile.Name}?"))
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {operation.Profile.Name}?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} container"))
         {
             return;
         }
@@ -2081,15 +2134,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         var protocol = (FirewallProtocolBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "tcp";
-        var confirmed = MessageBox.Show(
-            this,
-            $"Allow inbound {protocol.ToUpperInvariant()} port {port} on {operation.Profile.Name}?\n\nThis changes the remote firewall and requires passwordless sudo for the connected account.",
-            "Confirm firewall change",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Confirm firewall change",
+                $"Allow inbound {protocol.ToUpperInvariant()} port {port} on {operation.Profile.Name}?\n\nThis changes the remote firewall and requires passwordless sudo for the connected account.",
+                "Allow port",
+                danger: true))
         {
             return;
         }
@@ -2197,15 +2246,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var confirmed = MessageBox.Show(
-            this,
-            $"Run Safe Update on {operation.Profile.Name}?\n\nGhost Server will first create and download a configuration snapshot. It will then install regular updates using the detected supported package manager. No automatic reboot is performed. Package managers may update dependencies.",
-            "Run Safe Update",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Run Safe Update",
+                $"Run Safe Update on {operation.Profile.Name}?\n\nGhost Server will first create and download a configuration snapshot. It will then install regular updates using the detected supported package manager. No automatic reboot is performed. Package managers may update dependencies.",
+                "Run Safe Update",
+                danger: false))
         {
             return;
         }
@@ -2363,15 +2408,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var confirmed = MessageBox.Show(
-            this,
-            $"Restore allowlisted configuration from {Path.GetFileName(dialog.FileName)} to {operation.Profile.Name}?\n\nThis can overwrite SSH, web server, systemd, Docker, Fail2ban or UFW configuration contained in the snapshot. Ghost Server validates archive paths and file types first. It will not downgrade packages, restart services or reboot automatically.",
-            "Restore configuration snapshot",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Restore configuration snapshot",
+                $"Restore allowlisted configuration from {Path.GetFileName(dialog.FileName)} to {operation.Profile.Name}?\n\nThis can overwrite SSH, web server, systemd, Docker, Fail2ban or UFW configuration contained in the snapshot. Ghost Server validates archive paths and file types first. It will not downgrade packages, restart services or reboot automatically.",
+                "Restore snapshot",
+                danger: true))
         {
             return;
         }
@@ -2652,9 +2693,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!ConfirmAdministrativeAction(
+        if (!await ConfirmAdministrativeActionAsync(
                 "Create scheduled task?",
-                $"Create Ghost Server task '{name}' on {operation.Profile.Name} with schedule {schedule}?\n\nThe command will run as root through a dedicated systemd oneshot service."))
+                $"Create Ghost Server task '{name}' on {operation.Profile.Name} with schedule {schedule}?\n\nThe command will run as root through a dedicated systemd oneshot service.",
+                "Create task"))
         {
             return;
         }
@@ -2716,9 +2758,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!ConfirmAdministrativeAction(
+        if (!await ConfirmAdministrativeActionAsync(
                 "Delete scheduled task?",
-                $"Delete Ghost Server task '{task.Name}' from {operation.Profile.Name}?"))
+                $"Delete Ghost Server task '{task.Name}' from {operation.Profile.Name}?",
+                "Delete task"))
         {
             return;
         }
@@ -2853,9 +2896,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!ConfirmAdministrativeAction(
+        if (!await ConfirmAdministrativeActionAsync(
                 "Terminate process?",
-                $"Send SIGTERM to PID {process.Pid} ({process.Command}) on {operation.Profile.Name}?"))
+                $"Send SIGTERM to PID {process.Pid} ({process.Command}) on {operation.Profile.Name}?",
+                "Terminate process"))
         {
             return;
         }
@@ -3800,6 +3844,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
     }
 
+    private async void ResetWindowLayout_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.WindowWidth = null;
+        _settings.WindowHeight = null;
+        _windowSizeSettingsDirty = false;
+        _windowSettingsTimer.Stop();
+
+        RestoreComfortableWindowSize();
+        _windowSettingsTimer.Stop();
+        _windowSizeSettingsDirty = false;
+
+        if (_settings.RememberWindowSize)
+        {
+            CaptureCurrentWindowSize();
+        }
+
+        try
+        {
+            await _settingsStore.SaveAsync(_settings);
+            SettingsStatusText.Text = _settingsDirty
+                ? "Window size reset. Other settings still have unsaved changes."
+                : "Window size reset to the safe default.";
+            StatusText.Text = "Window size reset";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Window layout reset failed";
+        }
+    }
+
+    private void ClearBackupFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text))
+        {
+            return;
+        }
+
+        DefaultBackupFolderBox.Clear();
+        MarkSettingsDirty();
+    }
+
     private void BrowseBackupFolder_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
@@ -3810,31 +3896,92 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
         };
 
-        if (dialog.ShowDialog(this) == true)
+        if (dialog.ShowDialog(this) == true &&
+            !string.Equals(DefaultBackupFolderBox.Text, dialog.FolderName, StringComparison.OrdinalIgnoreCase))
         {
             DefaultBackupFolderBox.Text = dialog.FolderName;
+            MarkSettingsDirty();
         }
     }
 
-    private async void SaveSettings_Click(object sender, RoutedEventArgs e)
+    private async void SaveSettings_Click(object sender, RoutedEventArgs e) =>
+        await SaveSettingsAsync();
+
+    private async Task<bool> SaveSettingsAsync()
     {
+        if (_settingsSaveBusy)
+        {
+            return false;
+        }
+
+        if (!_settingsDirty)
+        {
+            return true;
+        }
+
+        _settingsSaveBusy = true;
+        SaveSettingsButton.IsEnabled = false;
+        var saveGeneration = _settingsEditGeneration;
+
         try
         {
-            _settings.DashboardRefreshSeconds = ReadRefreshInterval();
-            _settings.DefaultBackupDirectory = string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text)
-                ? null
-                : DefaultBackupFolderBox.Text.Trim();
-            _settings.Normalize();
+            var candidate = CreateSettingsCandidateFromUi();
+            var selectedServerChangedDuringSave = false;
 
+            await _settingsStore.SaveAsync(candidate);
+
+            selectedServerChangedDuringSave =
+                _settings.LastSelectedServerId != candidate.LastSelectedServerId;
+
+            _settings.DashboardRefreshSeconds = candidate.DashboardRefreshSeconds;
+            _settings.DefaultBackupDirectory = candidate.DefaultBackupDirectory;
+            _settings.RememberWindowSize = candidate.RememberWindowSize;
+
+            if (!candidate.RememberWindowSize)
+            {
+                _settings.WindowWidth = null;
+                _settings.WindowHeight = null;
+                _windowSizeSettingsDirty = false;
+                _windowSettingsTimer.Stop();
+            }
+            else if (!_windowSizeSettingsDirty)
+            {
+                _settings.WindowWidth = candidate.WindowWidth;
+                _settings.WindowHeight = candidate.WindowHeight;
+            }
+
+            _settings.Normalize();
             _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
-            await _settingsStore.SaveAsync(_settings);
-            SettingsStatusText.Text = "Settings saved.";
+
+            if (selectedServerChangedDuringSave)
+            {
+                _ = PersistSettingsQuietlyAsync();
+            }
+
+            if (saveGeneration == _settingsEditGeneration)
+            {
+                _settingsDirty = false;
+                SettingsStatusText.Text = "Settings saved.";
+                StatusText.Text = "Settings saved";
+                return true;
+            }
+
+            _settingsDirty = true;
+            SettingsStatusText.Text = "Settings saved. New changes are still unsaved.";
             StatusText.Text = "Settings saved";
+            return false;
         }
         catch (Exception ex)
         {
+            _settingsDirty = true;
             SettingsStatusText.Text = SafeError(ex);
             StatusText.Text = "Settings save failed";
+            return false;
+        }
+        finally
+        {
+            _settingsSaveBusy = false;
+            SaveSettingsButton.IsEnabled = _settingsDirty;
         }
     }
 
@@ -3884,15 +4031,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var imported = await ProfileStore.ImportAsync(dialog.FileName);
-            var confirmed = MessageBox.Show(
-                this,
-                $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
-                "Import server profiles",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No);
-
-            if (confirmed != MessageBoxResult.Yes)
+            if (!await ShowGhostConfirmationAsync(
+                    "Import server profiles",
+                    $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
+                    "Import profiles",
+                    danger: false))
             {
                 return;
             }
@@ -3947,19 +4090,76 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private void ApplySettingsToUi()
     {
         _settings.Normalize();
-        _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
-        DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
-        AutoRefreshToggle.Content = $"Auto refresh • {_settings.DashboardRefreshSeconds}s";
-
-        var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
-        foreach (var item in RefreshIntervalBox.Items.OfType<ComboBoxItem>())
+        _settingsUiUpdate = true;
+        try
         {
-            if (string.Equals(item.Tag?.ToString(), tag, StringComparison.Ordinal))
+            _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
+            DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
+            RememberWindowSizeToggle.IsChecked = _settings.RememberWindowSize;
+            AutoRefreshToggle.Content = $"Auto refresh • {_settings.DashboardRefreshSeconds}s";
+
+            var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
+            foreach (var item in RefreshIntervalBox.Items.OfType<ComboBoxItem>())
             {
-                RefreshIntervalBox.SelectedItem = item;
-                break;
+                if (string.Equals(item.Tag?.ToString(), tag, StringComparison.Ordinal))
+                {
+                    RefreshIntervalBox.SelectedItem = item;
+                    break;
+                }
             }
         }
+        finally
+        {
+            _settingsUiUpdate = false;
+        }
+
+        _settingsDirty = false;
+        SaveSettingsButton.IsEnabled = false;
+    }
+
+    private AppSettings CreateSettingsCandidateFromUi()
+    {
+        var candidate = new AppSettings
+        {
+            DashboardRefreshSeconds = ReadRefreshInterval(),
+            DefaultBackupDirectory = string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text)
+                ? null
+                : DefaultBackupFolderBox.Text.Trim(),
+            LastSelectedServerId = _settings.LastSelectedServerId,
+            RememberWindowSize = RememberWindowSizeToggle.IsChecked == true,
+            WindowWidth = _settings.WindowWidth,
+            WindowHeight = _settings.WindowHeight
+        };
+
+        if (!candidate.RememberWindowSize)
+        {
+            candidate.WindowWidth = null;
+            candidate.WindowHeight = null;
+        }
+        else if (!_fitWindowActive)
+        {
+            candidate.WindowWidth = Math.Round(Math.Clamp(ActualWidth, MinWidth, MaxWidth), 0);
+            candidate.WindowHeight = Math.Round(Math.Clamp(ActualHeight, MinHeight, MaxHeight), 0);
+        }
+
+        candidate.Normalize();
+        return candidate;
+    }
+
+    private void SettingsControl_Changed(object sender, RoutedEventArgs e) =>
+        MarkSettingsDirty();
+
+    private void MarkSettingsDirty()
+    {
+        if (!_settingsLoaded || _settingsUiUpdate)
+        {
+            return;
+        }
+
+        _settingsEditGeneration++;
+        _settingsDirty = true;
+        SaveSettingsButton.IsEnabled = !_settingsSaveBusy;
+        SettingsStatusText.Text = "Unsaved changes.";
     }
 
     private int ReadRefreshInterval()
@@ -4170,15 +4370,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         };
     }
 
-    private bool ConfirmAdministrativeAction(string title, string message)
+    private Task<bool> ConfirmAdministrativeActionAsync(
+        string title,
+        string message,
+        string confirmText) =>
+        ShowGhostConfirmationAsync(
+            title,
+            message + "\n\nThe action is sent to the selected remote server.",
+            confirmText,
+            danger: true);
+
+    private Task<bool> ShowGhostConfirmationAsync(
+        string title,
+        string message,
+        string confirmText,
+        bool danger)
     {
-        return MessageBox.Show(
-                   this,
-                   message + "\n\nThe action is sent to the selected remote server.",
-                   title,
-                   MessageBoxButton.YesNo,
-                   MessageBoxImage.Warning,
-                   MessageBoxResult.No) == MessageBoxResult.Yes;
+        if (_confirmationCompletion is not null)
+        {
+            return Task.FromResult(false);
+        }
+
+        _confirmationCompletion = new TaskCompletionSource<bool>();
+        _focusBeforeOverlay = Keyboard.FocusedElement;
+
+        GhostConfirmationTitle.Text = title;
+        GhostConfirmationMessage.Text = message;
+        GhostConfirmationConfirmButton.Content = confirmText;
+        GhostConfirmationConfirmButton.Style = (Style)FindResource(
+            danger ? "DangerButton" : "AccentButton");
+
+        GhostConfirmationOverlay.Visibility = Visibility.Visible;
+        GhostConfirmationCancelButton.Focus();
+
+        return _confirmationCompletion.Task;
+    }
+
+    private void ConfirmGhostConfirmation_Click(object sender, RoutedEventArgs e) =>
+        CompleteGhostConfirmation(true);
+
+    private void CancelGhostConfirmation_Click(object sender, RoutedEventArgs e) =>
+        CompleteGhostConfirmation(false);
+
+    private void CompleteGhostConfirmation(bool result)
+    {
+        var completion = _confirmationCompletion;
+        if (completion is null)
+        {
+            return;
+        }
+
+        _confirmationCompletion = null;
+        GhostConfirmationOverlay.Visibility = Visibility.Collapsed;
+        RestoreOverlayFocus();
+        completion.TrySetResult(result);
     }
 
     private bool TryAcquireMutation(string message)
@@ -4220,6 +4465,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         if (e.Key == Key.Escape)
         {
+            if (GhostConfirmationOverlay.Visibility == Visibility.Visible)
+            {
+                CancelGhostConfirmation_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+
+            if (UnsavedSettingsOverlay.Visibility == Visibility.Visible)
+            {
+                CancelUnsavedSettingsClose_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+
             if (ConfirmOverlay.Visibility == Visibility.Visible)
             {
                 CancelDelete_Click(sender, new RoutedEventArgs());
@@ -4235,7 +4494,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
         }
 
-        if (ConfirmOverlay.Visibility == Visibility.Visible ||
+        if (GhostConfirmationOverlay.Visibility == Visibility.Visible ||
+            UnsavedSettingsOverlay.Visibility == Visibility.Visible ||
+            ConfirmOverlay.Visibility == Visibility.Visible ||
             AddServerOverlay.Visibility == Visibility.Visible)
         {
             return;
@@ -4339,10 +4600,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (WindowState == WindowState.Normal)
+        if (WindowState != WindowState.Normal)
         {
-            ApplyResponsiveLayout();
+            return;
         }
+
+        ApplyResponsiveLayout();
+
+        if (!IsLoaded ||
+            !_settingsLoaded ||
+            _fitWindowActive ||
+            !_settings.RememberWindowSize ||
+            ActualWidth < MinWidth ||
+            ActualHeight < MinHeight)
+        {
+            return;
+        }
+
+        CaptureCurrentWindowSize();
+        _windowSizeSettingsDirty = true;
+        _windowSettingsTimer.Stop();
+        _windowSettingsTimer.Start();
     }
 
     private void Window_StateChanged(object? sender, EventArgs e)
@@ -4380,12 +4658,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         var workArea = SystemParameters.WorkArea;
         WindowState = WindowState.Normal;
+        _fitWindowActive = true;
+        _windowSettingsTimer.Stop();
         MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
         MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
         Width = Math.Min(MaxWidth, Math.Max(MinWidth, workArea.Width * 0.90));
         Height = Math.Min(MaxHeight, Math.Max(MinHeight, workArea.Height * 0.88));
         CenterWithinWorkArea(workArea);
-        _fitWindowActive = true;
         ApplyResponsiveLayout();
     }
 
@@ -4393,12 +4672,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         var workArea = SystemParameters.WorkArea;
         WindowState = WindowState.Normal;
+        _fitWindowActive = false;
         MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
         MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
         Width = Math.Min(StandardWindowWidth, Math.Min(MaxWidth, Math.Max(MinWidth, workArea.Width * 0.82)));
         Height = Math.Min(StandardWindowHeight, Math.Min(MaxHeight, Math.Max(MinHeight, workArea.Height * 0.80)));
         CenterWithinWorkArea(workArea);
-        _fitWindowActive = false;
         ApplyResponsiveLayout();
     }
 
@@ -4406,6 +4685,57 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         Left = workArea.Left + Math.Max(0, (workArea.Width - Width) / 2);
         Top = workArea.Top + Math.Max(0, (workArea.Height - Height) / 2);
+    }
+
+    private void ApplySavedWindowSize()
+    {
+        if (!_settings.RememberWindowSize ||
+            _settings.WindowWidth is not double savedWidth ||
+            _settings.WindowHeight is not double savedHeight)
+        {
+            return;
+        }
+
+        var workArea = SystemParameters.WorkArea;
+        MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
+        MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
+        Width = Math.Clamp(savedWidth, MinWidth, MaxWidth);
+        Height = Math.Clamp(savedHeight, MinHeight, MaxHeight);
+        WindowState = WindowState.Normal;
+        _fitWindowActive = false;
+        CenterWithinWorkArea(workArea);
+        ApplyResponsiveLayout();
+    }
+
+    private void CaptureCurrentWindowSize()
+    {
+        if (WindowState != WindowState.Normal || _fitWindowActive)
+        {
+            return;
+        }
+
+        _settings.WindowWidth = Math.Round(Math.Clamp(ActualWidth, MinWidth, MaxWidth), 0);
+        _settings.WindowHeight = Math.Round(Math.Clamp(ActualHeight, MinHeight, MaxHeight), 0);
+    }
+
+    private async void WindowSettingsTimer_Tick(object? sender, EventArgs e)
+    {
+        _windowSettingsTimer.Stop();
+        if (!_windowSizeSettingsDirty)
+        {
+            return;
+        }
+
+        try
+        {
+            await _settingsStore.SaveAsync(_settings);
+            _windowSizeSettingsDirty = false;
+        }
+        catch
+        {
+            // Keep the dirty flag so close-time flushing can retry.
+            _windowSizeSettingsDirty = true;
+        }
     }
 
     private void CaptureOverlayFocus()
@@ -4453,6 +4783,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         AddServerCard.Width = Math.Min(560, Math.Max(320, ActualWidth - 48));
         AddServerCard.MaxHeight = Math.Max(300, ActualHeight - 48);
         ConfirmCard.Width = Math.Min(470, Math.Max(300, ActualWidth - 48));
+        GhostConfirmationCard.Width = Math.Min(520, Math.Max(300, ActualWidth - 48));
+        UnsavedSettingsCard.Width = Math.Min(500, Math.Max(300, ActualWidth - 48));
 
         var signature =
             (compactSidebar ? 1 : 0) |
@@ -4541,6 +4873,107 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         yield return SecurityPage;
     }
 
+    private async void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (_allowCloseAfterSettingsFlush || !_settingsLoaded)
+        {
+            return;
+        }
+
+        if (GhostConfirmationOverlay.Visibility == Visibility.Visible)
+        {
+            e.Cancel = true;
+            CompleteGhostConfirmation(false);
+            StatusText.Text = "Confirmation cancelled";
+            return;
+        }
+
+        if (_settingsSaveBusy)
+        {
+            e.Cancel = true;
+            StatusText.Text = "Settings are still saving. Close again when the save finishes.";
+            return;
+        }
+
+        if (_settingsDirty)
+        {
+            e.Cancel = true;
+            ShowUnsavedSettingsCloseOverlay();
+            return;
+        }
+
+        if (!_windowSizeSettingsDirty || !_settings.RememberWindowSize)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        await FlushWindowSettingsAndCloseAsync();
+    }
+
+    private void ShowUnsavedSettingsCloseOverlay()
+    {
+        if (UnsavedSettingsOverlay.Visibility != Visibility.Visible)
+        {
+            _focusBeforeOverlay = Keyboard.FocusedElement;
+            UnsavedSettingsOverlay.Visibility = Visibility.Visible;
+        }
+
+        UnsavedSettingsCancelButton.Focus();
+    }
+
+    private void CancelUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
+    {
+        UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        RestoreOverlayFocus();
+        StatusText.Text = "Close cancelled";
+    }
+
+    private async void DiscardUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
+    {
+        _settingsDirty = false;
+        SaveSettingsButton.IsEnabled = false;
+        UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        await FlushWindowSettingsAndCloseAsync();
+    }
+
+    private async void SaveUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
+    {
+        if (!await SaveSettingsAsync())
+        {
+            UnsavedSettingsCancelButton.Focus();
+            return;
+        }
+
+        UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        await FlushWindowSettingsAndCloseAsync();
+    }
+
+    private async Task FlushWindowSettingsAndCloseAsync()
+    {
+        _windowSettingsTimer.Stop();
+
+        if (_settingsLoaded &&
+            _windowSizeSettingsDirty &&
+            _settings.RememberWindowSize)
+        {
+            CaptureCurrentWindowSize();
+
+            try
+            {
+                await _settingsStore.SaveAsync(_settings);
+                _windowSizeSettingsDirty = false;
+            }
+            catch
+            {
+                // Window geometry persistence is best-effort and must never trap the user.
+            }
+        }
+
+        _allowCloseAfterSettingsFlush = true;
+        Close();
+    }
+
     private void Window_Closed(object? sender, EventArgs e) => Dispose();
 
     public void Dispose()
@@ -4550,6 +4983,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        _dashboardTimer.Stop();
+        _windowSettingsTimer.Stop();
         _terminalConnectCancellation?.Cancel();
         _terminalConnectCancellation?.Dispose();
         _terminalConnectCancellation = null;
