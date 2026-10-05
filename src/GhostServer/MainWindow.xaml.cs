@@ -48,6 +48,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private readonly Dictionary<string, int> _activeUiOperations = [];
     private int _remoteOperationGeneration;
     private int _windowDisposed;
+    private bool _windowStateCorrection;
+    private bool _fitWindowActive;
+    private const double StandardWindowWidth = 1180;
+    private const double StandardWindowHeight = 760;
+    private const double CompactSidebarBreakpoint = 1040;
+    private const double TightLayoutBreakpoint = 820;
     private const int TerminalOutputMaxCharacters = 500_000;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
@@ -80,6 +86,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        ConfigureInitialWindowBounds();
+        ApplyResponsiveLayout();
+
         var version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
         AppVersionBadge.Text = version;
         AboutVersionText.Text = $"Ghost Server {version}";
@@ -4303,6 +4312,178 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    private void ConfigureInitialWindowBounds()
+    {
+        var workArea = SystemParameters.WorkArea;
+        var maxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
+        var maxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
+
+        MaxWidth = maxWidth;
+        MaxHeight = maxHeight;
+        WindowState = WindowState.Normal;
+
+        Width = Math.Min(StandardWindowWidth, Math.Max(MinWidth, workArea.Width * 0.84));
+        Height = Math.Min(StandardWindowHeight, Math.Max(MinHeight, workArea.Height * 0.82));
+
+        CenterWithinWorkArea(workArea);
+        _fitWindowActive = false;
+    }
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (WindowState == WindowState.Normal)
+        {
+            ApplyResponsiveLayout();
+        }
+    }
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        if (_windowStateCorrection || WindowState != WindowState.Maximized)
+        {
+            return;
+        }
+
+        _windowStateCorrection = true;
+        try
+        {
+            WindowState = WindowState.Normal;
+            FitWindowToWorkArea();
+        }
+        finally
+        {
+            _windowStateCorrection = false;
+        }
+    }
+
+    private void ToggleFitWindow()
+    {
+        if (_fitWindowActive)
+        {
+            RestoreComfortableWindowSize();
+        }
+        else
+        {
+            FitWindowToWorkArea();
+        }
+    }
+
+    private void FitWindowToWorkArea()
+    {
+        var workArea = SystemParameters.WorkArea;
+        WindowState = WindowState.Normal;
+        MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
+        MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
+        Width = Math.Min(MaxWidth, Math.Max(MinWidth, workArea.Width * 0.90));
+        Height = Math.Min(MaxHeight, Math.Max(MinHeight, workArea.Height * 0.88));
+        CenterWithinWorkArea(workArea);
+        _fitWindowActive = true;
+        ApplyResponsiveLayout();
+    }
+
+    private void RestoreComfortableWindowSize()
+    {
+        var workArea = SystemParameters.WorkArea;
+        WindowState = WindowState.Normal;
+        MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
+        MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
+        Width = Math.Min(StandardWindowWidth, Math.Min(MaxWidth, Math.Max(MinWidth, workArea.Width * 0.82)));
+        Height = Math.Min(StandardWindowHeight, Math.Min(MaxHeight, Math.Max(MinHeight, workArea.Height * 0.80)));
+        CenterWithinWorkArea(workArea);
+        _fitWindowActive = false;
+        ApplyResponsiveLayout();
+    }
+
+    private void CenterWithinWorkArea(Rect workArea)
+    {
+        Left = workArea.Left + Math.Max(0, (workArea.Width - Width) / 2);
+        Top = workArea.Top + Math.Max(0, (workArea.Height - Height) / 2);
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        var compactSidebar = ActualWidth < CompactSidebarBreakpoint;
+        var tightLayout = ActualWidth < TightLayoutBreakpoint;
+        var reducedHeight = ActualHeight < 700;
+
+        SidebarColumn.Width = new GridLength(compactSidebar ? 72 : 198);
+        SidebarInnerGrid.Margin = new Thickness(compactSidebar ? 8 : 12);
+
+        SidebarTitle.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+        SidebarOverviewHeading.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+        SidebarManageHeading.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+        SidebarOperationsHeading.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+        SidebarAppHeading.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+        SidebarFooter.Visibility = compactSidebar || reducedHeight
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        foreach (var button in SidebarNavigationPanel.Children.OfType<Button>())
+        {
+            if (button.Visibility != Visibility.Visible || button.Content is not Grid navGrid ||
+                navGrid.ColumnDefinitions.Count < 2)
+            {
+                continue;
+            }
+
+            navGrid.ColumnDefinitions[0].Width = compactSidebar
+                ? new GridLength(1, GridUnitType.Star)
+                : new GridLength(30);
+            navGrid.ColumnDefinitions[1].Width = compactSidebar
+                ? new GridLength(0)
+                : new GridLength(1, GridUnitType.Star);
+        }
+
+        ContentHeaderRow.Height = new GridLength(reducedHeight ? 68 : 84);
+        ContentHeaderGrid.Margin = new Thickness(compactSidebar ? 14 : 24, 0, compactSidebar ? 14 : 24, 0);
+        PageTitle.FontSize = compactSidebar ? 20 : 24;
+        PageSubtitle.Visibility = tightLayout ? Visibility.Collapsed : Visibility.Visible;
+        HeaderAddServerText.Visibility = tightLayout ? Visibility.Collapsed : Visibility.Visible;
+
+        DashboardServerColumn.Width = new GridLength(
+            ActualWidth < 760
+                ? 190
+                : compactSidebar
+                    ? 235
+                    : 300);
+
+        var workspaceMargin = new Thickness(compactSidebar ? 14 : 24);
+        foreach (var page in GetResponsiveWorkspacePages())
+        {
+            page.Margin = workspaceMargin;
+        }
+
+        SettingsPage.Margin = workspaceMargin;
+
+        AddServerCard.Width = Math.Min(560, Math.Max(320, ActualWidth - 48));
+        AddServerCard.MaxHeight = Math.Max(300, ActualHeight - 48);
+        ConfirmCard.Width = Math.Min(470, Math.Max(300, ActualWidth - 48));
+    }
+
+    private IEnumerable<FrameworkElement> GetResponsiveWorkspacePages()
+    {
+        yield return FleetPage;
+        yield return AlertsPage;
+        yield return TrendsPage;
+        yield return FilesPage;
+        yield return ServicesPage;
+        yield return DockerPage;
+        yield return TasksPage;
+        yield return SystemPage;
+        yield return DatabasesPage;
+        yield return LogsPage;
+        yield return TerminalPage;
+        yield return NetworkPage;
+        yield return UpdatesPage;
+        yield return BackupPage;
+        yield return SecurityPage;
+    }
+
     private void Window_Closed(object? sender, EventArgs e) => Dispose();
 
     public void Dispose()
@@ -4337,7 +4518,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         if (e.ClickCount == 2)
         {
-            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            ToggleFitWindow();
             return;
         }
 
@@ -4362,8 +4543,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
-    private void Maximize_Click(object sender, RoutedEventArgs e) =>
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => ToggleFitWindow();
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
