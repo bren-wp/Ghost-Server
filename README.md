@@ -42,20 +42,21 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.17.0
+## 🚀 Current release — 0.18.0
 
-Ghost Server 0.17.0 completes a **responsive Windows UI pass** and ensures the application stays a resizable normal window instead of taking over the entire screen.
+Ghost Server 0.18.0 focuses on **dead-code removal and permanent maintainability gates** after the responsive 0.17 release.
 
-### New in 0.17.0
+### New in 0.18.0
 
-- 🪟 Starts centered in a normal window sized from the available Windows work area.
-- 📏 Window maximums stay below the full work area; true Maximized/full-screen state is no longer used.
-- ↗️ The title-bar maximize control is now **Fit window to screen**, still leaving desktop space around the app.
-- 🧭 Sidebar automatically changes from a full aligned 198 px rail to a 72 px icon rail on narrower windows.
-- 📐 Workspace margins, headers, Dashboard columns and modal cards adapt to available space.
-- ↩️ Fleet, Alerts, Trends, Network, Tasks, Files, Security and key Dashboard/Settings forms wrap instead of clipping.
-- 🧹 Status chrome collapses secondary text before it can overlap.
-- ✅ Main-window UI audit confirms all 91 buttons are actionable and all 104 XAML handlers resolve.
+- 🧹 Removes confirmed obsolete C# and generated XAML fields.
+- 🔎 Adds a repository-wide CI dead-code audit for private methods and fields.
+- 🧩 Detects unused service methods across the complete production source tree.
+- 🎨 Detects unused keyed XAML resources before they accumulate.
+- 🏷️ Detects unnecessary `x:Name` declarations that generate unused backing fields.
+- 🪟 Extends the XAML event-wiring gate to include responsive `SizeChanged` and `StateChanged` handlers.
+- 🎚️ Replaces Windows-default scrollbars with a dark Ghost scrollbar template and aligned paging behavior.
+- 📐 Rebuilds sidebar item geometry so every visible icon and label starts on the same fixed alignment grid.
+- 🛡️ Keeps deletion conservative: CI reports candidates and never removes code automatically.
 
 
 ---
@@ -375,7 +376,7 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.17.0:
+Current priorities after 0.18.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;

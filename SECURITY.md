@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.17.x`
+The active development line is `0.18.x`
 
 ## SSH trust model
 

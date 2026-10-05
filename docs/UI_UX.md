@@ -200,3 +200,19 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Settings monitoring and profile import/export controls wrap on narrow layouts;
 - tables retain their own scrolling where their data columns are wider than the current viewport;
 - the minimum supported interactive window remains intentionally bounded so controls stay usable rather than being scaled unreadably.
+
+
+## v0.18 Dead-code and UI maintainability contract
+
+- XAML names are kept only when code-behind, bindings, element references or template logic actually consume them;
+- private UI helpers must have a real C# caller or an explicit XAML event binding;
+- responsive-window lifecycle events are part of the XAML wiring audit;
+- keyed theme resources must have a consumer and must not remain as abandoned visual variants;
+- service methods without any production source reference are treated as dead-code candidates;
+- CI performs the audit before restore/build so maintainability regressions fail early;
+- dead-code detection is conservative and never auto-deletes source.
+
+- scrollbars must use Ghost dark surfaces and must not expose Windows light arrow buttons or white tracks;
+- vertical and horizontal scrollbar paging must remain functional after custom theming;
+- every visible sidebar destination uses the same fixed icon slot, glyph box and label offset;
+- grouped child workspaces must highlight a real visible parent navigation item and must not require hidden navigation controls.

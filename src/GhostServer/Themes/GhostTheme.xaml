@@ -35,6 +35,27 @@
         <Setter Property="TextAlignment" Value="Center"/>
     </Style>
 
+    <Style x:Key="SidebarNavIcon" TargetType="TextBlock" BasedOn="{StaticResource FluentIcon}">
+        <Setter Property="Width" Value="24"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+
+    <Style x:Key="SidebarNavLabel" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="Margin" Value="10,0,0,0"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
@@ -77,7 +98,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
                     <Grid>
-                        <ToggleButton x:Name="DropDownToggle"
+                        <ToggleButton
                                       Focusable="False"
                                       ClickMode="Press"
                                       Background="{TemplateBinding Background}"
@@ -359,11 +380,103 @@
         </Setter>
     </Style>
 
+    <Style x:Key="GhostScrollPageButton" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="GhostScrollThumb" TargetType="Thumb">
+        <Setter Property="MinWidth" Value="8"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="Background" Value="#3E6588"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbSurface"
+                            Margin="2"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="4"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbSurface" Property="Background" Value="#5B87AD"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbSurface" Property="Background" Value="{StaticResource GhostBlue}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="ThumbSurface" Property="Opacity" Value="0.35"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="ScrollBar">
-        <Setter Property="Background" Value="#071522"/>
-        <Setter Property="Foreground" Value="{StaticResource GhostBorder}"/>
-        <Setter Property="Width" Value="10"/>
-        <Setter Property="Height" Value="10"/>
+        <Setter Property="Background" Value="#08192B"/>
+        <Setter Property="Foreground" Value="#3E6588"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Border x:Name="ScrollSurface"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="5"
+                            Padding="1">
+                        <Track x:Name="PART_Track"
+                               Orientation="{TemplateBinding Orientation}"
+                               Maximum="{TemplateBinding Maximum}"
+                               Minimum="{TemplateBinding Minimum}"
+                               Value="{TemplateBinding Value}"
+                               ViewportSize="{TemplateBinding ViewportSize}">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton x:Name="DecreasePageButton"
+                                              Style="{StaticResource GhostScrollPageButton}"
+                                              Command="{x:Static ScrollBar.PageUpCommand}"/>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource GhostScrollThumb}"/>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton x:Name="IncreasePageButton"
+                                              Style="{StaticResource GhostScrollPageButton}"
+                                              Command="{x:Static ScrollBar.PageDownCommand}"/>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Vertical">
+                            <Setter Property="Width" Value="12"/>
+                            <Setter Property="MinWidth" Value="12"/>
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="True"/>
+                        </Trigger>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter Property="Height" Value="12"/>
+                            <Setter Property="MinHeight" Value="12"/>
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                            <Setter TargetName="DecreasePageButton" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}"/>
+                            <Setter TargetName="IncreasePageButton" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ScrollSurface" Property="Background" Value="#0C223A"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="ScrollSurface" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="ServerListItemStyle" TargetType="ListBoxItem">

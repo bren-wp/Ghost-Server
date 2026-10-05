@@ -68,7 +68,7 @@ jobs:
           $codePath = "src/GhostServer/MainWindow.xaml.cs"
           $xaml = Get-Content $xamlPath -Raw
           $code = Get-Content $codePath -Raw
-          $eventNames = "Click|Loaded|Closed|SelectionChanged|TextChanged|Checked|Unchecked|KeyDown|MouseDoubleClick|MouseLeftButtonDown|Closing|PreviewKeyDown|PasswordChanged"
+          $eventNames = "Click|Loaded|Closed|SizeChanged|StateChanged|SelectionChanged|TextChanged|Checked|Unchecked|KeyDown|MouseDoubleClick|MouseLeftButtonDown|Closing|PreviewKeyDown|PasswordChanged"
           $pattern = '(?:' + $eventNames + ')="([A-Za-z_][A-Za-z0-9_]*)"'
           $handlers = [regex]::Matches($xaml, $pattern) |
             ForEach-Object { $_.Groups[1].Value } |
@@ -88,6 +88,10 @@ jobs:
           }
 
           Write-Host "Verified $($handlers.Count) XAML event handler binding(s)."
+
+      - name: Dead code audit
+        shell: pwsh
+        run: ./scripts/dead-code-audit.ps1
 
       - name: Verify release provenance contract
         shell: pwsh
