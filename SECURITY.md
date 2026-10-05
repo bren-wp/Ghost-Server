@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.8.x`
+The active development line is `0.9.x`
 
 ## SSH trust model
 
@@ -107,3 +107,12 @@ Ghost Server:
 - sends SIGTERM only;
 - does not automatically escalate to SIGKILL;
 - uses non-interactive sudo only when the connected account cannot signal the process directly.
+
+
+## Fleet probes
+
+Fleet inventory itself is local metadata. Bulk Fleet probes are restricted to profiles that already have a pinned SSH host key and use private-key authentication. Ghost Server supplies no password or passphrase during a bulk probe.
+
+The selected-server Fleet probe accepts a session secret only for that selected row. The secret is read from the WPF PasswordBox, used for that probe, and cleared immediately afterward. Fleet never persists it.
+
+Fleet health collection is read-only and uses the same verified SSH host identity as Dashboard health discovery.
