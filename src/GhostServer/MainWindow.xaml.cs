@@ -51,6 +51,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _windowStateCorrection;
     private bool _fitWindowActive;
     private bool _windowSizeSettingsDirty;
+    private bool _settingsLoaded;
     private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
@@ -104,6 +105,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _settings = await _settingsStore.LoadAsync();
             ApplySettingsToUi();
             ApplySavedWindowSize();
+            _settingsLoaded = true;
 
             var profiles = await _profileStore.LoadAsync();
             foreach (var profile in profiles)
@@ -4399,6 +4401,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         ApplyResponsiveLayout();
 
         if (!IsLoaded ||
+            !_settingsLoaded ||
             _fitWindowActive ||
             !_settings.RememberWindowSize ||
             ActualWidth < MinWidth ||
@@ -4664,6 +4667,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (_allowCloseAfterSettingsFlush ||
+            !_settingsLoaded ||
             !_windowSizeSettingsDirty ||
             !_settings.RememberWindowSize ||
             _fitWindowActive)
