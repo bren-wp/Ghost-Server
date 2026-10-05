@@ -54,6 +54,8 @@ Ghost Server 0.18.0 focuses on **dead-code removal and permanent maintainability
 - 🎨 Detects unused keyed XAML resources before they accumulate.
 - 🏷️ Detects unnecessary `x:Name` declarations that generate unused backing fields.
 - 🪟 Extends the XAML event-wiring gate to include responsive `SizeChanged` and `StateChanged` handlers.
+- 🎚️ Replaces Windows-default scrollbars with a dark Ghost scrollbar template and aligned paging behavior.
+- 📐 Rebuilds sidebar item geometry so every visible icon and label starts on the same fixed alignment grid.
 - 🛡️ Keeps deletion conservative: CI reports candidates and never removes code automatically.
 
 
