@@ -40,13 +40,15 @@ public sealed class SettingsStore
         AppSettings settings,
         CancellationToken cancellationToken = default)
     {
+        var snapshot = Clone(settings);
+        snapshot.Normalize();
+
         await Gate.WaitAsync(cancellationToken);
         try
         {
-            settings.Normalize();
             await JsonFileStore.SaveAsync(
                 _path,
-                settings,
+                snapshot,
                 cancellationToken);
         }
         finally
@@ -54,5 +56,16 @@ public sealed class SettingsStore
             Gate.Release();
         }
     }
+
+    private static AppSettings Clone(AppSettings source) =>
+        new()
+        {
+            DashboardRefreshSeconds = source.DashboardRefreshSeconds,
+            DefaultBackupDirectory = source.DefaultBackupDirectory,
+            LastSelectedServerId = source.LastSelectedServerId,
+            RememberWindowSize = source.RememberWindowSize,
+            WindowWidth = source.WindowWidth,
+            WindowHeight = source.WindowHeight
+        };
 
 }
