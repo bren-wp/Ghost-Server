@@ -162,3 +162,22 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Lock session, SSH trust reset, active-profile edit/delete and window close dispose the interactive shell;
 - global application shortcuts do not execute behind the add-server or confirmation overlays;
 - v0.15 is a line-oriented terminal surface and does not present itself as a full-screen terminal emulator.
+
+
+## v0.16 Operation safety and navigation cleanup
+
+- top-level sidebar navigation is reduced from 17 visible items to 11;
+- every sidebar item uses a fixed-width icon column and aligned label column;
+- navigation rows are shorter and the rail is narrower without reducing click clarity;
+- Alerts and Trends are entered from Fleet;
+- Backup and Tasks are entered from Safe Update;
+- Databases and Logs are entered from System;
+- grouped child pages keep their parent sidebar item visibly selected;
+- F5 follows the visible page instead of assuming one page per sidebar button;
+- ComboBox closed state, popup, items and selected state are dark-themed;
+- ListView rows and GridView headers use Ghost dark surfaces instead of Windows light defaults;
+- CheckBox and scrollbar surfaces are visually integrated into the Ghost palette;
+- selected-server remote results must never update a different server after a selection change;
+- duplicate refresh protection is scoped by operation generation;
+- changing servers, locking the session, editing/deleting the active profile or resetting trust invalidates stale remote work;
+- Safe Update, restore and backup cleanup remains targeted to the captured original server profile.
