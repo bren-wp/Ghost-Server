@@ -49,8 +49,18 @@ foreach ($file in $csFiles) {
     $content = Get-Content $file.FullName -Raw
     foreach ($match in [regex]::Matches($content, $privateFieldPattern)) {
         $name = $match.Groups[1].Value
-        if ((Get-ReferenceCount -Text $allCs -Name $name) -eq 1) {
+        $referenceCount = Get-ReferenceCount -Text $allCs -Name $name
+        if ($referenceCount -eq 1) {
             $failures.Add("Unused private field: $($file.FullName): $name")
+            continue
+        }
+
+        if ($referenceCount -eq 2) {
+            $assignmentPattern = '(?m)^\s*' + [regex]::Escape($name) + '\s*='
+            $assignmentCount = [regex]::Matches($content, $assignmentPattern).Count
+            if ($assignmentCount -eq 1) {
+                $failures.Add("Write-only private field: $($file.FullName): $name")
+            }
         }
     }
 }
@@ -77,6 +87,13 @@ foreach ($file in $xamlFiles) {
     $content = Get-Content $file.FullName -Raw
     foreach ($match in [regex]::Matches($content, $xNamePattern)) {
         $name = $match.Groups[1].Value
+
+        # PART_* names are framework-defined template parts. Their consumer is WPF's
+        # control-template contract, not an ordinary source-text reference.
+        if ($name.StartsWith("PART_", [System.StringComparison]::Ordinal)) {
+            continue
+        }
+
         if ((Get-ReferenceCount -Text $allSource -Name $name) -eq 1) {
             $failures.Add("Unused x:Name generated field: $($file.FullName): $name")
         }
