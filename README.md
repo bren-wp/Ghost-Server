@@ -54,7 +54,7 @@ Ghost Server 0.20.0 focuses on **local-state reliability and interaction polish*
 - 🛡️ Startup resize events cannot overwrite settings before the existing settings file is loaded.
 - ♻️ Settings includes **Remember normal window size** and **Reset window size**.
 - 📁 Optional backup location can now be both selected and cleared.
-- 🔒 Settings, profile and Fleet-history stores serialize local file access to prevent overlapping atomic-write races.
+- 🔒 Settings, profile and Fleet-history stores use process-lifetime per-store serialization to prevent overlapping atomic-write races without shutdown disposal hazards.
 - 🔑 Session-only password/passphrase handling is unchanged.
 
 
