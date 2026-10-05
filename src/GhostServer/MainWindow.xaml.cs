@@ -59,6 +59,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
+    private TaskCompletionSource<bool>? _confirmationCompletion;
     private const double StandardWindowWidth = 1180;
     private const double StandardWindowHeight = 760;
     private const double CompactSidebarBreakpoint = 1040;
@@ -658,15 +659,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var confirmed = MessageBox.Show(
-            this,
-            $"Delete {count} local Fleet health record(s) for {row.Name}?\n\nThis does not change the remote server.",
-            "Clear Fleet health history",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Clear Fleet health history",
+                $"Delete {count} local Fleet health record(s) for {row.Name}?\n\nThis does not change the remote server.",
+                "Clear history",
+                danger: true))
         {
             return;
         }
@@ -1772,9 +1769,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         if (action is "stop" or "restart" &&
-            !ConfirmAdministrativeAction(
+            !await ConfirmAdministrativeActionAsync(
                 $"{char.ToUpperInvariant(action[0])}{action[1..]} service?",
-                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {operation.Profile.Name}?"))
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {operation.Profile.Name}?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} service"))
         {
             return;
         }
@@ -1963,9 +1961,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         if (action is "stop" or "restart" &&
-            !ConfirmAdministrativeAction(
+            !await ConfirmAdministrativeActionAsync(
                 $"{char.ToUpperInvariant(action[0])}{action[1..]} container?",
-                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {operation.Profile.Name}?"))
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {operation.Profile.Name}?",
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} container"))
         {
             return;
         }
@@ -2135,15 +2134,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         var protocol = (FirewallProtocolBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "tcp";
-        var confirmed = MessageBox.Show(
-            this,
-            $"Allow inbound {protocol.ToUpperInvariant()} port {port} on {operation.Profile.Name}?\n\nThis changes the remote firewall and requires passwordless sudo for the connected account.",
-            "Confirm firewall change",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Confirm firewall change",
+                $"Allow inbound {protocol.ToUpperInvariant()} port {port} on {operation.Profile.Name}?\n\nThis changes the remote firewall and requires passwordless sudo for the connected account.",
+                "Allow port",
+                danger: true))
         {
             return;
         }
@@ -2251,15 +2246,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var confirmed = MessageBox.Show(
-            this,
-            $"Run Safe Update on {operation.Profile.Name}?\n\nGhost Server will first create and download a configuration snapshot. It will then install regular updates using the detected supported package manager. No automatic reboot is performed. Package managers may update dependencies.",
-            "Run Safe Update",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Run Safe Update",
+                $"Run Safe Update on {operation.Profile.Name}?\n\nGhost Server will first create and download a configuration snapshot. It will then install regular updates using the detected supported package manager. No automatic reboot is performed. Package managers may update dependencies.",
+                "Run Safe Update",
+                danger: false))
         {
             return;
         }
@@ -2417,15 +2408,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var confirmed = MessageBox.Show(
-            this,
-            $"Restore allowlisted configuration from {Path.GetFileName(dialog.FileName)} to {operation.Profile.Name}?\n\nThis can overwrite SSH, web server, systemd, Docker, Fail2ban or UFW configuration contained in the snapshot. Ghost Server validates archive paths and file types first. It will not downgrade packages, restart services or reboot automatically.",
-            "Restore configuration snapshot",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        if (confirmed != MessageBoxResult.Yes)
+        if (!await ShowGhostConfirmationAsync(
+                "Restore configuration snapshot",
+                $"Restore allowlisted configuration from {Path.GetFileName(dialog.FileName)} to {operation.Profile.Name}?\n\nThis can overwrite SSH, web server, systemd, Docker, Fail2ban or UFW configuration contained in the snapshot. Ghost Server validates archive paths and file types first. It will not downgrade packages, restart services or reboot automatically.",
+                "Restore snapshot",
+                danger: true))
         {
             return;
         }
@@ -2706,9 +2693,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!ConfirmAdministrativeAction(
+        if (!await ConfirmAdministrativeActionAsync(
                 "Create scheduled task?",
-                $"Create Ghost Server task '{name}' on {operation.Profile.Name} with schedule {schedule}?\n\nThe command will run as root through a dedicated systemd oneshot service."))
+                $"Create Ghost Server task '{name}' on {operation.Profile.Name} with schedule {schedule}?\n\nThe command will run as root through a dedicated systemd oneshot service.",
+                "Create task"))
         {
             return;
         }
@@ -2770,9 +2758,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!ConfirmAdministrativeAction(
+        if (!await ConfirmAdministrativeActionAsync(
                 "Delete scheduled task?",
-                $"Delete Ghost Server task '{task.Name}' from {operation.Profile.Name}?"))
+                $"Delete Ghost Server task '{task.Name}' from {operation.Profile.Name}?",
+                "Delete task"))
         {
             return;
         }
@@ -2907,9 +2896,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!ConfirmAdministrativeAction(
+        if (!await ConfirmAdministrativeActionAsync(
                 "Terminate process?",
-                $"Send SIGTERM to PID {process.Pid} ({process.Command}) on {operation.Profile.Name}?"))
+                $"Send SIGTERM to PID {process.Pid} ({process.Command}) on {operation.Profile.Name}?",
+                "Terminate process"))
         {
             return;
         }
@@ -4041,15 +4031,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var imported = await ProfileStore.ImportAsync(dialog.FileName);
-            var confirmed = MessageBox.Show(
-                this,
-                $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
-                "Import server profiles",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No);
-
-            if (confirmed != MessageBoxResult.Yes)
+            if (!await ShowGhostConfirmationAsync(
+                    "Import server profiles",
+                    $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
+                    "Import profiles",
+                    danger: false))
             {
                 return;
             }
@@ -4384,15 +4370,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         };
     }
 
-    private bool ConfirmAdministrativeAction(string title, string message)
+    private Task<bool> ConfirmAdministrativeActionAsync(
+        string title,
+        string message,
+        string confirmText) =>
+        ShowGhostConfirmationAsync(
+            title,
+            message + "\n\nThe action is sent to the selected remote server.",
+            confirmText,
+            danger: true);
+
+    private Task<bool> ShowGhostConfirmationAsync(
+        string title,
+        string message,
+        string confirmText,
+        bool danger)
     {
-        return MessageBox.Show(
-                   this,
-                   message + "\n\nThe action is sent to the selected remote server.",
-                   title,
-                   MessageBoxButton.YesNo,
-                   MessageBoxImage.Warning,
-                   MessageBoxResult.No) == MessageBoxResult.Yes;
+        if (_confirmationCompletion is not null)
+        {
+            return Task.FromResult(false);
+        }
+
+        _confirmationCompletion = new TaskCompletionSource<bool>();
+        _focusBeforeOverlay = Keyboard.FocusedElement;
+
+        GhostConfirmationTitle.Text = title;
+        GhostConfirmationMessage.Text = message;
+        GhostConfirmationConfirmButton.Content = confirmText;
+        GhostConfirmationConfirmButton.Style = (Style)FindResource(
+            danger ? "DangerButton" : "AccentButton");
+
+        GhostConfirmationOverlay.Visibility = Visibility.Visible;
+        GhostConfirmationCancelButton.Focus();
+
+        return _confirmationCompletion.Task;
+    }
+
+    private void ConfirmGhostConfirmation_Click(object sender, RoutedEventArgs e) =>
+        CompleteGhostConfirmation(true);
+
+    private void CancelGhostConfirmation_Click(object sender, RoutedEventArgs e) =>
+        CompleteGhostConfirmation(false);
+
+    private void CompleteGhostConfirmation(bool result)
+    {
+        var completion = _confirmationCompletion;
+        if (completion is null)
+        {
+            return;
+        }
+
+        _confirmationCompletion = null;
+        GhostConfirmationOverlay.Visibility = Visibility.Collapsed;
+        RestoreOverlayFocus();
+        completion.TrySetResult(result);
     }
 
     private bool TryAcquireMutation(string message)
@@ -4744,6 +4775,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         AddServerCard.Width = Math.Min(560, Math.Max(320, ActualWidth - 48));
         AddServerCard.MaxHeight = Math.Max(300, ActualHeight - 48);
         ConfirmCard.Width = Math.Min(470, Math.Max(300, ActualWidth - 48));
+        GhostConfirmationCard.Width = Math.Min(520, Math.Max(300, ActualWidth - 48));
         UnsavedSettingsCard.Width = Math.Min(500, Math.Max(300, ActualWidth - 48));
 
         var signature =
