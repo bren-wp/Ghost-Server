@@ -25,6 +25,7 @@
     <SolidColorBrush x:Key="GhostSuccess" Color="{StaticResource GhostSuccessColor}"/>
     <SolidColorBrush x:Key="GhostWarning" Color="{StaticResource GhostWarningColor}"/>
     <SolidColorBrush x:Key="GhostDangerSurface" Color="#3519222C"/>
+    <SolidColorBrush x:Key="GhostBlueSurface" Color="#1838ABFF"/>
     <SolidColorBrush x:Key="GhostSelectedSurface" Color="#1D3F63"/>
 
     <Style x:Key="FluentIcon" TargetType="TextBlock">
