@@ -42,19 +42,22 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.15.0
+## 🚀 Current release — 0.16.0
 
-Ghost Server 0.15.0 adds a **persistent interactive SSH terminal** while keeping the existing pinned-host trust model intact.
+Ghost Server 0.16.0 focuses on **operation safety and UI cleanup across all major workspaces**.
 
-### New in 0.15.0
+### New in 0.16.0
 
-- ⌨️ Persistent SSH `ShellStream` session instead of command-per-request Terminal execution.
-- 🔌 Explicit Connect shell / Disconnect lifecycle with visible connection state.
-- 🧭 Working directory and normal shell state persist between commands.
-- 🔐 The shell uses the same pinned SHA-256 host-key verification as the rest of Ghost Server.
-- 🧹 Automatic terminal teardown on server switch, profile edit/delete, trust reset, Lock session and window close.
-- 🧠 Up/Down history and Quick Commands remain local convenience features; presets still never auto-run.
-- 🧯 Bounded in-memory terminal output and modal shortcut gating improve stability and UX.
+- 🧭 Selected-server SSH operations now run against a captured immutable server snapshot.
+- 🛑 Server switch, Lock session, trust reset, profile edit/delete and shutdown cancel stale remote work.
+- 🔒 Old asynchronous results can no longer overwrite a newly selected server's UI.
+- 🧹 Safe Update, restore and backup cleanup remains pinned to the original server even after a UI switch.
+- 🧱 Generation-aware refresh gates prevent duplicate work without mixing old and new server operations.
+- 🎛️ Sidebar reduced from 17 visible destinations to 11 grouped top-level workspaces.
+- 📊 Alerts + Trends now live under Fleet; Backup + Tasks under Safe Update; Databases + Logs under System.
+- 🎨 Combo boxes, list rows, GridView headers, check boxes and scroll surfaces now use the same dark Ghost visual language.
+- 📐 Navigation icons and labels use fixed columns for consistent alignment and a denser, cleaner sidebar.
+- ⌨️ F5 refresh follows the visible page, including grouped child workspaces.
 
 
 ---
@@ -374,7 +377,7 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.15.0:
+Current priorities after 0.16.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;
