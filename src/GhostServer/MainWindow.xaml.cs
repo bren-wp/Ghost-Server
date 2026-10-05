@@ -4927,6 +4927,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (Volatile.Read(ref _mutationActive) != 0)
+        {
+            e.Cancel = true;
+
+            var closeAnyway = await ShowGhostConfirmationAsync(
+                "Administrative action in progress",
+                "A remote administrative action is still running. Closing Ghost Server will stop local waiting and close the current operation context, but a command already started on the server may continue or may have partially completed. Keep Ghost Server open until the action finishes unless you intentionally want to stop monitoring it.",
+                "Close anyway",
+                danger: true);
+
+            if (!closeAnyway)
+            {
+                StatusText.Text = "Close cancelled; administrative action is still running.";
+                return;
+            }
+
+            CancelRemoteOperations();
+
+            if (_settingsDirty)
+            {
+                ShowUnsavedSettingsCloseOverlay();
+                return;
+            }
+
+            await FlushWindowSettingsAndCloseAsync();
+            return;
+        }
+
         if (_settingsDirty)
         {
             e.Cancel = true;
