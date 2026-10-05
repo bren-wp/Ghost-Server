@@ -3,13 +3,13 @@ using GhostServer.Models;
 
 namespace GhostServer.Services;
 
-public sealed class FleetHistoryStore : IDisposable
+public sealed class FleetHistoryStore
 {
     private const int MaxRecordsPerProfile = 100;
     private const int MaxTotalRecords = 2000;
 
     private readonly string _path;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private static readonly SemaphoreSlim Gate = new(1, 1);
 
     public FleetHistoryStore()
     {
@@ -23,7 +23,7 @@ public sealed class FleetHistoryStore : IDisposable
     public async Task<IReadOnlyList<FleetHealthRecord>> LoadAsync(
         CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await Gate.WaitAsync(cancellationToken);
         try
         {
             var records = await JsonFileStore.LoadAsync<List<FleetHealthRecord>>(
@@ -34,7 +34,7 @@ public sealed class FleetHistoryStore : IDisposable
         }
         finally
         {
-            _gate.Release();
+            Gate.Release();
         }
     }
 
@@ -44,7 +44,7 @@ public sealed class FleetHistoryStore : IDisposable
     {
         var normalized = Normalize(records);
 
-        await _gate.WaitAsync(cancellationToken);
+        await Gate.WaitAsync(cancellationToken);
         try
         {
             await JsonFileStore.SaveAsync(
@@ -54,7 +54,7 @@ public sealed class FleetHistoryStore : IDisposable
         }
         finally
         {
-            _gate.Release();
+            Gate.Release();
         }
     }
 
@@ -77,9 +77,4 @@ public sealed class FleetHistoryStore : IDisposable
         return normalized;
     }
 
-    public void Dispose()
-    {
-        _gate.Dispose();
-        GC.SuppressFinalize(this);
-    }
 }
