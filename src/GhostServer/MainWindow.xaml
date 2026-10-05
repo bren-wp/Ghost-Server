@@ -12,6 +12,7 @@
         Background="{StaticResource GhostNavy}"
         Foreground="{StaticResource GhostIce}"
         Loaded="Window_Loaded"
+        Closing="Window_Closing"
         Closed="Window_Closed"
         SizeChanged="Window_SizeChanged"
         StateChanged="Window_StateChanged"
