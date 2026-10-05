@@ -148,3 +148,17 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - failed probes contribute to failure counts but do not artificially lower metric averages with zero values;
 - Open server transfers the user to the existing single-server Dashboard workflow;
 - CSV export reflects the currently selected sample window and never contacts remote servers.
+
+
+## v0.15 Persistent terminal UX
+
+- Terminal exposes explicit Connect shell and Disconnect controls instead of silently opening a new SSH connection for every command;
+- the session status is visible as Disconnected, Connecting, Connected, Trust required or Connection failed;
+- Send is enabled only when the persistent shell belongs to the currently selected server profile;
+- changing servers clears the old terminal surface after disposing the old shell so output cannot be mistaken for the new target;
+- working directory and normal shell state persist between commands until disconnect;
+- Quick Commands remain insert-only and require an explicit Send action;
+- terminal output is locally bounded to prevent unlimited WPF TextBox growth;
+- Lock session, SSH trust reset, active-profile edit/delete and window close dispose the interactive shell;
+- global application shortcuts do not execute behind the add-server or confirmation overlays;
+- v0.15 is a line-oriented terminal surface and does not present itself as a full-screen terminal emulator.
