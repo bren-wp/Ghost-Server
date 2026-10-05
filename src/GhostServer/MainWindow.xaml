@@ -1359,6 +1359,27 @@
                             </Border>
 
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                                <WrapPanel>
+                                    <StackPanel Width="440" Margin="0,0,14,8">
+                                        <TextBlock Text="Window layout" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Remember the last comfortable normal-window size. Fit window is never stored as a startup full-screen state."
+                                                   Foreground="{StaticResource GhostMuted}" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                        <CheckBox x:Name="RememberWindowSizeToggle"
+                                                  Content="Remember normal window size"
+                                                  AutomationProperties.Name="Remember normal window size"/>
+                                    </StackPanel>
+                                    <Button Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                            Click="ResetWindowLayout_Click"
+                                            AutomationProperties.Name="Reset window size">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE777;" Style="{StaticResource FluentIcon}"/>
+                                            <TextBlock Text="Reset window size" Margin="7,0,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </WrapPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                                 <StackPanel>
                                     <TextBlock Text="Server profiles" FontSize="18" FontWeight="SemiBold"/>
                                     <TextBlock Text="Export or import connection profiles. Passwords and private-key passphrases are never included because Ghost Server never stores them."
