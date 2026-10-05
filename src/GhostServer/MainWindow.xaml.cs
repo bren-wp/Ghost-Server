@@ -54,6 +54,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _settingsLoaded;
     private bool _settingsUiUpdate;
     private bool _settingsDirty;
+    private bool _settingsSaveBusy;
+    private long _settingsEditGeneration;
     private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
@@ -3875,6 +3877,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void SaveSettings_Click(object sender, RoutedEventArgs e)
     {
+        if (_settingsSaveBusy || !_settingsDirty)
+        {
+            return;
+        }
+
+        _settingsSaveBusy = true;
+        SaveSettingsButton.IsEnabled = false;
+        var saveGeneration = _settingsEditGeneration;
+
         try
         {
             _settings.DashboardRefreshSeconds = ReadRefreshInterval();
@@ -3897,15 +3908,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
             await _settingsStore.SaveAsync(_settings);
-            _settingsDirty = false;
-            SaveSettingsButton.IsEnabled = false;
-            SettingsStatusText.Text = "Settings saved.";
+
+            if (saveGeneration == _settingsEditGeneration)
+            {
+                _settingsDirty = false;
+                SettingsStatusText.Text = "Settings saved.";
+            }
+            else
+            {
+                _settingsDirty = true;
+                SettingsStatusText.Text = "Settings saved. New changes are still unsaved.";
+            }
+
             StatusText.Text = "Settings saved";
         }
         catch (Exception ex)
         {
+            _settingsDirty = true;
             SettingsStatusText.Text = SafeError(ex);
             StatusText.Text = "Settings save failed";
+        }
+        finally
+        {
+            _settingsSaveBusy = false;
+            SaveSettingsButton.IsEnabled = _settingsDirty;
         }
     }
 
@@ -4055,8 +4081,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        _settingsEditGeneration++;
         _settingsDirty = true;
-        SaveSettingsButton.IsEnabled = true;
+        SaveSettingsButton.IsEnabled = !_settingsSaveBusy;
         SettingsStatusText.Text = "Unsaved changes.";
     }
 
