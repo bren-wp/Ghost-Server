@@ -179,6 +179,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         await RefreshSystemAsync();
     }
 
+    private async void DatabasesNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(DatabasesNavButton);
+        ShowPage(DatabasesPage, "Databases", "Read-only database engine and database-name discovery.");
+        await RefreshDatabasesAsync();
+    }
+
     private void SecurityNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(SecurityNavButton);
@@ -206,6 +213,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                      BackupNavButton,
                      TasksNavButton,
                      SystemNavButton,
+                     DatabasesNavButton,
                      LogsNavButton,
                      TerminalNavButton,
                      SecurityNavButton,
@@ -233,6 +241,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         BackupPage.Visibility = Visibility.Collapsed;
         TasksPage.Visibility = Visibility.Collapsed;
         SystemPage.Visibility = Visibility.Collapsed;
+        DatabasesPage.Visibility = Visibility.Collapsed;
         LogsPage.Visibility = Visibility.Collapsed;
         TerminalPage.Visibility = Visibility.Collapsed;
         SecurityPage.Visibility = Visibility.Collapsed;
@@ -290,6 +299,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ProcessesList.ItemsSource = null;
         SystemStatusText.Text = "Processes, filesystems and signed-in users are loaded read-only.";
         SystemOverviewOutput.Text = "Select a server to inspect memory, filesystems, block devices, logged-in users and load.";
+        DatabaseEnginesList.ItemsSource = null;
+        DatabasesStatusText.Text = "Select a server, then refresh database engines.";
+        DatabaseNamesOutput.Text = "Select a database engine to inspect discovered database names.";
         UpdateSelectedLabels();
     }
 
@@ -1749,6 +1761,73 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private async void RefreshDatabases_Click(object sender, RoutedEventArgs e) =>
+        await RefreshDatabasesAsync();
+
+    private async Task RefreshDatabasesAsync()
+    {
+        if (SelectedProfile is null)
+        {
+            DatabaseEnginesList.ItemsSource = null;
+            DatabasesStatusText.Text = "Select a server on Dashboard first.";
+            DatabaseNamesOutput.Text = "No server selected.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Discovering database engines…";
+            DatabasesStatusText.Text = "Checking PostgreSQL, MySQL/MariaDB and SQLite…";
+
+            var engines = await SshServerClient.GetDatabaseEnginesAsync(
+                SelectedProfile,
+                SessionSecretBox.Password);
+
+            DatabaseEnginesList.ItemsSource = engines;
+            DatabaseNamesOutput.Text = engines.Count == 0
+                ? "No supported database client was detected."
+                : "Select a database engine to inspect discovered database names.";
+
+            if (engines.Count == 0)
+            {
+                DatabasesStatusText.Text = "No supported database engines were detected.";
+            }
+            else
+            {
+                var restricted = engines.Count(engine =>
+                    engine.Access.Contains("no non-interactive access", StringComparison.OrdinalIgnoreCase));
+
+                DatabasesStatusText.Text = restricted == 0
+                    ? $"{engines.Count} database engine(s) detected."
+                    : $"{engines.Count} engine(s) detected • {restricted} require database credentials outside Ghost Server.";
+
+                DatabaseEnginesList.SelectedIndex = 0;
+            }
+
+            StatusText.Text = "Database discovery completed";
+        }
+        catch (Exception ex)
+        {
+            DatabaseEnginesList.ItemsSource = null;
+            DatabasesStatusText.Text = SafeError(ex);
+            DatabaseNamesOutput.Text = SafeError(ex);
+            StatusText.Text = "Database discovery failed";
+        }
+    }
+
+    private void DatabaseEnginesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DatabaseEnginesList.SelectedItem is not DatabaseEngineStatus engine)
+        {
+            DatabaseNamesOutput.Text = "Select a database engine to inspect discovered database names.";
+            return;
+        }
+
+        DatabaseNamesOutput.Text = engine.DatabaseNames;
+        DatabasesStatusText.Text =
+            $"{engine.Engine} • service {engine.ServiceStatus} • {engine.Access} • {engine.DatabaseCount} database name(s)";
+    }
+
     private async void RefreshLogs_Click(object sender, RoutedEventArgs e) =>
         await RefreshLogsAsync();
 
@@ -2608,6 +2687,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else if (_activeNavButton == SystemNavButton)
         {
             await RefreshSystemAsync();
+        }
+        else if (_activeNavButton == DatabasesNavButton)
+        {
+            await RefreshDatabasesAsync();
         }
         else if (_activeNavButton == LogsNavButton)
         {

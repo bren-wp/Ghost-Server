@@ -42,17 +42,17 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.10.0
+## 🚀 Current release — 0.11.0
 
-Ghost Server 0.10.0 combines the operational feature set built through the previous releases with additional product polish and **Terminal Quick Commands**.
+Ghost Server 0.11.0 adds a dedicated **read-only Database workspace** and an additional CI guard for WPF UI wiring.
 
-### New in 0.10.0
+### New in 0.11.0
 
-- ⚡ Read-only Terminal Quick Command presets.
-- 🧩 Presets for system summary, top processes, sockets, disks, Docker and recent errors.
-- 👀 Presets are inserted into the command editor first — **nothing runs automatically**.
-- 🎨 Branded project artwork and a complete public-facing README redesign.
-- 📚 Clearer product, security, architecture and release documentation.
+- 🗄️ PostgreSQL, MySQL/MariaDB and SQLite engine discovery.
+- 🔎 Engine version, service state and non-interactive access visibility.
+- 📚 Database-name listing when the remote server already permits local non-interactive authentication.
+- 🔐 No stored database passwords, table reads or SQL mutation controls.
+- 🧪 CI now verifies that XAML event bindings resolve to real code-behind handlers before compilation.
 
 ---
 
@@ -70,6 +70,7 @@ Ghost Server 0.10.0 combines the operational feature set built through the previ
 | 💾 **Backup** | Create and download allowlisted configuration snapshots | Guarded snapshot workflow |
 | 🕒 **Tasks** | Manage isolated Ghost Server systemd timers and inspect current-user crontab | Guarded scheduler changes |
 | 🧠 **System** | Process inventory, filesystems, block devices, sessions and load | Read-only + confirmed SIGTERM |
+| 🗄️ **Databases** | PostgreSQL, MySQL/MariaDB and SQLite discovery with database-name visibility where non-interactive local auth is already available | Read-only |
 | 📜 **Logs** | Server, service and Docker logs with client-side filtering | Read-only |
 | ⌨️ **Terminal** | Run explicit SSH commands with history and read-only presets | User-controlled |
 | 🔒 **Security** | Baseline read-only server security checks | Read-only |
@@ -191,6 +192,7 @@ flowchart LR
     Linux --> Network["Network / firewall"]
     Linux --> Updates["Safe Update"]
     Linux --> Tasks["systemd timers"]
+    Linux --> Databases["Database discovery"]
     Linux --> Logs["journald / logs"]
     Linux --> Files["Files / backups"]
 ```
@@ -346,9 +348,9 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.10.0:
+Current priorities after 0.11.0:
 
-- 🗄️ database inspection and guarded maintenance tooling;
+- 🗄️ guarded database maintenance tooling built on top of the new read-only discovery layer;
 - 🔔 optional notification channels and fleet alerting;
 - 📊 richer Fleet history and health comparison;
 - 🔏 signed Windows distribution;

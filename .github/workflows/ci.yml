@@ -61,6 +61,34 @@ jobs:
           }
           Write-Host "Source hygiene audit passed."
 
+      - name: Verify XAML event wiring
+        shell: pwsh
+        run: |
+          $xamlPath = "src/GhostServer/MainWindow.xaml"
+          $codePath = "src/GhostServer/MainWindow.xaml.cs"
+          $xaml = Get-Content $xamlPath -Raw
+          $code = Get-Content $codePath -Raw
+          $eventNames = "Click|Loaded|SelectionChanged|TextChanged|Checked|Unchecked|KeyDown|MouseDoubleClick|MouseLeftButtonDown|Closing|PreviewKeyDown|PasswordChanged"
+          $pattern = '(?:' + $eventNames + ')="([A-Za-z_][A-Za-z0-9_]*)"'
+          $handlers = [regex]::Matches($xaml, $pattern) |
+            ForEach-Object { $_.Groups[1].Value } |
+            Sort-Object -Unique
+
+          $missing = @()
+          foreach ($handler in $handlers) {
+            $methodPattern = '\b' + [regex]::Escape($handler) + '\s*\('
+            if ($code -notmatch $methodPattern) {
+              $missing += $handler
+            }
+          }
+
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing XAML handler: $_" }
+            throw "XAML event wiring audit failed."
+          }
+
+          Write-Host "Verified $($handlers.Count) XAML event handler binding(s)."
+
       - name: Restore
         run: dotnet restore GhostServer.sln
 
