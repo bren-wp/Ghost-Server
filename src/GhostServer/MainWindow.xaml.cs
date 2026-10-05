@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -117,6 +118,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshFleetInventory();
     }
 
+    private void AlertsNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(AlertsNavButton);
+        ShowPage(AlertsPage, "Alerts", "Review and acknowledge local Fleet health incidents.");
+        RefreshAlertCenter();
+    }
+
     private async void FilesNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(FilesNavButton);
@@ -213,6 +221,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                  {
                      DashboardNavButton,
                      FleetNavButton,
+                     AlertsNavButton,
                      FilesNavButton,
                      ServicesNavButton,
                      DockerNavButton,
@@ -241,6 +250,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         DashboardPage.Visibility = Visibility.Collapsed;
         FleetPage.Visibility = Visibility.Collapsed;
+        AlertsPage.Visibility = Visibility.Collapsed;
         FilesPage.Visibility = Visibility.Collapsed;
         ServicesPage.Visibility = Visibility.Collapsed;
         DockerPage.Visibility = Visibility.Collapsed;
@@ -758,6 +768,191 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                exception.Message.Contains("authentication", StringComparison.OrdinalIgnoreCase)
             ? "Authentication failed"
             : "Probe failed";
+    }
+
+    private void AlertFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (IsLoaded)
+        {
+            RefreshAlertCenter();
+        }
+    }
+
+    private void RefreshAlertCenter()
+    {
+        if (AlertsList is null)
+        {
+            return;
+        }
+
+        var allAlerts = _fleetHistory
+            .Where(IsAlertRecord)
+            .OrderByDescending(record => record.RecordedUtc)
+            .ToArray();
+
+        var filter = (AlertFilterBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Active";
+        IEnumerable<FleetHealthRecord> visible = filter switch
+        {
+            "Acknowledged" => allAlerts.Where(record => record.AcknowledgedUtc is not null),
+            "All" => allAlerts,
+            _ => allAlerts.Where(record => record.AcknowledgedUtc is null)
+        };
+
+        var names = Profiles.ToDictionary(
+            profile => profile.Id,
+            profile => profile.Name);
+
+        var items = visible
+            .Select(record => new FleetAlertItem
+            {
+                Record = record,
+                ServerName = names.TryGetValue(record.ProfileId, out var name)
+                    ? name
+                    : "(deleted profile)"
+            })
+            .ToArray();
+
+        AlertsList.ItemsSource = items;
+        AlertsActiveValue.Text = allAlerts.Count(record => record.AcknowledgedUtc is null)
+            .ToString(CultureInfo.InvariantCulture);
+        AlertsAcknowledgedValue.Text = allAlerts.Count(record => record.AcknowledgedUtc is not null)
+            .ToString(CultureInfo.InvariantCulture);
+        AlertsAttentionValue.Text = allAlerts.Count(record =>
+                string.Equals(record.Status, "Attention", StringComparison.Ordinal))
+            .ToString(CultureInfo.InvariantCulture);
+        AlertsFailuresValue.Text = allAlerts.Count(record =>
+                !string.Equals(record.Status, "Attention", StringComparison.Ordinal))
+            .ToString(CultureInfo.InvariantCulture);
+
+        AlertsStatusText.Text = items.Length == 0
+            ? "No alerts match the selected filter."
+            : $"{items.Length} local alert(s) shown. Acknowledgement never changes the remote server.";
+    }
+
+    private async void AcknowledgeAlert_Click(object sender, RoutedEventArgs e)
+    {
+        if (AlertsList.SelectedItem is not FleetAlertItem item)
+        {
+            AlertsStatusText.Text = "Select an alert first.";
+            return;
+        }
+
+        if (item.Record.AcknowledgedUtc is not null)
+        {
+            AlertsStatusText.Text = "The selected alert is already acknowledged.";
+            return;
+        }
+
+        item.Record.AcknowledgedUtc = DateTimeOffset.UtcNow;
+        await PersistFleetHistoryAsync();
+        RefreshAlertCenter();
+        AlertsStatusText.Text = $"Acknowledged local alert for {item.ServerName}.";
+        StatusText.Text = "Local alert acknowledged";
+    }
+
+    private void OpenAlertServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (AlertsList.SelectedItem is not FleetAlertItem item)
+        {
+            AlertsStatusText.Text = "Select an alert first.";
+            return;
+        }
+
+        var profile = Profiles.FirstOrDefault(profile => profile.Id == item.ProfileId);
+        if (profile is null)
+        {
+            AlertsStatusText.Text = "This alert belongs to a server profile that no longer exists.";
+            return;
+        }
+
+        ServerList.SelectedItem = profile;
+        ServerList.ScrollIntoView(profile);
+        SetActiveNavigation(DashboardNavButton);
+        ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
+    }
+
+    private async void ExportAlertsCsv_Click(object sender, RoutedEventArgs e)
+    {
+        var alerts = _fleetHistory
+            .Where(IsAlertRecord)
+            .OrderByDescending(record => record.RecordedUtc)
+            .ToArray();
+
+        if (alerts.Length == 0)
+        {
+            AlertsStatusText.Text = "There are no local alerts to export.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export Ghost Server alerts",
+            FileName = $"GhostServer-Alerts-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+            Filter = "CSV files (*.csv)|*.csv|All files|*.*",
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var names = Profiles.ToDictionary(
+            profile => profile.Id,
+            profile => profile.Name);
+
+        var csv = new StringBuilder();
+        csv.AppendLine("RecordedUtc,Server,Status,AcknowledgedUtc,CpuPercent,MemoryPercent,DiskPercent,Load,Details");
+
+        foreach (var alert in alerts)
+        {
+            var name = names.TryGetValue(alert.ProfileId, out var serverName)
+                ? serverName
+                : "(deleted profile)";
+
+            csv.Append(CsvValue(alert.RecordedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
+                .Append(CsvValue(name)).Append(',')
+                .Append(CsvValue(alert.Status)).Append(',')
+                .Append(CsvValue(alert.AcknowledgedUtc?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty)).Append(',')
+                .Append(alert.CpuPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(alert.MemoryPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(alert.DiskPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(CsvValue(alert.Load)).Append(',')
+                .Append(CsvValue(alert.Message))
+                .AppendLine();
+        }
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                dialog.FileName,
+                csv.ToString(),
+                Encoding.UTF8);
+
+            AlertsStatusText.Text = $"Exported {alerts.Length} local alert(s).";
+            StatusText.Text = "Alert CSV exported";
+        }
+        catch (Exception ex)
+        {
+            AlertsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Alert export failed";
+        }
+    }
+
+    private static bool IsAlertRecord(FleetHealthRecord record) =>
+        !string.Equals(record.Status, "Healthy", StringComparison.Ordinal);
+
+    private static string CsvValue(string value)
+    {
+        if (!value.Contains(',') &&
+            !value.Contains('"') &&
+            !value.Contains('\r') &&
+            !value.Contains('\n'))
+        {
+            return value;
+        }
+
+        return "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
     }
 
     private async void RefreshFiles_Click(object sender, RoutedEventArgs e) =>
@@ -2852,6 +3047,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_activeNavButton == FleetNavButton)
         {
             RefreshFleetInventory();
+        }
+        else if (_activeNavButton == AlertsNavButton)
+        {
+            RefreshAlertCenter();
         }
         else if (_activeNavButton == FilesNavButton)
         {
