@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.15.x`
+The active development line is `0.16.x`
 
 ## SSH trust model
 
@@ -117,6 +117,20 @@ The selected-server Fleet probe accepts a session secret only for that selected 
 
 Fleet health collection is read-only and uses the same verified SSH host identity as Dashboard health discovery.
 
+
+## Remote operation lifecycle safety
+
+Starting with 0.16.x, selected-server remote operations capture the selected profile, session secret, operation generation and cancellation token before the first remote await.
+
+This prevents asynchronous work from silently crossing a server-selection boundary:
+- changing the selected server cancels the previous selected-server operation generation;
+- Lock session, SSH trust reset, active-profile edit/delete and application shutdown also invalidate selected-server remote work;
+- remote results are written back to the UI only if the generation and selected profile still match;
+- administrative confirmation text is built from the captured target profile rather than a later mutable selection;
+- maintenance cleanup for temporary Safe Update, restore and backup files intentionally uses the captured original profile even when the UI has moved elsewhere;
+- cancellation sources used by in-flight operations are not disposed until application shutdown.
+
+These protections do not weaken the existing pinned-host-key model, single-mutation gate or session-only secret policy.
 
 ## Persistent interactive terminal
 
