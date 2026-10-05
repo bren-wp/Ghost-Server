@@ -81,7 +81,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="11"
+                    <TextBlock Grid.Row="0" Text="NAVIGATION" Foreground="{StaticResource GhostMuted}" FontSize="10"
                                FontWeight="SemiBold" Margin="12,8,0,10"/>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
