@@ -442,34 +442,28 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                        <WrapPanel Margin="0,0,0,4">
                             <TextBox x:Name="FleetFilterBox" Style="{StaticResource GhostTextBox}"
+                                     Width="250" Margin="0,0,8,8"
                                      ToolTip="Filter fleet by name, endpoint, user, health or operating system"
                                      TextChanged="FleetFilterBox_TextChanged"/>
-                            <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                     Click="RefreshFleetInventory_Click">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Refresh inventory" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <Button Grid.Column="2" Style="{StaticResource AccentButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource AccentButton}" Margin="0,0,8,8"
                                     Click="ProbeFleetKeyProfiles_Click" ToolTip="Read-only health probe for trusted private-key profiles that do not require a passphrase">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Probe key profiles" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                             </Button>
-                            <Button Grid.Column="3" Style="{StaticResource SubNavButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource SubNavButton}" Margin="0,0,6,8"
                                     Click="AlertsNav_Click" ToolTip="Open Fleet alerts">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA8F;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Alerts" Margin="6,0,0,0"/></StackPanel>
                             </Button>
-                            <Button Grid.Column="4" Style="{StaticResource SubNavButton}" Margin="6,0,0,0"
+                            <Button Style="{StaticResource SubNavButton}" Margin="0,0,0,8"
                                     Click="TrendsNav_Click" ToolTip="Open Fleet trends">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D2;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Trends" Margin="6,0,0,0"/></StackPanel>
                             </Button>
-                        </Grid>
+                        </WrapPanel>
 
                         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
@@ -487,30 +481,24 @@
                         </UniformGrid>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="240"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
+                            <WrapPanel>
+                                <StackPanel Width="230" Margin="0,0,8,8">
                                     <Label Content="Selected server session secret"/>
                                     <PasswordBox x:Name="FleetSecretBox" Style="{StaticResource GhostPasswordBox}"
                                                  ToolTip="Used once for the selected Fleet row and cleared after the probe"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Style="{StaticResource AccentButton}" Margin="8,20,0,0"
+                                <Button Style="{StaticResource AccentButton}" Margin="0,20,8,8"
                                         VerticalAlignment="Center" Click="ProbeSelectedFleet_Click">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D9;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Probe selected" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                                 </Button>
-                                <Button Grid.Column="2" Style="{StaticResource GhostButton}" Margin="8,20,0,0"
+                                <Button Style="{StaticResource GhostButton}" Margin="0,20,8,8"
                                         VerticalAlignment="Center" Click="OpenFleetServer_Click">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8A7;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Open on Dashboard" Margin="7,0,0,0"/></StackPanel>
                                 </Button>
-                                <TextBlock Grid.Column="3" x:Name="FleetStatusText" Foreground="{StaticResource GhostMuted}"
-                                           VerticalAlignment="Center" Margin="14,20,0,0" TextWrapping="Wrap"
+                                <TextBlock x:Name="FleetStatusText" Foreground="{StaticResource GhostMuted}"
+                                           VerticalAlignment="Center" Margin="0,20,0,8" TextWrapping="Wrap" MaxWidth="360"
                                            Text="Bulk probes skip password profiles and SSH identities that are not yet trusted."/>
-                            </Grid>
+                            </WrapPanel>
                         </Border>
 
                         <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8">
@@ -585,46 +573,40 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="220"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
+                        <WrapPanel Margin="0,0,0,4">
                             <ComboBox x:Name="AlertFilterBox" Style="{StaticResource GhostComboBox}" SelectedIndex="0"
+                                      Width="200" Margin="0,0,8,8"
                                       SelectionChanged="AlertFilterBox_SelectionChanged">
                                 <ComboBoxItem Content="Active alerts" Tag="Active"/>
                                 <ComboBoxItem Content="Acknowledged" Tag="Acknowledged"/>
                                 <ComboBoxItem Content="All alerts" Tag="All"/>
                             </ComboBox>
-                            <Button Grid.Column="1" Style="{StaticResource AccentButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource AccentButton}" Margin="0,0,8,8"
                                     Click="AcknowledgeAlert_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE73E;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
                                     <TextBlock Text="Acknowledge selected" Margin="7,0,0,0" Foreground="#06121E"/>
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="2" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                     Click="OpenAlertServer_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8A7;" Style="{StaticResource FluentIcon}"/>
                                     <TextBlock Text="Open server" Margin="7,0,0,0"/>
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="3" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                     Click="ExportAlertsCsv_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE896;" Style="{StaticResource FluentIcon}"/>
                                     <TextBlock Text="Export CSV" Margin="7,0,0,0"/>
                                 </StackPanel>
                             </Button>
-                            <TextBlock Grid.Column="4" x:Name="AlertsStatusText"
+                            <TextBlock x:Name="AlertsStatusText"
                                        Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
-                                       Margin="14,0,0,0" TextWrapping="Wrap"
+                                       Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="360"
                                        Text="Local-only alerts derived from Fleet health history."/>
-                        </Grid>
+                        </WrapPanel>
 
                         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
@@ -668,47 +650,41 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="180"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
+                        <WrapPanel Margin="0,0,0,4">
                             <ComboBox x:Name="TrendSampleBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1"
+                                      Width="180" Margin="0,0,8,8"
                                       SelectionChanged="TrendSampleBox_SelectionChanged"
                                       ToolTip="Number of recent local Fleet records included per server">
                                 <ComboBoxItem Content="Last 10 probes" Tag="10"/>
                                 <ComboBoxItem Content="Last 25 probes" Tag="25"/>
                                 <ComboBoxItem Content="Last 50 probes" Tag="50"/>
                             </ComboBox>
-                            <Button Grid.Column="1" Style="{StaticResource AccentButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource AccentButton}" Margin="0,0,8,8"
                                     Click="RefreshTrends_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
                                     <TextBlock Text="Refresh trends" Margin="7,0,0,0" Foreground="#06121E"/>
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="2" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                     Click="OpenTrendServer_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8A7;" Style="{StaticResource FluentIcon}"/>
                                     <TextBlock Text="Open server" Margin="7,0,0,0"/>
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="3" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
                                     Click="ExportTrendsCsv_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE896;" Style="{StaticResource FluentIcon}"/>
                                     <TextBlock Text="Export CSV" Margin="7,0,0,0"/>
                                 </StackPanel>
                             </Button>
-                            <TextBlock Grid.Column="4" x:Name="TrendsStatusText"
+                            <TextBlock x:Name="TrendsStatusText"
                                        Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
-                                       Margin="14,0,0,0" TextWrapping="Wrap"
+                                       Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="360"
                                        Text="Local-only trend comparison from Fleet health history."/>
-                        </Grid>
+                        </WrapPanel>
 
                         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
@@ -869,20 +845,13 @@
                         </Grid.RowDefinitions>
 
                         <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180"/>
-                                    <ColumnDefinition Width="150"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Margin="0,0,8,0">
+                            <WrapPanel>
+                                <StackPanel Width="170" Margin="0,0,8,8">
                                     <Label Content="Task name"/>
                                     <TextBox x:Name="TaskNameBox" Style="{StaticResource GhostTextBox}" ToolTip="lowercase letters, numbers and hyphens"/>
                                 </StackPanel>
 
-                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                <StackPanel Width="145" Margin="0,0,8,8">
                                     <Label Content="Schedule"/>
                                     <ComboBox x:Name="TaskScheduleBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1">
                                         <ComboBoxItem Content="Hourly" Tag="Hourly"/>
@@ -891,20 +860,20 @@
                                     </ComboBox>
                                 </StackPanel>
 
-                                <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                <StackPanel Width="320" Margin="0,0,8,8">
                                     <Label Content="Command"/>
                                     <TextBox x:Name="TaskCommandBox" Style="{StaticResource GhostTextBox}" FontFamily="Cascadia Code, Consolas"
                                              ToolTip="Command runs as root through a dedicated Ghost Server oneshot service"/>
                                 </StackPanel>
 
-                                <Button Grid.Column="3" Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
-                                        Click="CreateTask_Click" Margin="0,0,0,1">
+                                <Button Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
+                                        Click="CreateTask_Click" Margin="0,20,0,8">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE710;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
                                         <TextBlock Text="Create task" Margin="7,0,0,0" Foreground="#06121E"/>
                                     </StackPanel>
                                 </Button>
-                            </Grid>
+                            </WrapPanel>
                         </Border>
 
                         <WrapPanel Grid.Row="1" Margin="0,0,0,12">
@@ -1225,38 +1194,32 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button Style="{StaticResource AccentButton}" Click="RefreshNetwork_Click" Margin="0,0,8,0">
+                        <WrapPanel Margin="0,0,0,4">
+                            <Button Style="{StaticResource AccentButton}" Click="RefreshNetwork_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Refresh network" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                             </Button>
                             <TextBlock Text="Network discovery is read-only. Firewall changes require an explicit action and elevated remote privileges."
-                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="650"/>
-                        </StackPanel>
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="650" Margin="0,0,0,8"/>
+                        </WrapPanel>
 
                         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
+                            <WrapPanel>
+                                <StackPanel Width="320" Margin="0,0,10,8">
                                     <TextBlock Text="Allow firewall port" FontWeight="SemiBold"/>
                                     <TextBlock Text="Supports UFW and firewalld. Ghost Server never creates deny rules or disables the firewall."
-                                               Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="0,5,12,0" TextWrapping="Wrap"/>
+                                               Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
-                                <TextBox x:Name="FirewallPortBox" Grid.Column="1" Style="{StaticResource GhostTextBox}"
-                                         Margin="8,0" ToolTip="Port 1-65535"/>
-                                <ComboBox x:Name="FirewallProtocolBox" Grid.Column="2" Style="{StaticResource GhostComboBox}"
-                                          SelectedIndex="0" Margin="0,0,8,0">
+                                <TextBox x:Name="FirewallPortBox" Width="110" Style="{StaticResource GhostTextBox}"
+                                         Margin="0,0,8,8" ToolTip="Port 1-65535"/>
+                                <ComboBox x:Name="FirewallProtocolBox" Width="110" Style="{StaticResource GhostComboBox}"
+                                          SelectedIndex="0" Margin="0,0,8,8">
                                     <ComboBoxItem Content="TCP" Tag="tcp"/>
                                     <ComboBoxItem Content="UDP" Tag="udp"/>
                                 </ComboBox>
-                                <Button Grid.Column="3" Style="{StaticResource GhostButton}" Click="AllowFirewallPort_Click">
+                                <Button Style="{StaticResource GhostButton}" Click="AllowFirewallPort_Click" Margin="0,0,0,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8FB;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Allow port" Margin="7,0,0,0"/></StackPanel>
                                 </Button>
-                            </Grid>
+                            </WrapPanel>
                         </Border>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
