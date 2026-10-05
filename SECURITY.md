@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.14.x`
+The active development line is `0.15.x`
 
 ## SSH trust model
 
@@ -117,6 +117,22 @@ The selected-server Fleet probe accepts a session secret only for that selected 
 
 Fleet health collection is read-only and uses the same verified SSH host identity as Dashboard health discovery.
 
+
+## Persistent interactive terminal
+
+The Terminal workspace in 0.15.x opens one persistent SSH `ShellStream` for the selected profile instead of creating a new command connection for every submitted line.
+
+Security boundaries:
+- the shell is created only through the same verified SSH client path used by other Ghost Server SSH operations;
+- a profile without an approved pinned host key cannot open the shell;
+- a changed host key fails closed through the existing fixed-time fingerprint comparison;
+- passwords and private-key passphrases remain session-only and are not written to disk;
+- only one interactive shell is active for the UI session;
+- server selection changes, profile edits/deletes, SSH trust reset, Lock session and window close tear down the shell;
+- terminal output is displayed locally and bounded in memory; Ghost Server does not persist shell output or upload it to telemetry;
+- commands entered in Terminal are explicitly user-directed remote commands and are not treated as safe/read-only operations.
+
+The v0.15 terminal is line-oriented. It does not claim to be a full-screen terminal emulator and does not reinterpret terminal applications as structured Ghost Server actions.
 
 ## Terminal Quick Commands
 
