@@ -1429,21 +1429,25 @@
 
         <Grid x:Name="AddServerOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed">
             <Border x:Name="AddServerCard" Width="560" MaxWidth="560" MaxHeight="710" Style="{StaticResource CardBorder}"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" Margin="20">
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" Margin="20"
+                    FocusManager.IsFocusScope="True"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    KeyboardNavigation.ControlTabNavigation="Cycle">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <Grid Margin="0,0,0,18">
                             <TextBlock x:Name="AddServerTitle" Text="Add server" FontSize="22" FontWeight="SemiBold"/>
                             <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right"
-                                    Click="CloseAddServer_Click" ToolTip="Close">
+                                    Click="CloseAddServer_Click" ToolTip="Close"
+                                     AutomationProperties.Name="Close server editor">
                                 <TextBlock Text="&#xE8BB;" Style="{StaticResource FluentIcon}"/>
                             </Button>
                         </Grid>
 
-                        <Label Content="Display name"/>
+                        <Label Content="Display name" Target="{Binding ElementName=AddName}"/>
                         <TextBox x:Name="AddName" Style="{StaticResource GhostTextBox}" Margin="0,0,0,12"/>
 
-                        <Label Content="Host or IP"/>
+                        <Label Content="Host or IP" Target="{Binding ElementName=AddHost}"/>
                         <TextBox x:Name="AddHost" Style="{StaticResource GhostTextBox}" Margin="0,0,0,12"/>
 
                         <Grid Margin="0,0,0,12">
@@ -1452,16 +1456,16 @@
                                 <ColumnDefinition Width="120"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Margin="0,0,10,0">
-                                <Label Content="Username"/>
+                                <Label Content="Username" Target="{Binding ElementName=AddUsername}"/>
                                 <TextBox x:Name="AddUsername" Style="{StaticResource GhostTextBox}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <Label Content="Port"/>
+                                <Label Content="Port" Target="{Binding ElementName=AddPort}"/>
                                 <TextBox x:Name="AddPort" Style="{StaticResource GhostTextBox}" Text="22"/>
                             </StackPanel>
                         </Grid>
 
-                        <Label Content="Authentication"/>
+                        <Label Content="Authentication" Target="{Binding ElementName=AddAuthentication}"/>
                         <ComboBox x:Name="AddAuthentication" Style="{StaticResource GhostComboBox}" SelectedIndex="0"
                                   SelectionChanged="AddAuthentication_SelectionChanged" Margin="0,0,0,12">
                             <ComboBoxItem Content="Password" Tag="Password"/>
@@ -1469,7 +1473,7 @@
                         </ComboBox>
 
                         <StackPanel x:Name="PrivateKeyPanel" Visibility="Collapsed" Margin="0,0,0,12">
-                            <Label Content="Private key path"/>
+                            <Label Content="Private key path" Target="{Binding ElementName=AddPrivateKeyPath}"/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1491,8 +1495,9 @@
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
-                                    Click="CloseAddServer_Click"/>
-                            <Button x:Name="SaveServerButton" Content="Save server" Style="{StaticResource AccentButton}" Click="SaveServer_Click"/>
+                                    Click="CloseAddServer_Click" IsCancel="True"/>
+                            <Button x:Name="SaveServerButton" Content="Save server" Style="{StaticResource AccentButton}"
+                                    Click="SaveServer_Click" IsDefault="True"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -1501,7 +1506,10 @@
 
         <Grid x:Name="ConfirmOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed">
             <Border x:Name="ConfirmCard" Width="470" MaxWidth="470" Style="{StaticResource CardBorder}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Padding="24" Margin="20" BorderBrush="{StaticResource GhostDanger}">
+                    Padding="24" Margin="20" BorderBrush="{StaticResource GhostDanger}"
+                    FocusManager.IsFocusScope="True"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    KeyboardNavigation.ControlTabNavigation="Cycle">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <Border Width="38" Height="38" CornerRadius="10" Background="{StaticResource GhostDangerSurface}" Margin="0,0,12,0">
@@ -1516,7 +1524,8 @@
                     </StackPanel>
                     <TextBlock x:Name="ConfirmMessage" Margin="0,18,0,18" TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="CancelDelete_Click"/>
+                        <Button x:Name="ConfirmCancelButton" Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                                Click="CancelDelete_Click" IsCancel="True"/>
                         <Button Content="Delete profile" Style="{StaticResource DangerButton}" Click="ConfirmDelete_Click"/>
                     </StackPanel>
                 </StackPanel>
