@@ -265,3 +265,22 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Dashboard server cards must stretch to the available server-column width and must not keep a fixed card width when responsive breakpoints narrow the column;
 - workspace toolbars containing descriptive text and controls must wrap instead of squeezing intermediate content to zero width on narrow windows;
 - dense GridView data may remain horizontally scrollable, but ordinary page chrome must prefer wrapping over clipping.
+
+
+## v0.21 Operation-state and profile-integrity contract
+
+- all remote administrative mutations share one process/UI busy state and may not overlap;
+- mutation controls, server selection and profile context controls that can invalidate a running remote operation are disabled while the mutation lock is held;
+- Lock session remains intentionally available as an explicit security action;
+- the status bar exposes a visible Admin action badge while a remote mutation is active;
+- disabled buttons use disabled visual treatment and a normal arrow cursor;
+- closing during a remote mutation requires explicit confirmation and must explain that cancellation cannot guarantee remote rollback;
+- remote cancellation must occur only after the entire close flow is approved, including any unsaved-Settings decision;
+- Ghost confirmation tasks use asynchronous continuations to avoid inline UI reentrancy;
+- Reset SSH trust is transactional with respect to local profile persistence and is bound to the profile captured before asynchronous disconnect work;
+- profile import is single-flight, candidate-first and durable-write-first;
+- a failed profile import must leave the live profile collection unchanged;
+- imported replacements of active SSH/terminal context cancel and disconnect that context before UI adoption;
+- portable profile files never transfer pinned SSH host-key trust or local connection-history timestamps;
+- imported servers always require local host-key approval;
+- ProfileStore rejects duplicate SSH endpoint+username identities.
