@@ -224,7 +224,7 @@
 
     <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
         <Setter Property="Width" Value="38"/>
-        <Setter Property="Height" Value="36"/>
+        <Setter Property="Height" Value="34"/>
         <Setter Property="Padding" Value="0"/>
     </Style>
 
@@ -271,7 +271,7 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="5"
                             Padding="{TemplateBinding Padding}">
-                        <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}"
+                        <GridViewRowPresenter Columns="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListView}}, Path=View.Columns}"
                                               Content="{TemplateBinding Content}"
                                               Margin="0"/>
                     </Border>
