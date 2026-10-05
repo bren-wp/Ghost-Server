@@ -116,6 +116,9 @@
                             <Button x:Name="SystemNavButton" Style="{StaticResource NavButton}" Click="SystemNav_Click" ToolTip="Processes and system state">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE950;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="System" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
+                            <Button x:Name="DatabasesNavButton" Style="{StaticResource NavButton}" Click="DatabasesNav_Click" ToolTip="Database engines">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8D4;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Databases" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
                             <Button x:Name="LogsNavButton" Style="{StaticResource NavButton}" Click="LogsNav_Click" ToolTip="Logs">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Logs" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
@@ -718,6 +721,79 @@
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                      Text="Select a server to inspect memory, filesystems, block devices, logged-in users and load."/>
                         </Border>
+                    </Grid>
+
+                    <Grid x:Name="DatabasesPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button Style="{StaticResource AccentButton}" Click="RefreshDatabases_Click" Margin="0,0,10,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
+                                    <TextBlock Text="Refresh databases" Margin="7,0,0,0" Foreground="#06121E"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="Read-only discovery only. Ghost Server does not execute SQL mutations or store database passwords."
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                        </WrapPanel>
+
+                        <TextBlock Grid.Row="1" x:Name="DatabasesStatusText"
+                                   Foreground="{StaticResource GhostMuted}" Margin="2,0,0,10"
+                                   Text="Select a server, then refresh database engines."/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Style="{StaticResource CardBorder}" Padding="8">
+                                <ListView x:Name="DatabaseEnginesList"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Foreground="{StaticResource GhostIce}"
+                                          SelectionChanged="DatabaseEnginesList_SelectionChanged">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Engine" DisplayMemberBinding="{Binding Engine}" Width="105"/>
+                                            <GridViewColumn Header="Version" DisplayMemberBinding="{Binding Version}" Width="260"/>
+                                            <GridViewColumn Header="Service" DisplayMemberBinding="{Binding ServiceStatus}" Width="100"/>
+                                            <GridViewColumn Header="Access" DisplayMemberBinding="{Binding Access}" Width="180"/>
+                                            <GridViewColumn Header="DBs" DisplayMemberBinding="{Binding DatabaseCount}" Width="60"/>
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Database names"
+                                               FontWeight="SemiBold"
+                                               Margin="14,12,14,8"/>
+                                    <TextBox Grid.Row="1"
+                                             x:Name="DatabaseNamesOutput"
+                                             IsReadOnly="True"
+                                             AcceptsReturn="True"
+                                             Background="#071522"
+                                             Foreground="{StaticResource GhostIce}"
+                                             BorderThickness="0"
+                                             FontFamily="Cascadia Code, Consolas"
+                                             Padding="14"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             Text="Select a database engine to inspect discovered database names."/>
+                                </Grid>
+                            </Border>
+                        </Grid>
                     </Grid>
 
                     <Grid x:Name="LogsPage" Visibility="Collapsed" Margin="24">
