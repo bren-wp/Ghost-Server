@@ -3801,7 +3801,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void ResetHostKey_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var profile = SelectedProfile;
+        if (profile is null)
         {
             return;
         }
@@ -3811,18 +3812,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             "Terminal disconnected because SSH trust was reset.",
             appendMessage: true);
 
-        var profile = SelectedProfile;
         var previousFingerprint = profile.HostKeyFingerprint;
         profile.HostKeyFingerprint = null;
 
         try
         {
             await _profileStore.SaveAsync(Profiles);
-            ConnectionStatus.Text = "Host key not approved";
-            ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
-            HostKeyPanel.Visibility = Visibility.Collapsed;
+
+            if (SelectedProfile?.Id == profile.Id)
+            {
+                ConnectionStatus.Text = "Host key not approved";
+                ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
+                HostKeyPanel.Visibility = Visibility.Collapsed;
+                UpdateTerminalSessionUi();
+            }
+
             StatusText.Text = $"SSH trust reset for {profile.Name}";
-            UpdateTerminalSessionUi();
         }
         catch (Exception ex)
         {
