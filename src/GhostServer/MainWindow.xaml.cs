@@ -4391,7 +4391,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return Task.FromResult(false);
         }
 
-        _confirmationCompletion = new TaskCompletionSource<bool>();
+        _confirmationCompletion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         _focusBeforeOverlay = Keyboard.FocusedElement;
 
         GhostConfirmationTitle.Text = title;
