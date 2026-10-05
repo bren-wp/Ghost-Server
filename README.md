@@ -42,18 +42,19 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.13.0
+## 🚀 Current release — 0.14.0
 
-Ghost Server 0.13.0 adds a dedicated **local Alert Center** on top of Fleet health history.
+Ghost Server 0.14.0 adds **Fleet Trends** and exact-artifact release provenance.
 
-### New in 0.13.0
+### New in 0.14.0
 
-- 🔔 Dedicated Alert Center workspace for Fleet incidents.
-- ✅ Active / acknowledged / all alert filters.
-- 🧭 Fast jump from an alert to the matching server on Dashboard.
-- 📤 CSV export for local operational review.
-- 🔐 Acknowledgement is local-only and never changes the remote server.
-- 🌐 Alert data stays on the Windows machine running Ghost Server.
+- 📊 Fleet Trends workspace comparing the latest 10, 25 or 50 local probe records per server.
+- 📈 Average and maximum CPU, RAM and disk utilization.
+- ✅ Healthy / Attention / failure counts and latest status per server.
+- 📤 CSV export of the current comparison view.
+- 🔗 Fast jump from a trend row to the matching Dashboard server.
+- 🔏 GitHub Releases now publish the exact Portable and Setup binaries that already passed main CI smoke tests.
+- 🧾 Every release includes `BUILD-PROVENANCE.txt` plus `SHA256SUMS.txt`.
 
 ---
 
@@ -64,6 +65,7 @@ Ghost Server 0.13.0 adds a dedicated **local Alert Center** on top of Fleet heal
 | 🏠 **Dashboard** | Live host health, OS, kernel, uptime, CPU, RAM, disk, load and running services | Read-only |
 | 🌐 **Fleet** | Multi-server inventory, filtering, trust state, live health probes and fast Dashboard jump | Read-only |
 | 🔔 **Alerts** | Local Fleet incidents, acknowledgement, server jump and CSV export | Local-only |
+| 📊 **Trends** | Compare recent local Fleet CPU/RAM/disk history and export the comparison | Local-only |
 | 📁 **Files** | Browse, upload and download over verified SFTP | Controlled file transfer |
 | ⚙️ **Services** | Inspect, start, stop and restart systemd services | Confirmed remote change |
 | 🐳 **Docker** | Inspect containers and start/stop/restart selected workloads | Confirmed remote change |
@@ -259,6 +261,10 @@ Every release publishes:
 
 **[SHA256SUMS.txt](https://github.com/bren-wp/Ghost-Server/releases/latest/download/SHA256SUMS.txt)**
 
+**[BUILD-PROVENANCE.txt](https://github.com/bren-wp/Ghost-Server/releases/latest/download/BUILD-PROVENANCE.txt)**
+
+The provenance file records the validated commit, Windows CI run and SHA-256 hashes. Release publication does not rebuild the Windows binaries; it publishes the exact CI artifact that passed the Portable and Setup smoke tests.
+
 Use PowerShell:
 
 ```powershell
@@ -287,8 +293,10 @@ The mandatory gate includes:
 9. Inno Setup installer creation and verification;
 10. Portable launch smoke test;
 11. Setup install → launch → uninstall smoke test;
-12. final GitHub Release publication from the validated commit;
-13. SHA-256 checksum manifest generation.
+12. upload of the smoke-tested Windows release artifact;
+13. release-workflow provenance contract validation;
+14. final GitHub Release publication from that exact validated CI artifact;
+15. SHA-256 checksum and build-provenance manifest generation.
 
 The release workflow is triggered only after a successful `main` CI run.
 
@@ -353,11 +361,11 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.13.0:
+Current priorities after 0.14.0:
 
 - 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
 - 🔔 optional user-configured notification channels built on the local Alert Center;
-- 📊 richer Fleet comparison and trend visualization;
+- 📊 richer local trend visualization and time-window analysis;
 - 🔏 signed Windows distribution;
 - 🧪 broader automated operational regression tests.
 

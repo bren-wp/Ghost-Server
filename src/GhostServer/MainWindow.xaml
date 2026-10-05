@@ -95,6 +95,9 @@
                             <Button x:Name="AlertsNavButton" Style="{StaticResource NavButton}" Click="AlertsNav_Click" ToolTip="Local alerts">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA8F;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Alerts" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
+                            <Button x:Name="TrendsNavButton" Style="{StaticResource NavButton}" Click="TrendsNav_Click" ToolTip="Fleet trends">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE9D2;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Trends" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Button>
                             <Button x:Name="FilesNavButton" Style="{StaticResource NavButton}" Click="FilesNav_Click" ToolTip="SFTP files">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource FluentIcon}" Width="24"/><TextBlock Text="Files" Margin="9,0,0,0" VerticalAlignment="Center"/></StackPanel>
                             </Button>
@@ -593,6 +596,93 @@
                                         <GridViewColumn Header="Disk" DisplayMemberBinding="{Binding Disk}" Width="70"/>
                                         <GridViewColumn Header="Load" DisplayMemberBinding="{Binding Load}" Width="85"/>
                                         <GridViewColumn Header="Details" DisplayMemberBinding="{Binding Details}" Width="270"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="TrendsPage" Visibility="Collapsed" Margin="24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="TrendSampleBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1"
+                                      SelectionChanged="TrendSampleBox_SelectionChanged"
+                                      ToolTip="Number of recent local Fleet records included per server">
+                                <ComboBoxItem Content="Last 10 probes" Tag="10"/>
+                                <ComboBoxItem Content="Last 25 probes" Tag="25"/>
+                                <ComboBoxItem Content="Last 50 probes" Tag="50"/>
+                            </ComboBox>
+                            <Button Grid.Column="1" Style="{StaticResource AccentButton}" Margin="8,0,0,0"
+                                    Click="RefreshTrends_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
+                                    <TextBlock Text="Refresh trends" Margin="7,0,0,0" Foreground="#06121E"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                    Click="OpenTrendServer_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource FluentIcon}"/>
+                                    <TextBlock Text="Open server" Margin="7,0,0,0"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                    Click="ExportTrendsCsv_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE896;" Style="{StaticResource FluentIcon}"/>
+                                    <TextBlock Text="Export CSV" Margin="7,0,0,0"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Grid.Column="4" x:Name="TrendsStatusText"
+                                       Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center"
+                                       Margin="14,0,0,0" TextWrapping="Wrap"
+                                       Text="Local-only trend comparison from Fleet health history."/>
+                        </Grid>
+
+                        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                                <StackPanel><TextBlock Text="SERVERS" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsServersValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                                <StackPanel><TextBlock Text="LATEST RISKS" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsRisksValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
+                                <StackPanel><TextBlock Text="HIGHEST AVG CPU" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsCpuValue" Text="—" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardBorder}">
+                                <StackPanel><TextBlock Text="HIGHEST AVG DISK" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsDiskValue" Text="—" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
+                            <ListView x:Name="TrendsList" Background="Transparent" BorderThickness="0"
+                                      Foreground="{StaticResource GhostIce}">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Server" DisplayMemberBinding="{Binding ServerName}" Width="150"/>
+                                        <GridViewColumn Header="Samples" DisplayMemberBinding="{Binding SampleCount}" Width="70"/>
+                                        <GridViewColumn Header="Healthy" DisplayMemberBinding="{Binding HealthyCount}" Width="70"/>
+                                        <GridViewColumn Header="Attention" DisplayMemberBinding="{Binding AttentionCount}" Width="80"/>
+                                        <GridViewColumn Header="Failures" DisplayMemberBinding="{Binding FailureCount}" Width="70"/>
+                                        <GridViewColumn Header="Avg CPU" DisplayMemberBinding="{Binding AverageCpuLabel}" Width="80"/>
+                                        <GridViewColumn Header="Max CPU" DisplayMemberBinding="{Binding MaxCpuLabel}" Width="80"/>
+                                        <GridViewColumn Header="Avg RAM" DisplayMemberBinding="{Binding AverageMemoryLabel}" Width="80"/>
+                                        <GridViewColumn Header="Max RAM" DisplayMemberBinding="{Binding MaxMemoryLabel}" Width="80"/>
+                                        <GridViewColumn Header="Avg Disk" DisplayMemberBinding="{Binding AverageDiskLabel}" Width="80"/>
+                                        <GridViewColumn Header="Max Disk" DisplayMemberBinding="{Binding MaxDiskLabel}" Width="80"/>
+                                        <GridViewColumn Header="Latest" DisplayMemberBinding="{Binding LatestStatus}" Width="120"/>
                                     </GridView>
                                 </ListView.View>
                             </ListView>

@@ -7,23 +7,19 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   release:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: Checkout validated commit
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
 
       - name: Read version
         shell: pwsh
@@ -32,76 +28,80 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($metadata.version)) {
             throw "version.json does not contain a version."
           }
+
+          $notes = "docs/releases/$($metadata.version).md"
+          if (-not (Test-Path $notes)) {
+            throw "Release notes are missing: $notes"
+          }
+
           "VERSION=$($metadata.version)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Publishing Ghost Server $($metadata.version)"
+          Write-Host "Publishing validated Ghost Server $($metadata.version)"
 
-      - name: Restore and build
-        run: |
-          dotnet restore GhostServer.sln
-          dotnet build GhostServer.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+      - name: Download validated Windows release candidates
+        uses: actions/download-artifact@v4
+        with:
+          name: GhostServer-windows-release
+          path: artifacts/release
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
 
-      - name: Publish self-contained x64
-        run: >
-          dotnet publish src/GhostServer/GhostServer.csproj
-          -c Release
-          -r win-x64
-          --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:DebugType=None
-          -o artifacts/publish
-
-      - name: Prepare portable executable
+      - name: Verify validated release files
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path artifacts/release | Out-Null
-          Copy-Item artifacts/publish/GhostServer.exe artifacts/release/GhostServer-Portable.exe -Force
+          foreach ($file in @(
+            "artifacts/release/GhostServer-Portable.exe",
+            "artifacts/release/GhostServer-Setup.exe"
+          )) {
+            if (-not (Test-Path $file)) {
+              throw "$file is missing from the validated CI artifact."
+            }
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --no-progress -y
+            $size = (Get-Item $file).Length
+            if ($size -lt 1MB) {
+              throw "$file is unexpectedly small: $size bytes"
+            }
 
-      - name: Build Setup.exe
-        shell: pwsh
-        run: |
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) {
-            $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
-          }
-          if (-not (Test-Path $iscc)) {
-            throw "ISCC.exe was not found after Inno Setup installation."
-          }
-          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
-          $env:GHOST_SERVER_VERSION = $metadata.version
-          & $iscc installer/GhostServer.iss
-          if ($LASTEXITCODE -ne 0) {
-            throw "Inno Setup failed with exit code $LASTEXITCODE."
+            Write-Host "Validated CI artifact: $file ($size bytes)"
           }
 
-      - name: Verify release files
+      - name: Generate SHA-256 checksums and provenance
         shell: pwsh
-        run: |
-          foreach ($file in @("artifacts/release/GhostServer-Portable.exe", "artifacts/release/GhostServer-Setup.exe")) {
-            if (-not (Test-Path $file)) { throw "$file missing." }
-            if ((Get-Item $file).Length -lt 1MB) { throw "$file is unexpectedly small." }
-          }
-
-      - name: Generate SHA-256 checksums
-        shell: pwsh
+        env:
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+          VALIDATED_RUN_ID: ${{ github.event.workflow_run.id }}
+          VALIDATED_RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           $files = @(
             "artifacts/release/GhostServer-Portable.exe",
             "artifacts/release/GhostServer-Setup.exe"
           )
+
+          $hashes = @{}
           $lines = foreach ($file in $files) {
             $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant()
             $name = Split-Path $file -Leaf
+            $hashes[$name] = $hash
             "$hash  $name"
           }
-          $lines | Set-Content artifacts/release/SHA256SUMS.txt -Encoding ascii
-          Get-Content artifacts/release/SHA256SUMS.txt
 
-      - name: Publish GitHub Release
+          $lines | Set-Content artifacts/release/SHA256SUMS.txt -Encoding ascii
+
+          @(
+            "Ghost Server release provenance"
+            "Version: $env:VERSION"
+            "Validated commit: $env:VALIDATED_SHA"
+            "Validated Windows CI run: $env:VALIDATED_RUN_ID"
+            "Validated Windows CI URL: $env:VALIDATED_RUN_URL"
+            "Artifact: GhostServer-windows-release"
+            "GhostServer-Portable.exe SHA256: $($hashes['GhostServer-Portable.exe'])"
+            "GhostServer-Setup.exe SHA256: $($hashes['GhostServer-Setup.exe'])"
+            "Release workflow rebuild: no"
+          ) | Set-Content artifacts/release/BUILD-PROVENANCE.txt -Encoding ascii
+
+          Get-Content artifacts/release/SHA256SUMS.txt
+          Get-Content artifacts/release/BUILD-PROVENANCE.txt
+
+      - name: Publish immutable GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -109,9 +109,16 @@ jobs:
         run: |
           $tag = "v$env:VERSION"
           $notes = "docs/releases/$env:VERSION.md"
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+
+          $existingJson = gh release view $tag --repo $env:GITHUB_REPOSITORY --json targetCommitish 2>$null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe artifacts/release/SHA256SUMS.txt --clobber --repo $env:GITHUB_REPOSITORY
-          } else {
-            gh release create $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe artifacts/release/SHA256SUMS.txt --target $env:VALIDATED_SHA --title "Ghost Server $env:VERSION" --notes-file $notes --repo $env:GITHUB_REPOSITORY
+            $existing = $existingJson | ConvertFrom-Json
+            if ($existing.targetCommitish -ne $env:VALIDATED_SHA) {
+              throw "Release $tag already exists for $($existing.targetCommitish), expected $env:VALIDATED_SHA. Refusing to overwrite immutable release assets."
+            }
+
+            Write-Host "Release $tag already exists for the validated commit. Leaving immutable assets unchanged."
+            exit 0
           }
+
+          gh release create $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe artifacts/release/SHA256SUMS.txt artifacts/release/BUILD-PROVENANCE.txt --target $env:VALIDATED_SHA --title "Ghost Server $env:VERSION" --notes-file $notes --repo $env:GITHUB_REPOSITORY
