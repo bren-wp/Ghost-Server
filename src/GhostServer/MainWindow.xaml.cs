@@ -3035,6 +3035,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var replaceIndex = oldProfile is null ? -1 : Profiles.IndexOf(oldProfile);
 
+        if (editedExisting && oldProfile is not null)
+        {
+            CancelRemoteOperations();
+        }
+
         if (editedExisting &&
             oldProfile is not null &&
             _terminalSession.ProfileId == oldProfile.Id)
@@ -3111,6 +3116,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var index = Profiles.IndexOf(profile);
         try
         {
+            CancelRemoteOperations();
+
             if (_terminalSession.ProfileId == profile.Id)
             {
                 _terminalConnectCancellation?.Cancel();
