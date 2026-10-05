@@ -265,3 +265,4 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Dashboard server cards must stretch to the available server-column width and must not keep a fixed card width when responsive breakpoints narrow the column;
 - workspace toolbars containing descriptive text and controls must wrap instead of squeezing intermediate content to zero width on narrow windows;
 - dense GridView data may remain horizontally scrollable, but ordinary page chrome must prefer wrapping over clipping.
+- compact Fleet, Alerts and Trends summary cards reserve a two-line label area so long labels wrap instead of clipping at the 640 px minimum window width.

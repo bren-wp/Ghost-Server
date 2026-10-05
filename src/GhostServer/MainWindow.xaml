@@ -463,16 +463,16 @@
 
                         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="SAVED" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetSavedValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="SAVED" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="FleetSavedValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="TRUSTED" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetTrustedValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="TRUSTED" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="FleetTrustedValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="HEALTHY" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetHealthyValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="HEALTHY" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="FleetHealthyValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}">
-                                <StackPanel><TextBlock Text="ATTENTION" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="FleetAttentionValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="ATTENTION" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="FleetAttentionValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                         </UniformGrid>
 
@@ -606,16 +606,16 @@
 
                         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="ACTIVE" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="AlertsActiveValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="ACTIVE" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="AlertsActiveValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="ACKNOWLEDGED" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="AlertsAcknowledgedValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="ACKNOWLEDGED" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="AlertsAcknowledgedValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="ATTENTION" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="AlertsAttentionValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="ATTENTION" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="AlertsAttentionValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}">
-                                <StackPanel><TextBlock Text="FAILURES" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="AlertsFailuresValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="FAILURES" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="AlertsFailuresValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                         </UniformGrid>
 
@@ -684,16 +684,16 @@
 
                         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="SERVERS" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsServersValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="SERVERS" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="TrendsServersValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="LATEST RISKS" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsRisksValue" Text="0" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="LATEST RISKS" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="TrendsRisksValue" Text="0" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,8,0">
-                                <StackPanel><TextBlock Text="HIGHEST AVG CPU" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsCpuValue" Text="—" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="HIGHEST AVG CPU" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="TrendsCpuValue" Text="—" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardBorder}">
-                                <StackPanel><TextBlock Text="HIGHEST AVG DISK" Foreground="{StaticResource GhostMuted}" FontSize="10"/><TextBlock x:Name="TrendsDiskValue" Text="—" FontSize="24" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                <StackPanel><TextBlock Text="HIGHEST AVG DISK" Style="{StaticResource GhostSummaryLabel}"/><TextBlock x:Name="TrendsDiskValue" Text="—" Style="{StaticResource GhostSummaryValue}"/></StackPanel>
                             </Border>
                         </UniformGrid>
 
