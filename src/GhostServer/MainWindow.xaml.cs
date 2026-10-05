@@ -1197,10 +1197,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshFilesAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             RemoteFilesList.ItemsSource = null;
             FilesStatusText.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (!TryBeginUiOperation("files-refresh", "Remote files are already refreshing."))
+        {
             return;
         }
 
@@ -1211,20 +1217,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             StatusText.Text = "Loading remote files…";
 
             var files = await SshServerClient.GetRemoteFilesAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
-                path);
+                operation.Profile,
+                operation.Secret,
+                path,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             RemoteFilesList.ItemsSource = files;
             RemotePathBox.Text = NormalizeUiRemotePath(path);
             FilesStatusText.Text = $"{files.Count} item(s)";
             StatusText.Text = "Remote files refreshed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            RemoteFilesList.ItemsSource = null;
-            FilesStatusText.Text = SafeError(ex);
-            StatusText.Text = "Remote file refresh failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                RemoteFilesList.ItemsSource = null;
+                FilesStatusText.Text = SafeError(ex);
+                StatusText.Text = "Remote file refresh failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("files-refresh");
         }
     }
 
@@ -1386,7 +1408,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
+        {
+            return;
+        }
+
+        if (!TryBeginUiOperation("dashboard-connect", "A Dashboard connection operation is already running."))
         {
             return;
         }
@@ -1396,9 +1424,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         try
         {
-            if (string.IsNullOrWhiteSpace(SelectedProfile.HostKeyFingerprint))
+            if (string.IsNullOrWhiteSpace(operation.Profile.HostKeyFingerprint))
             {
-                var probe = await SshServerClient.ProbeAsync(SelectedProfile, SessionSecretBox.Password);
+                var probe = await SshServerClient.ProbeAsync(
+                    operation.Profile,
+                    operation.Secret,
+                    operation.CancellationToken);
+
+                if (!IsRemoteOperationCurrent(operation))
+                {
+                    return;
+                }
+
                 if (probe.RequiresTrust && !string.IsNullOrWhiteSpace(probe.PresentedFingerprint))
                 {
                     _pendingFingerprint = probe.PresentedFingerprint;
@@ -1412,26 +1449,57 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
             }
 
-            var snapshot = await SshServerClient.GetSnapshotAsync(SelectedProfile, SessionSecretBox.Password);
+            var snapshot = await SshServerClient.GetSnapshotAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             ApplySnapshot(snapshot);
-            SelectedProfile.LastConnectedUtc = DateTimeOffset.UtcNow;
-            await _profileStore.SaveAsync(Profiles);
+            if (SelectedProfile is not null)
+            {
+                SelectedProfile.LastConnectedUtc = DateTimeOffset.UtcNow;
+                await _profileStore.SaveAsync(Profiles);
+            }
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             ConnectionStatus.Text = "Connected";
             ConnectionStatus.Foreground = (Brush)FindResource("GhostSuccess");
-            StatusText.Text = $"Connected to {SelectedProfile.Name}";
+            StatusText.Text = $"Connected to {operation.Profile.Name}";
             await RefreshServicesAsync();
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (SecurityException ex)
         {
-            ConnectionStatus.Text = "Host key rejected";
-            ConnectionStatus.Foreground = (Brush)FindResource("GhostDanger");
-            StatusText.Text = SafeError(ex);
+            if (IsRemoteOperationCurrent(operation))
+            {
+                ConnectionStatus.Text = "Host key rejected";
+                ConnectionStatus.Foreground = (Brush)FindResource("GhostDanger");
+                StatusText.Text = SafeError(ex);
+            }
         }
         catch (Exception ex)
         {
-            ConnectionStatus.Text = "Connection failed";
-            ConnectionStatus.Foreground = (Brush)FindResource("GhostDanger");
-            StatusText.Text = SafeError(ex);
+            if (IsRemoteOperationCurrent(operation))
+            {
+                ConnectionStatus.Text = "Connection failed";
+                ConnectionStatus.Foreground = (Brush)FindResource("GhostDanger");
+                StatusText.Text = SafeError(ex);
+            }
+        }
+        finally
+        {
+            EndUiOperation("dashboard-connect");
         }
     }
 
@@ -1472,7 +1540,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshServicesAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
+        {
+            return;
+        }
+
+        if (!TryBeginUiOperation("dashboard-services-refresh", "Dashboard services are already refreshing."))
         {
             return;
         }
@@ -1480,13 +1554,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             SetBusy("Loading services…");
-            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
-                SelectedProfile, SessionSecretBox.Password);
+            var services = await SshServerClient.GetRunningServicesAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            ServicesList.ItemsSource = services;
             StatusText.Text = "Service list refreshed";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            StatusText.Text = SafeError(ex);
+            if (IsRemoteOperationCurrent(operation))
+            {
+                StatusText.Text = SafeError(ex);
+            }
+        }
+        finally
+        {
+            EndUiOperation("dashboard-services-refresh");
         }
     }
 
@@ -1495,26 +1588,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshManagerServicesAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             ServicesManagerList.ItemsSource = null;
             SelectedServiceText.Text = "Select a server on Dashboard first.";
             return;
         }
 
+        if (!TryBeginUiOperation("services-refresh", "Services are already refreshing."))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = "Loading services…";
-            ServicesManagerList.ItemsSource = await SshServerClient.GetServicesAsync(
-                SelectedProfile, SessionSecretBox.Password);
+            var services = await SshServerClient.GetServicesAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            ServicesManagerList.ItemsSource = services;
             SelectedServiceText.Text = "Select a service to manage it.";
             StatusText.Text = "Services refreshed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            ServicesManagerList.ItemsSource = null;
-            SelectedServiceText.Text = SafeError(ex);
-            StatusText.Text = "Service refresh failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                ServicesManagerList.ItemsSource = null;
+                SelectedServiceText.Text = SafeError(ex);
+                StatusText.Text = "Service refresh failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("services-refresh");
         }
     }
 
@@ -1623,26 +1741,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshDockerAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             DockerList.ItemsSource = null;
             SelectedDockerText.Text = "Select a server on Dashboard first.";
             return;
         }
 
+        if (!TryBeginUiOperation("docker-refresh", "Docker containers are already refreshing."))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = "Loading Docker containers…";
-            DockerList.ItemsSource = await SshServerClient.GetDockerContainersAsync(
-                SelectedProfile, SessionSecretBox.Password);
+            var containers = await SshServerClient.GetDockerContainersAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            DockerList.ItemsSource = containers;
             SelectedDockerText.Text = "Select a Docker container.";
             StatusText.Text = "Docker containers refreshed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            DockerList.ItemsSource = null;
-            SelectedDockerText.Text = SafeError(ex);
-            StatusText.Text = "Docker refresh failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                DockerList.ItemsSource = null;
+                SelectedDockerText.Text = SafeError(ex);
+                StatusText.Text = "Docker refresh failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("docker-refresh");
         }
     }
 
@@ -1750,25 +1893,49 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshNetworkAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             NetworkOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (!TryBeginUiOperation("network-refresh", "Network state is already refreshing."))
+        {
             return;
         }
 
         try
         {
             StatusText.Text = "Loading network state…";
-            NetworkOutput.Text = await SshServerClient.GetNetworkOverviewAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+            var output = await SshServerClient.GetNetworkOverviewAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            NetworkOutput.Text = output;
             NetworkOutput.ScrollToHome();
             StatusText.Text = "Network state refreshed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            NetworkOutput.Text = SafeError(ex);
-            StatusText.Text = "Network refresh failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                NetworkOutput.Text = SafeError(ex);
+                StatusText.Text = "Network refresh failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("network-refresh");
         }
     }
 
@@ -1833,9 +2000,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshUpdatesAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             UpdatesOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (!TryBeginUiOperation("updates-refresh", "Safe Update preview is already running."))
+        {
             return;
         }
 
@@ -1843,18 +2016,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             StatusText.Text = "Preparing Safe Update preview…";
             var output = await SshServerClient.GetSafeUpdatePreviewAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             UpdatesOutput.Text = string.IsNullOrWhiteSpace(output)
                 ? "No update information was reported."
                 : output;
             UpdatesOutput.ScrollToHome();
             StatusText.Text = "Safe Update preview completed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            UpdatesOutput.Text = SafeError(ex);
-            StatusText.Text = "Safe Update preview failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                UpdatesOutput.Text = SafeError(ex);
+                StatusText.Text = "Safe Update preview failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("updates-refresh");
         }
     }
 
@@ -2149,7 +2339,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshTasksAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             TasksList.ItemsSource = null;
             TasksStatusText.Text = "Select a server on Dashboard first.";
@@ -2157,29 +2348,54 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (!TryBeginUiOperation("tasks-refresh", "Scheduled operations are already refreshing."))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = "Loading scheduled operations…";
-            var tasks = await SshServerClient.GetScheduledTasksAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
-            var crontab = await SshServerClient.GetUserCrontabAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+            var tasksTask = SshServerClient.GetScheduledTasksAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+            var crontabTask = SshServerClient.GetUserCrontabAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
 
+            await Task.WhenAll(tasksTask, crontabTask);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            var tasks = await tasksTask;
             TasksList.ItemsSource = tasks;
             TasksStatusText.Text = tasks.Count == 0
                 ? "No Ghost Server scheduled tasks."
                 : $"{tasks.Count} Ghost Server scheduled task(s).";
-            CrontabOutput.Text = crontab;
+            CrontabOutput.Text = await crontabTask;
             StatusText.Text = "Scheduled operations refreshed";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            TasksList.ItemsSource = null;
-            TasksStatusText.Text = SafeError(ex);
-            CrontabOutput.Text = SafeError(ex);
-            StatusText.Text = "Scheduled operations refresh failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                TasksList.ItemsSource = null;
+                TasksStatusText.Text = SafeError(ex);
+                CrontabOutput.Text = SafeError(ex);
+                StatusText.Text = "Scheduled operations refresh failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("tasks-refresh");
         }
     }
 
@@ -2290,11 +2506,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshSystemAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             ProcessesList.ItemsSource = null;
             SystemStatusText.Text = "Select a server on Dashboard first.";
             SystemOverviewOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (!TryBeginUiOperation("system-refresh", "System state is already refreshing."))
+        {
             return;
         }
 
@@ -2303,26 +2525,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             StatusText.Text = "Loading system state…";
 
             var processesTask = SshServerClient.GetProcessesAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
             var overviewTask = SshServerClient.GetSystemOverviewAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
 
             await Task.WhenAll(processesTask, overviewTask);
 
-            ProcessesList.ItemsSource = await processesTask;
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            var processes = await processesTask;
+            ProcessesList.ItemsSource = processes;
             SystemOverviewOutput.Text = await overviewTask;
             SystemOverviewOutput.ScrollToHome();
-            SystemStatusText.Text = $"{((IReadOnlyList<ProcessStatus>)ProcessesList.ItemsSource).Count} process(es) loaded.";
+            SystemStatusText.Text = $"{processes.Count} process(es) loaded.";
             StatusText.Text = "System state refreshed";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            ProcessesList.ItemsSource = null;
-            SystemStatusText.Text = SafeError(ex);
-            SystemOverviewOutput.Text = SafeError(ex);
-            StatusText.Text = "System refresh failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                ProcessesList.ItemsSource = null;
+                SystemStatusText.Text = SafeError(ex);
+                SystemOverviewOutput.Text = SafeError(ex);
+                StatusText.Text = "System refresh failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("system-refresh");
         }
     }
 
@@ -2391,11 +2631,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshDatabasesAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             DatabaseEnginesList.ItemsSource = null;
             DatabasesStatusText.Text = "Select a server on Dashboard first.";
             DatabaseNamesOutput.Text = "No server selected.";
+            return;
+        }
+
+        if (!TryBeginUiOperation("databases-refresh", "Database discovery is already running."))
+        {
             return;
         }
 
@@ -2405,8 +2651,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             DatabasesStatusText.Text = "Checking PostgreSQL, MySQL/MariaDB and SQLite…";
 
             var engines = await SshServerClient.GetDatabaseEnginesAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
 
             DatabaseEnginesList.ItemsSource = engines;
             DatabaseNamesOutput.Text = engines.Count == 0
@@ -2431,12 +2683,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             StatusText.Text = "Database discovery completed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            DatabaseEnginesList.ItemsSource = null;
-            DatabasesStatusText.Text = SafeError(ex);
-            DatabaseNamesOutput.Text = SafeError(ex);
-            StatusText.Text = "Database discovery failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                DatabaseEnginesList.ItemsSource = null;
+                DatabasesStatusText.Text = SafeError(ex);
+                DatabaseNamesOutput.Text = SafeError(ex);
+                StatusText.Text = "Database discovery failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("databases-refresh");
         }
     }
 
@@ -2458,27 +2720,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RefreshLogsAsync()
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             _rawLogs = string.Empty;
             LogsOutput.Text = "Select a server on Dashboard first.";
             return;
         }
 
+        if (!TryBeginUiOperation("logs-refresh", "Logs are already refreshing."))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = "Loading recent logs…";
-            _rawLogs = await SshServerClient.GetRecentLogsAsync(
-                SelectedProfile, SessionSecretBox.Password);
+            var logs = await SshServerClient.GetRecentLogsAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            _rawLogs = logs;
             ApplyLogFilter();
             LogsOutput.ScrollToEnd();
             StatusText.Text = "Logs refreshed";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            _rawLogs = string.Empty;
-            LogsOutput.Text = SafeError(ex);
-            StatusText.Text = "Log refresh failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                _rawLogs = string.Empty;
+                LogsOutput.Text = SafeError(ex);
+                StatusText.Text = "Log refresh failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("logs-refresh");
         }
     }
 
@@ -2881,23 +3168,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void SecurityScan_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             SecurityOutput.Text = "Select a server on Dashboard first.";
+            return;
+        }
+
+        if (!TryBeginUiOperation("security-scan", "Security scan is already running."))
+        {
             return;
         }
 
         try
         {
             StatusText.Text = "Running read-only security scan…";
-            SecurityOutput.Text = await SshServerClient.RunSecurityScanAsync(
-                SelectedProfile, SessionSecretBox.Password);
+            var output = await SshServerClient.RunSecurityScanAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            SecurityOutput.Text = output;
             StatusText.Text = "Security scan completed";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            SecurityOutput.Text = SafeError(ex);
-            StatusText.Text = "Security scan failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                SecurityOutput.Text = SafeError(ex);
+                StatusText.Text = "Security scan failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("security-scan");
         }
     }
 
@@ -3484,9 +3796,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void DashboardTimer_Tick(object? sender, EventArgs e)
     {
+        var operation = CaptureRemoteOperation();
         if (_autoRefreshBusy ||
-            SelectedProfile is null ||
-            string.IsNullOrWhiteSpace(SelectedProfile.HostKeyFingerprint) ||
+            operation is null ||
+            string.IsNullOrWhiteSpace(operation.Profile.HostKeyFingerprint) ||
             AutoRefreshToggle.IsChecked != true)
         {
             return;
@@ -3496,23 +3809,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var snapshot = await SshServerClient.GetSnapshotAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            var services = await SshServerClient.GetRunningServicesAsync(
+                operation.Profile,
+                operation.Secret,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             ApplySnapshot(snapshot);
-            ServicesList.ItemsSource = await SshServerClient.GetRunningServicesAsync(
-                SelectedProfile,
-                SessionSecretBox.Password);
+            ServicesList.ItemsSource = services;
             ConnectionStatus.Text = "Connected • auto-refreshed";
             ConnectionStatus.Foreground = (Brush)FindResource("GhostSuccess");
-            StatusText.Text = $"Auto-refreshed {SelectedProfile.Name} at {DateTime.Now:HH:mm:ss}";
+            StatusText.Text = $"Auto-refreshed {operation.Profile.Name} at {DateTime.Now:HH:mm:ss}";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            _dashboardTimer.Stop();
-            AutoRefreshToggle.IsChecked = false;
-            ConnectionStatus.Text = "Auto-refresh stopped";
-            ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
-            StatusText.Text = SafeError(ex);
+            if (IsRemoteOperationCurrent(operation))
+            {
+                _dashboardTimer.Stop();
+                AutoRefreshToggle.IsChecked = false;
+                ConnectionStatus.Text = "Auto-refresh stopped";
+                ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
+                StatusText.Text = SafeError(ex);
+            }
         }
         finally
         {
