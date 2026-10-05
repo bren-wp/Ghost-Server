@@ -40,6 +40,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private readonly DispatcherTimer _windowSettingsTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
     private int _mutationActive;
+    private int _profileImportActive;
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
     private CancellationTokenSource? _terminalConnectCancellation;
@@ -4468,6 +4469,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         EditServerButton.IsEnabled = !busy;
         ResetHostKeyButton.IsEnabled = !busy;
         DeleteServerButton.IsEnabled = !busy;
+        UpdateImportProfilesButtonState();
 
         AdministrativeBusyBadge.Visibility = busy
             ? Visibility.Visible
