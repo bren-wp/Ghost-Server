@@ -51,6 +51,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _windowStateCorrection;
     private bool _fitWindowActive;
     private bool _windowSizeSettingsDirty;
+    private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
     private const double StandardWindowWidth = 1180;
@@ -4515,8 +4516,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        _windowSizeSettingsDirty = false;
-        await PersistSettingsQuietlyAsync();
+        try
+        {
+            await _settingsStore.SaveAsync(_settings);
+            _windowSizeSettingsDirty = false;
+        }
+        catch
+        {
+            // Keep the dirty flag so close-time flushing can retry.
+            _windowSizeSettingsDirty = true;
+        }
     }
 
     private void CaptureOverlayFocus()
@@ -4650,6 +4659,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         yield return UpdatesPage;
         yield return BackupPage;
         yield return SecurityPage;
+    }
+
+    private async void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (_allowCloseAfterSettingsFlush ||
+            !_windowSizeSettingsDirty ||
+            !_settings.RememberWindowSize ||
+            _fitWindowActive)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        _windowSettingsTimer.Stop();
+        CaptureCurrentWindowSize();
+
+        try
+        {
+            await _settingsStore.SaveAsync(_settings);
+            _windowSizeSettingsDirty = false;
+        }
+        catch
+        {
+            // Window geometry persistence is best-effort and must never trap the user.
+        }
+
+        _allowCloseAfterSettingsFlush = true;
+        Close();
     }
 
     private void Window_Closed(object? sender, EventArgs e) => Dispose();
