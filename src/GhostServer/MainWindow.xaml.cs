@@ -3810,19 +3810,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         await DisconnectTerminalAsync(
             "Terminal disconnected because SSH trust was reset.",
             appendMessage: true);
-        SelectedProfile.HostKeyFingerprint = null;
+
+        var profile = SelectedProfile;
+        var previousFingerprint = profile.HostKeyFingerprint;
+        profile.HostKeyFingerprint = null;
+
         try
         {
             await _profileStore.SaveAsync(Profiles);
             ConnectionStatus.Text = "Host key not approved";
             ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
             HostKeyPanel.Visibility = Visibility.Collapsed;
-            StatusText.Text = $"SSH trust reset for {SelectedProfile.Name}";
+            StatusText.Text = $"SSH trust reset for {profile.Name}";
             UpdateTerminalSessionUi();
         }
         catch (Exception ex)
         {
-            StatusText.Text = SafeError(ex);
+            profile.HostKeyFingerprint = previousFingerprint;
+            StatusText.Text = $"SSH trust reset failed: {SafeError(ex)}";
         }
     }
 
@@ -4453,6 +4458,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             button.IsEnabled = !busy;
         }
+
+        ServerList.IsEnabled = !busy;
+        EditServerButton.IsEnabled = !busy;
+        ResetHostKeyButton.IsEnabled = !busy;
+        DeleteServerButton.IsEnabled = !busy;
 
         AdministrativeBusyBadge.Visibility = busy
             ? Visibility.Visible
