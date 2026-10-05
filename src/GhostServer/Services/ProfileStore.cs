@@ -6,6 +6,7 @@ namespace GhostServer.Services;
 public sealed class ProfileStore
 {
     private readonly string _path;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public ProfileStore()
     {
@@ -19,22 +20,39 @@ public sealed class ProfileStore
     public async Task<IReadOnlyList<ServerProfile>> LoadAsync(
         CancellationToken cancellationToken = default)
     {
-        var profiles = await JsonFileStore.LoadAsync<List<ServerProfile>>(
-            _path,
-            cancellationToken) ?? [];
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var profiles = await JsonFileStore.LoadAsync<List<ServerProfile>>(
+                _path,
+                cancellationToken) ?? [];
 
-        return NormalizeAndValidate(profiles);
+            return NormalizeAndValidate(profiles);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
-    public Task SaveAsync(
+    public async Task SaveAsync(
         IEnumerable<ServerProfile> profiles,
         CancellationToken cancellationToken = default)
     {
         var validated = NormalizeAndValidate(profiles);
-        return JsonFileStore.SaveAsync(
-            _path,
-            validated,
-            cancellationToken);
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await JsonFileStore.SaveAsync(
+                _path,
+                validated,
+                cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public static Task ExportAsync(
