@@ -4442,8 +4442,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         ContentHeaderRow.Height = new GridLength(reducedHeight ? 68 : 84);
         ContentHeaderGrid.Margin = new Thickness(compactSidebar ? 14 : 24, 0, compactSidebar ? 14 : 24, 0);
         PageTitle.FontSize = compactSidebar ? 20 : 24;
-        PageSubtitle.Visibility = tightLayout ? Visibility.Collapsed : Visibility.Visible;
+        PageSubtitle.Visibility = tightLayout || reducedHeight
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         HeaderAddServerText.Visibility = tightLayout ? Visibility.Collapsed : Visibility.Visible;
+        StatusShortcutText.Visibility = compactSidebar
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         DashboardServerColumn.Width = new GridLength(
             ActualWidth < 760
