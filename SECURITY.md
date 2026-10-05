@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.11.x`
+The active development line is `0.12.x`
 
 ## SSH trust model
 
@@ -139,3 +139,20 @@ Ghost Server does not:
 - expose CREATE, ALTER, DROP, INSERT, UPDATE, DELETE or other SQL mutation actions.
 
 SQLite discovery reports the installed client version only. Ghost Server does not crawl the remote filesystem for SQLite database files.
+
+
+## Fleet health history
+
+Fleet health history is local application state stored under the Ghost Server app-data directory using the same atomic JSON write and backup-recovery mechanism used by other local settings.
+
+Each record may contain:
+- server profile ID;
+- probe timestamp;
+- health status;
+- CPU, memory and disk utilization percentages;
+- system load text;
+- a short local attention or failure summary.
+
+Fleet history never stores passwords, passphrases, private-key contents, database credentials or remote command output. Ghost Server does not upload Fleet health history or send it to any third-party service.
+
+History retention is bounded to the latest 100 records per server and 2,000 records total. Clearing history affects only local Ghost Server state and does not modify the remote server.
