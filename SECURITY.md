@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.9.x`
+The active development line is `0.10.x`
 
 ## SSH trust model
 
@@ -116,3 +116,10 @@ Fleet inventory itself is local metadata. Bulk Fleet probes are restricted to pr
 The selected-server Fleet probe accepts a session secret only for that selected row. The secret is read from the WPF PasswordBox, used for that probe, and cleared immediately afterward. Fleet never persists it.
 
 Fleet health collection is read-only and uses the same verified SSH host identity as Dashboard health discovery.
+
+
+## Terminal Quick Commands
+
+Quick Commands are convenience presets for read-only inspection. Selecting a preset only copies the command into the Terminal command editor. Ghost Server does not execute the preset until the user explicitly presses Run.
+
+The preset library is intentionally limited to inspection-oriented commands such as system summary, process listing, listening sockets, disk usage, Docker container listing and recent journal errors. It does not include destructive shell commands.
