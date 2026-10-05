@@ -38,6 +38,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private int _commandHistoryIndex;
     private string _rawLogs = string.Empty;
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly DispatcherTimer _windowSettingsTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
     private int _mutationActive;
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
@@ -49,6 +50,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private int _windowDisposed;
     private bool _windowStateCorrection;
     private bool _fitWindowActive;
+    private bool _windowSizeSettingsDirty;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
     private const double StandardWindowWidth = 1180;
@@ -81,6 +83,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         InitializeComponent();
         DataContext = this;
         _dashboardTimer.Tick += DashboardTimer_Tick;
+        _windowSettingsTimer.Tick += WindowSettingsTimer_Tick;
         _terminalSession.OutputReceived += TerminalSession_OutputReceived;
         _terminalSession.Disconnected += TerminalSession_Disconnected;
     }
@@ -99,6 +102,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             _settings = await _settingsStore.LoadAsync();
             ApplySettingsToUi();
+            ApplySavedWindowSize();
 
             var profiles = await _profileStore.LoadAsync();
             foreach (var profile in profiles)
@@ -3800,6 +3804,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
     }
 
+    private async void ResetWindowLayout_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.WindowWidth = null;
+        _settings.WindowHeight = null;
+        _settings.RememberWindowSize = RememberWindowSizeToggle.IsChecked == true;
+        _windowSizeSettingsDirty = false;
+        _windowSettingsTimer.Stop();
+
+        RestoreComfortableWindowSize();
+
+        if (_settings.RememberWindowSize)
+        {
+            CaptureCurrentWindowSize();
+        }
+
+        try
+        {
+            await _settingsStore.SaveAsync(_settings);
+            SettingsStatusText.Text = "Window size reset to the safe default.";
+            StatusText.Text = "Window size reset";
+        }
+        catch (Exception ex)
+        {
+            SettingsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Window layout reset failed";
+        }
+    }
+
     private void BrowseBackupFolder_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
@@ -3824,6 +3856,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _settings.DefaultBackupDirectory = string.IsNullOrWhiteSpace(DefaultBackupFolderBox.Text)
                 ? null
                 : DefaultBackupFolderBox.Text.Trim();
+            _settings.RememberWindowSize = RememberWindowSizeToggle.IsChecked == true;
+
+            if (_settings.RememberWindowSize && !_fitWindowActive)
+            {
+                CaptureCurrentWindowSize();
+            }
+            else if (!_settings.RememberWindowSize)
+            {
+                _settings.WindowWidth = null;
+                _settings.WindowHeight = null;
+            }
+
             _settings.Normalize();
 
             _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
@@ -3949,6 +3993,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _settings.Normalize();
         _dashboardTimer.Interval = TimeSpan.FromSeconds(_settings.DashboardRefreshSeconds);
         DefaultBackupFolderBox.Text = _settings.DefaultBackupDirectory ?? string.Empty;
+        RememberWindowSizeToggle.IsChecked = _settings.RememberWindowSize;
         AutoRefreshToggle.Content = $"Auto refresh • {_settings.DashboardRefreshSeconds}s";
 
         var tag = _settings.DashboardRefreshSeconds.ToString(CultureInfo.InvariantCulture);
@@ -4339,10 +4384,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (WindowState == WindowState.Normal)
+        if (WindowState != WindowState.Normal)
         {
-            ApplyResponsiveLayout();
+            return;
         }
+
+        ApplyResponsiveLayout();
+
+        if (!IsLoaded ||
+            _fitWindowActive ||
+            !_settings.RememberWindowSize ||
+            ActualWidth < MinWidth ||
+            ActualHeight < MinHeight)
+        {
+            return;
+        }
+
+        CaptureCurrentWindowSize();
+        _windowSizeSettingsDirty = true;
+        _windowSettingsTimer.Stop();
+        _windowSettingsTimer.Start();
     }
 
     private void Window_StateChanged(object? sender, EventArgs e)
@@ -4380,12 +4441,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         var workArea = SystemParameters.WorkArea;
         WindowState = WindowState.Normal;
+        _fitWindowActive = true;
+        _windowSettingsTimer.Stop();
         MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
         MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
         Width = Math.Min(MaxWidth, Math.Max(MinWidth, workArea.Width * 0.90));
         Height = Math.Min(MaxHeight, Math.Max(MinHeight, workArea.Height * 0.88));
         CenterWithinWorkArea(workArea);
-        _fitWindowActive = true;
         ApplyResponsiveLayout();
     }
 
@@ -4393,12 +4455,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         var workArea = SystemParameters.WorkArea;
         WindowState = WindowState.Normal;
+        _fitWindowActive = false;
         MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
         MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
         Width = Math.Min(StandardWindowWidth, Math.Min(MaxWidth, Math.Max(MinWidth, workArea.Width * 0.82)));
         Height = Math.Min(StandardWindowHeight, Math.Min(MaxHeight, Math.Max(MinHeight, workArea.Height * 0.80)));
         CenterWithinWorkArea(workArea);
-        _fitWindowActive = false;
         ApplyResponsiveLayout();
     }
 
@@ -4406,6 +4468,49 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         Left = workArea.Left + Math.Max(0, (workArea.Width - Width) / 2);
         Top = workArea.Top + Math.Max(0, (workArea.Height - Height) / 2);
+    }
+
+    private void ApplySavedWindowSize()
+    {
+        if (!_settings.RememberWindowSize ||
+            _settings.WindowWidth is not double savedWidth ||
+            _settings.WindowHeight is not double savedHeight)
+        {
+            return;
+        }
+
+        var workArea = SystemParameters.WorkArea;
+        MaxWidth = Math.Max(MinWidth, workArea.Width * 0.94);
+        MaxHeight = Math.Max(MinHeight, workArea.Height * 0.92);
+        Width = Math.Clamp(savedWidth, MinWidth, MaxWidth);
+        Height = Math.Clamp(savedHeight, MinHeight, MaxHeight);
+        WindowState = WindowState.Normal;
+        _fitWindowActive = false;
+        CenterWithinWorkArea(workArea);
+        ApplyResponsiveLayout();
+    }
+
+    private void CaptureCurrentWindowSize()
+    {
+        if (WindowState != WindowState.Normal || _fitWindowActive)
+        {
+            return;
+        }
+
+        _settings.WindowWidth = Math.Round(Math.Clamp(ActualWidth, MinWidth, MaxWidth), 0);
+        _settings.WindowHeight = Math.Round(Math.Clamp(ActualHeight, MinHeight, MaxHeight), 0);
+    }
+
+    private async void WindowSettingsTimer_Tick(object? sender, EventArgs e)
+    {
+        _windowSettingsTimer.Stop();
+        if (!_windowSizeSettingsDirty)
+        {
+            return;
+        }
+
+        _windowSizeSettingsDirty = false;
+        await PersistSettingsQuietlyAsync();
     }
 
     private void CaptureOverlayFocus()
@@ -4550,6 +4655,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        _dashboardTimer.Stop();
+        _windowSettingsTimer.Stop();
         _terminalConnectCancellation?.Cancel();
         _terminalConnectCancellation?.Dispose();
         _terminalConnectCancellation = null;
