@@ -4452,6 +4452,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             button.IsEnabled = !busy;
         }
+
+        AdministrativeBusyBadge.Visibility = busy
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private IEnumerable<Button> GetAdministrativeMutationButtons()
