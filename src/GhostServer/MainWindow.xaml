@@ -1330,7 +1330,8 @@
                                     </StackPanel>
                                     <StackPanel Width="200" Margin="0,0,0,8">
                                         <Label Content="Refresh interval"/>
-                                        <ComboBox x:Name="RefreshIntervalBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1">
+                                        <ComboBox x:Name="RefreshIntervalBox" Style="{StaticResource GhostComboBox}" SelectedIndex="1"
+                                                  SelectionChanged="SettingsControl_Changed">
                                             <ComboBoxItem Content="15 seconds" Tag="15"/>
                                             <ComboBoxItem Content="30 seconds" Tag="30"/>
                                             <ComboBoxItem Content="60 seconds" Tag="60"/>
@@ -1375,7 +1376,9 @@
                                                    Foreground="{StaticResource GhostMuted}" Margin="0,5,0,10" TextWrapping="Wrap"/>
                                         <CheckBox x:Name="RememberWindowSizeToggle"
                                                   Content="Remember normal window size"
-                                                  AutomationProperties.Name="Remember normal window size"/>
+                                                  AutomationProperties.Name="Remember normal window size"
+                                                  Checked="SettingsControl_Changed"
+                                                  Unchecked="SettingsControl_Changed"/>
                                     </StackPanel>
                                     <Button Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="0,0,0,8"
                                             Click="ResetWindowLayout_Click"
@@ -1436,8 +1439,9 @@
                                         <TextBlock Text="SSH host-key pinning, session-only secrets and verified SFTP are enforced across remote operations."
                                                    Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,8,20,0"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Style="{StaticResource AccentButton}" VerticalAlignment="Center"
-                                            Click="SaveSettings_Click">
+                                    <Button x:Name="SaveSettingsButton" Grid.Column="1" Style="{StaticResource AccentButton}" VerticalAlignment="Center"
+                                            Click="SaveSettings_Click" IsEnabled="False"
+                                             AutomationProperties.Name="Save settings">
                                         <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74E;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Save settings" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                                     </Button>
                                 </Grid>
