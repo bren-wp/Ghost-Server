@@ -30,6 +30,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly List<string> _commandHistory = [];
     private readonly List<FleetServerStatus> _fleetRows = [];
     private readonly List<FleetHealthRecord> _fleetHistory = [];
+    private const double FleetAttentionThresholdPercent = 90.0;
+    private const int FleetHistoryPerProfileLimit = 100;
+    private const int FleetHistoryTotalLimit = 2000;
     private int _commandHistoryIndex;
     private string _rawLogs = string.Empty;
     private Button? _activeNavButton;
@@ -326,6 +329,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var profile in Profiles.OrderBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase))
         {
+            var latest = _fleetHistory
+                .Where(record => record.ProfileId == profile.Id)
+                .OrderByDescending(record => record.RecordedUtc)
+                .FirstOrDefault();
+
+            var trust = string.IsNullOrWhiteSpace(profile.HostKeyFingerprint)
+                ? "Not trusted"
+                : "Trusted";
+
+            var health = trust != "Trusted"
+                ? "Trust required"
+                : latest?.Status ??
+                  (string.Equals(profile.Authentication, "Password", StringComparison.OrdinalIgnoreCase)
+                      ? "Session secret required"
+                      : "Ready to probe");
+
             _fleetRows.Add(new FleetServerStatus
             {
                 ProfileId = profile.Id,
@@ -335,12 +354,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Authentication = string.Equals(profile.Authentication, "PrivateKey", StringComparison.OrdinalIgnoreCase)
                     ? "Private key"
                     : "Password",
-                Trust = string.IsNullOrWhiteSpace(profile.HostKeyFingerprint) ? "Not trusted" : "Trusted",
-                Health = string.IsNullOrWhiteSpace(profile.HostKeyFingerprint)
-                    ? "Trust required"
-                    : string.Equals(profile.Authentication, "Password", StringComparison.OrdinalIgnoreCase)
-                        ? "Session secret required"
-                        : "Ready to probe",
+                Trust = trust,
+                Health = health,
+                Load = latest?.Load ?? "—",
+                Cpu = latest is null
+                    ? "—"
+                    : latest.CpuPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%",
+                Memory = latest is null || latest.MemoryPercent <= 0
+                    ? "—"
+                    : latest.MemoryPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%",
                 LastConnected = profile.LastConnectedUtc is null
                     ? "Never"
                     : profile.LastConnectedUtc.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
@@ -351,7 +373,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateFleetSummary();
         FleetStatusText.Text = _fleetRows.Count == 0
             ? "No saved server profiles."
-            : "Fleet inventory refreshed. Bulk probes only use trusted private-key profiles.";
+            : "Fleet inventory refreshed. Last known local health is restored where available.";
     }
 
     private void FleetFilterBox_TextChanged(object sender, TextChangedEventArgs e) =>
@@ -364,6 +386,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        var selectedId = (FleetList.SelectedItem as FleetServerStatus)?.ProfileId;
         var filter = FleetFilterBox?.Text?.Trim();
         IEnumerable<FleetServerStatus> rows = _fleetRows;
 
@@ -377,10 +400,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 row.OperatingSystem.Contains(filter, StringComparison.OrdinalIgnoreCase));
         }
 
-        FleetList.ItemsSource = rows
+        var visible = rows
             .OrderBy(row => FleetHealthRank(row.Health))
             .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+        FleetList.ItemsSource = visible;
+
+        if (selectedId is Guid id)
+        {
+            FleetList.SelectedItem = visible.FirstOrDefault(row => row.ProfileId == id);
+        }
+
+        UpdateFleetHistoryView();
     }
 
     private async void ProbeFleetKeyProfiles_Click(object sender, RoutedEventArgs e)
@@ -435,14 +467,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             if (result.Snapshot is not null)
             {
-                ApplyFleetSnapshot(row, result.Snapshot);
+                _fleetHistory.Add(ApplyFleetSnapshot(row, result.Snapshot));
             }
             else
             {
                 row.Health = result.Error ?? "Probe failed";
+                _fleetHistory.Add(CreateFleetFailureRecord(row.ProfileId, row.Health));
             }
         }
 
+        await PersistFleetHistoryAsync();
         ApplyFleetFilter();
         UpdateFleetSummary();
         FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
@@ -481,22 +515,88 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         try
         {
             var snapshot = await SshServerClient.GetSnapshotAsync(profile, secret);
-            ApplyFleetSnapshot(row, snapshot);
-            FleetStatusText.Text = $"{profile.Name} responded successfully.";
-            StatusText.Text = $"Fleet probe healthy: {profile.Name}";
+            _fleetHistory.Add(ApplyFleetSnapshot(row, snapshot));
+            FleetStatusText.Text = row.Health == "Attention"
+                ? $"{profile.Name} responded, but local utilization thresholds need attention."
+                : $"{profile.Name} responded successfully.";
+            StatusText.Text = $"Fleet probe {row.Health.ToLowerInvariant()}: {profile.Name}";
         }
         catch (Exception ex)
         {
             row.Health = SafeFleetError(ex);
+            _fleetHistory.Add(CreateFleetFailureRecord(row.ProfileId, row.Health));
             FleetStatusText.Text = $"{profile.Name}: {row.Health}";
             StatusText.Text = $"Fleet probe failed: {profile.Name}";
         }
         finally
         {
             FleetSecretBox.Clear();
-            ApplyFleetFilter();
-            UpdateFleetSummary();
         }
+
+        await PersistFleetHistoryAsync();
+        ApplyFleetFilter();
+        UpdateFleetSummary();
+    }
+
+    private void FleetList_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        UpdateFleetHistoryView();
+
+    private void UpdateFleetHistoryView()
+    {
+        if (FleetHistoryList is null || FleetHistoryTitle is null)
+        {
+            return;
+        }
+
+        if (FleetList?.SelectedItem is not FleetServerStatus row)
+        {
+            FleetHistoryTitle.Text = "Health history";
+            FleetHistoryList.ItemsSource = Array.Empty<FleetHealthRecord>();
+            return;
+        }
+
+        var history = _fleetHistory
+            .Where(record => record.ProfileId == row.ProfileId)
+            .OrderByDescending(record => record.RecordedUtc)
+            .Take(FleetHistoryPerProfileLimit)
+            .ToArray();
+
+        FleetHistoryTitle.Text = $"Health history • {row.Name} • {history.Length} record(s)";
+        FleetHistoryList.ItemsSource = history;
+    }
+
+    private async void ClearFleetHistory_Click(object sender, RoutedEventArgs e)
+    {
+        if (FleetList.SelectedItem is not FleetServerStatus row)
+        {
+            FleetStatusText.Text = "Select a Fleet row first.";
+            return;
+        }
+
+        var count = _fleetHistory.Count(record => record.ProfileId == row.ProfileId);
+        if (count == 0)
+        {
+            FleetStatusText.Text = $"{row.Name} has no local health history.";
+            return;
+        }
+
+        var confirmed = MessageBox.Show(
+            this,
+            $"Delete {count} local Fleet health record(s) for {row.Name}?\n\nThis does not change the remote server.",
+            "Clear Fleet health history",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (confirmed != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _fleetHistory.RemoveAll(record => record.ProfileId == row.ProfileId);
+        await PersistFleetHistoryAsync();
+        RefreshFleetInventory();
+        FleetStatusText.Text = $"Cleared local Fleet health history for {row.Name}.";
     }
 
     private void OpenFleetServer_Click(object sender, RoutedEventArgs e)
@@ -521,16 +621,102 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
     }
 
-    private static void ApplyFleetSnapshot(FleetServerStatus row, ServerSnapshot snapshot)
+    private static FleetHealthRecord ApplyFleetSnapshot(
+        FleetServerStatus row,
+        ServerSnapshot snapshot)
     {
-        row.Health = "Healthy";
+        var memoryPercent = snapshot.MemoryTotalMb > 0
+            ? snapshot.MemoryUsedMb * 100.0 / snapshot.MemoryTotalMb
+            : 0.0;
+
+        var diskPercent = snapshot.DiskTotalGb > 0
+            ? snapshot.DiskUsedGb * 100.0 / snapshot.DiskTotalGb
+            : 0.0;
+
+        var alerts = new List<string>();
+
+        if (snapshot.CpuPercent >= FleetAttentionThresholdPercent)
+        {
+            alerts.Add($"CPU {snapshot.CpuPercent:0.0}%");
+        }
+
+        if (memoryPercent >= FleetAttentionThresholdPercent)
+        {
+            alerts.Add($"RAM {memoryPercent:0.0}%");
+        }
+
+        if (diskPercent >= FleetAttentionThresholdPercent)
+        {
+            alerts.Add($"Disk {diskPercent:0.0}%");
+        }
+
+        row.Health = alerts.Count == 0 ? "Healthy" : "Attention";
         row.OperatingSystem = snapshot.OperatingSystem;
         row.Uptime = snapshot.Uptime;
         row.Load = snapshot.Load;
         row.Cpu = snapshot.CpuPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%";
         row.Memory = snapshot.MemoryTotalMb > 0
-            ? $"{snapshot.MemoryUsedMb:N0}/{snapshot.MemoryTotalMb:N0} MB"
+            ? memoryPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%"
             : "—";
+
+        return new FleetHealthRecord
+        {
+            ProfileId = row.ProfileId,
+            RecordedUtc = DateTimeOffset.UtcNow,
+            Status = row.Health,
+            CpuPercent = snapshot.CpuPercent,
+            MemoryPercent = memoryPercent,
+            DiskPercent = diskPercent,
+            Load = snapshot.Load,
+            Message = alerts.Count == 0
+                ? "Read-only probe healthy."
+                : "Threshold: " + string.Join(" • ", alerts)
+        };
+    }
+
+    private static FleetHealthRecord CreateFleetFailureRecord(
+        Guid profileId,
+        string status)
+    {
+        return new FleetHealthRecord
+        {
+            ProfileId = profileId,
+            RecordedUtc = DateTimeOffset.UtcNow,
+            Status = status,
+            Message = "Read-only Fleet probe did not complete successfully."
+        };
+    }
+
+    private async Task PersistFleetHistoryAsync()
+    {
+        TrimFleetHistory();
+
+        try
+        {
+            await _fleetHistoryStore.SaveAsync(_fleetHistory);
+        }
+        catch (Exception ex)
+        {
+            FleetStatusText.Text = $"Fleet history could not be saved locally: {SafeError(ex)}";
+            StatusText.Text = "Fleet history save failed";
+        }
+
+        UpdateFleetHistoryView();
+    }
+
+    private void TrimFleetHistory()
+    {
+        var trimmed = _fleetHistory
+            .GroupBy(record => record.ProfileId)
+            .SelectMany(group => group
+                .OrderByDescending(record => record.RecordedUtc)
+                .Take(FleetHistoryPerProfileLimit))
+            .OrderByDescending(record => record.RecordedUtc)
+            .Take(FleetHistoryTotalLimit)
+            .ToArray();
+
+        _fleetHistory.Clear();
+        _fleetHistory.AddRange(trimmed);
     }
 
     private void UpdateFleetSummary()
@@ -539,19 +725,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FleetTrustedValue.Text = _fleetRows.Count(row => row.Trust == "Trusted").ToString(CultureInfo.InvariantCulture);
         FleetHealthyValue.Text = _fleetRows.Count(row => row.Health == "Healthy").ToString(CultureInfo.InvariantCulture);
         FleetAttentionValue.Text = _fleetRows.Count(row =>
+                row.Health == "Attention" ||
                 row.Trust != "Trusted" ||
-                row.Health is "Probe failed" or "Authentication failed" or "Private key missing")
+                row.Health is "Probe failed" or "Authentication failed" or "Private key missing" or "Trust failed")
             .ToString(CultureInfo.InvariantCulture);
     }
 
     private static int FleetHealthRank(string health) =>
         health switch
         {
-            "Healthy" => 0,
-            "Ready to probe" => 1,
-            "Session secret required" => 2,
-            "Trust required" => 3,
-            _ => 4
+            "Attention" => 0,
+            "Healthy" => 1,
+            "Ready to probe" => 2,
+            "Session secret required" => 3,
+            "Trust required" => 4,
+            _ => 5
         };
 
     private static string SafeFleetError(Exception exception)
