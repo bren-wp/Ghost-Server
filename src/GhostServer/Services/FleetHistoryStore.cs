@@ -3,7 +3,7 @@ using GhostServer.Models;
 
 namespace GhostServer.Services;
 
-public sealed class FleetHistoryStore
+public sealed class FleetHistoryStore : IDisposable
 {
     private const int MaxRecordsPerProfile = 100;
     private const int MaxTotalRecords = 2000;
@@ -75,5 +75,11 @@ public sealed class FleetHistoryStore
             .ToList();
 
         return normalized;
+    }
+
+    public void Dispose()
+    {
+        _gate.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
