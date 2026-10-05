@@ -43,6 +43,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
     private CancellationTokenSource? _terminalConnectCancellation;
+    private CancellationTokenSource _remoteOperationsCancellation = new();
+    private readonly HashSet<string> _activeUiOperations = [];
+    private int _remoteOperationGeneration;
     private int _windowDisposed;
     private const int TerminalOutputMaxCharacters = 500_000;
 
@@ -291,6 +294,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var nextProfile = ServerList.SelectedItem as ServerProfile;
         if (SelectedProfile?.Id != nextProfile?.Id)
         {
+            CancelRemoteOperations();
             _terminalConnectCancellation?.Cancel();
             await DisconnectTerminalAsync(
                 "Terminal disconnected because the selected server changed.",
@@ -3153,6 +3157,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        CancelRemoteOperations();
         await DisconnectTerminalAsync(
             "Terminal disconnected because SSH trust was reset.",
             appendMessage: true);
@@ -3174,6 +3179,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void LockSession_Click(object sender, RoutedEventArgs e)
     {
+        CancelRemoteOperations();
         _terminalConnectCancellation?.Cancel();
         SessionSecretBox.Clear();
         await DisconnectTerminalAsync(
@@ -3379,6 +3385,81 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "GhostServer");
+
+    private sealed record RemoteOperationSnapshot(
+        ServerProfile Profile,
+        string? Secret,
+        int Generation,
+        CancellationToken CancellationToken);
+
+    private RemoteOperationSnapshot? CaptureRemoteOperation()
+    {
+        var profile = SelectedProfile;
+        if (profile is null)
+        {
+            return null;
+        }
+
+        return new RemoteOperationSnapshot(
+            CloneServerProfile(profile),
+            SessionSecretBox.Password,
+            Volatile.Read(ref _remoteOperationGeneration),
+            _remoteOperationsCancellation.Token);
+    }
+
+    private bool IsRemoteOperationCurrent(RemoteOperationSnapshot operation) =>
+        !operation.CancellationToken.IsCancellationRequested &&
+        operation.Generation == Volatile.Read(ref _remoteOperationGeneration) &&
+        SelectedProfile?.Id == operation.Profile.Id;
+
+    private void CancelRemoteOperations()
+    {
+        Interlocked.Increment(ref _remoteOperationGeneration);
+
+        var previous = _remoteOperationsCancellation;
+        _remoteOperationsCancellation = new CancellationTokenSource();
+
+        try
+        {
+            previous.Cancel();
+        }
+        finally
+        {
+            previous.Dispose();
+        }
+
+        _activeUiOperations.Clear();
+    }
+
+    private bool TryBeginUiOperation(string key, string duplicateMessage)
+    {
+        if (!_activeUiOperations.Add(key))
+        {
+            StatusText.Text = duplicateMessage;
+            return false;
+        }
+
+        return true;
+    }
+
+    private void EndUiOperation(string key) => _activeUiOperations.Remove(key);
+
+    private static ServerProfile CloneServerProfile(ServerProfile source) =>
+        new()
+        {
+            Id = source.Id,
+            Name = source.Name,
+            Host = source.Host,
+            Port = source.Port,
+            Username = source.Username,
+            Authentication = source.Authentication,
+            PrivateKeyPath = source.PrivateKeyPath,
+            HostKeyFingerprint = source.HostKeyFingerprint,
+            LastConnectedUtc = source.LastConnectedUtc
+        };
+
+    private static bool IsOperationCancellation(Exception exception) =>
+        exception is OperationCanceledException;
 
     private void AutoRefresh_Changed(object sender, RoutedEventArgs e)
     {
@@ -3620,6 +3701,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _terminalConnectCancellation?.Cancel();
         _terminalConnectCancellation?.Dispose();
         _terminalConnectCancellation = null;
+        _remoteOperationsCancellation.Cancel();
+        _remoteOperationsCancellation.Dispose();
+        _activeUiOperations.Clear();
         _terminalSession.Dispose();
         GC.SuppressFinalize(this);
     }
