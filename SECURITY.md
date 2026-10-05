@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.12.x`
+The active development line is `0.13.x`
 
 ## SSH trust model
 
@@ -156,3 +156,18 @@ Each record may contain:
 Fleet history never stores passwords, passphrases, private-key contents, database credentials or remote command output. Ghost Server does not upload Fleet health history or send it to any third-party service.
 
 History retention is bounded to the latest 100 records per server and 2,000 records total. Clearing history affects only local Ghost Server state and does not modify the remote server.
+
+
+## Alert Center
+
+The Alert Center is derived exclusively from local Fleet health history.
+
+Acknowledging an alert:
+- writes only a local acknowledgement timestamp;
+- does not modify the remote server;
+- does not change the server's current Fleet health state;
+- does not suppress future health records.
+
+CSV export may contain server profile name, timestamps, local status, acknowledgement time, CPU/RAM/disk percentages, load text and the local attention/failure summary. It never includes passwords, passphrases, private-key material, database credentials or remote command output.
+
+Ghost Server does not upload Alert Center data or send it to a third-party service.
