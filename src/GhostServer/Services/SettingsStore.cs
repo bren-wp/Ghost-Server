@@ -3,7 +3,7 @@ using GhostServer.Models;
 
 namespace GhostServer.Services;
 
-public sealed class SettingsStore
+public sealed class SettingsStore : IDisposable
 {
     private readonly string _path;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -53,5 +53,11 @@ public sealed class SettingsStore
         {
             _gate.Release();
         }
+    }
+
+    public void Dispose()
+    {
+        _gate.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
