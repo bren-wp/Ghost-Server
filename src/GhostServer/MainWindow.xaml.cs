@@ -1814,7 +1814,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2005,7 +2005,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2180,7 +2180,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2382,7 +2382,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
             }
 
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2503,7 +2503,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
             }
 
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2605,7 +2605,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 BackupOutput.ScrollToEnd();
             }
 
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2739,7 +2739,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2800,7 +2800,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -2939,7 +2939,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            Interlocked.Exchange(ref _mutationActive, 0);
+            ReleaseAdministrativeMutation();
         }
     }
 
@@ -4434,8 +4434,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return false;
         }
 
+        SetAdministrativeMutationBusy(true);
         StatusText.Text = message;
         return true;
+    }
+
+    private void ReleaseAdministrativeMutation()
+    {
+        Interlocked.Exchange(ref _mutationActive, 0);
+        SetAdministrativeMutationBusy(false);
+    }
+
+    private void SetAdministrativeMutationBusy(bool busy)
+    {
+        foreach (var button in GetAdministrativeMutationButtons())
+        {
+            button.IsEnabled = !busy;
+        }
+    }
+
+    private IEnumerable<Button> GetAdministrativeMutationButtons()
+    {
+        yield return StartServiceButton;
+        yield return StopServiceButton;
+        yield return RestartServiceButton;
+        yield return StartDockerButton;
+        yield return StopDockerButton;
+        yield return RestartDockerButton;
+        yield return AllowFirewallPortButton;
+        yield return RunSafeUpdateButton;
+        yield return RestoreConfigSnapshotButton;
+        yield return CreateConfigBackupButton;
+        yield return CreateTaskButton;
+        yield return DeleteTaskButton;
+        yield return TerminateProcessButton;
     }
 
     private void ShowAddError(string message)
