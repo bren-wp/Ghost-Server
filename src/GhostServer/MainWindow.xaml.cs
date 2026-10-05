@@ -2772,14 +2772,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StatusText.Text = "Quick Command inserted for review";
     }
 
-    private void TerminalSession_OutputReceived(object? sender, string output)
+    private void TerminalSession_OutputReceived(object? sender, TerminalOutputEventArgs e)
     {
-        if (Dispatcher.HasShutdownStarted || string.IsNullOrEmpty(output))
+        if (Dispatcher.HasShutdownStarted || string.IsNullOrEmpty(e.Text))
         {
             return;
         }
 
-        _ = Dispatcher.InvokeAsync(() => AppendTerminalOutput(output));
+        _ = Dispatcher.InvokeAsync(() => AppendTerminalOutput(e.Text));
     }
 
     private void TerminalSession_Disconnected(object? sender, EventArgs e)
