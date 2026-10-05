@@ -1420,12 +1420,32 @@
 
         <Border Grid.Row="2" Background="#08182B" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,1,0,0">
             <Grid Margin="14,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <TextBlock x:Name="StatusText" Text="Ready" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" FontSize="11" Margin="0,0,12,0"
                            TextTrimming="CharacterEllipsis"
                            AutomationProperties.Name="Application status"
                            AutomationProperties.LiveSetting="Polite"/>
-                <TextBlock x:Name="StatusShortcutText" Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
+                <Border x:Name="AdministrativeBusyBadge" Grid.Column="1"
+                        Visibility="Collapsed"
+                        Background="{StaticResource GhostWarningSurface}"
+                        BorderBrush="{StaticResource GhostWarning}"
+                        BorderThickness="1" CornerRadius="8"
+                        Padding="8,3" Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Administrative action in progress">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="6" Height="6" Fill="{StaticResource GhostWarning}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Admin action" Foreground="{StaticResource GhostWarning}"
+                                   FontSize="10.5" FontWeight="SemiBold" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock x:Name="StatusShortcutText" Grid.Column="2"
+                           Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11"/>
             </Grid>
         </Border>
