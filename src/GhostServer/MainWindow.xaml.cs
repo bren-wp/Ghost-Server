@@ -4245,59 +4245,59 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         e.Handled = true;
 
-        if (_activeNavButton == FleetNavButton)
+        if (FleetPage.Visibility == Visibility.Visible)
         {
             RefreshFleetInventory();
         }
-        else if (_activeNavButton == AlertsNavButton)
+        else if (AlertsPage.Visibility == Visibility.Visible)
         {
             RefreshAlertCenter();
         }
-        else if (_activeNavButton == TrendsNavButton)
+        else if (TrendsPage.Visibility == Visibility.Visible)
         {
             RefreshTrends();
         }
-        else if (_activeNavButton == FilesNavButton)
+        else if (FilesPage.Visibility == Visibility.Visible)
         {
             await RefreshFilesAsync();
         }
-        else if (_activeNavButton == ServicesNavButton)
+        else if (ServicesPage.Visibility == Visibility.Visible)
         {
             await RefreshManagerServicesAsync();
         }
-        else if (_activeNavButton == DockerNavButton)
+        else if (DockerPage.Visibility == Visibility.Visible)
         {
             await RefreshDockerAsync();
         }
-        else if (_activeNavButton == NetworkNavButton)
+        else if (NetworkPage.Visibility == Visibility.Visible)
         {
             await RefreshNetworkAsync();
         }
-        else if (_activeNavButton == UpdatesNavButton)
+        else if (UpdatesPage.Visibility == Visibility.Visible)
         {
             await RefreshUpdatesAsync();
         }
-        else if (_activeNavButton == TasksNavButton)
+        else if (TasksPage.Visibility == Visibility.Visible)
         {
             await RefreshTasksAsync();
         }
-        else if (_activeNavButton == SystemNavButton)
+        else if (SystemPage.Visibility == Visibility.Visible)
         {
             await RefreshSystemAsync();
         }
-        else if (_activeNavButton == DatabasesNavButton)
+        else if (DatabasesPage.Visibility == Visibility.Visible)
         {
             await RefreshDatabasesAsync();
         }
-        else if (_activeNavButton == LogsNavButton)
+        else if (LogsPage.Visibility == Visibility.Visible)
         {
             await RefreshLogsAsync();
         }
-        else if (_activeNavButton == SecurityNavButton)
+        else if (SecurityPage.Visibility == Visibility.Visible)
         {
             SecurityScan_Click(sender, new RoutedEventArgs());
         }
-        else if (_activeNavButton == DashboardNavButton)
+        else if (DashboardPage.Visibility == Visibility.Visible)
         {
             Connect_Click(sender, new RoutedEventArgs());
         }
