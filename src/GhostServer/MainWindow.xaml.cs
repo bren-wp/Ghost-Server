@@ -4033,38 +4033,83 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         CancelRemoteOperations();
         _terminalConnectCancellation?.Cancel();
         SessionSecretBox.Clear();
-        await DisconnectTerminalAsync(
-            "Terminal disconnected because the session was locked.",
-            appendMessage: true);
         _dashboardTimer.Stop();
+
         if (AutoRefreshToggle is not null)
         {
             AutoRefreshToggle.IsChecked = false;
         }
 
-        StatusText.Text = "Session secret cleared from memory";
         ConnectionStatus.Text = SelectedProfile is null ? "Not connected" : "Session locked";
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
+
+        if (_terminalTransitionBusy)
+        {
+            StatusText.Text = "Session secret cleared; terminal transition is being cancelled";
+            return;
+        }
+
+        _terminalTransitionBusy = true;
+        UpdateTerminalSessionUi();
+
+        try
+        {
+            await DisconnectTerminalAsync(
+                "Terminal disconnected because the session was locked.",
+                appendMessage: true);
+            StatusText.Text = "Session secret cleared from memory";
+        }
+        catch (Exception ex)
+        {
+            AppendTerminalSystemLine($"Lock disconnect failed: {SafeError(ex)}");
+            StatusText.Text = "Session locked; terminal disconnect reported an error";
+        }
+        finally
+        {
+            _terminalTransitionBusy = false;
+            UpdateTerminalSessionUi();
+        }
     }
 
     private async void ResetWindowLayout_Click(object sender, RoutedEventArgs e)
     {
-        _settings.WindowWidth = null;
-        _settings.WindowHeight = null;
-        _windowSizeSettingsDirty = false;
-        _windowSettingsTimer.Stop();
-
-        RestoreComfortableWindowSize();
-        _windowSettingsTimer.Stop();
-        _windowSizeSettingsDirty = false;
-
-        if (_settings.RememberWindowSize)
+        if (_settingsSaveBusy)
         {
-            CaptureCurrentWindowSize();
+            SettingsStatusText.Text = "Settings are already being saved.";
+            return;
         }
+
+        _settingsSaveBusy = true;
+        ResetWindowLayoutButton.IsEnabled = false;
+        SaveSettingsButton.IsEnabled = false;
+
+        var previousStoredWidth = _settings.WindowWidth;
+        var previousStoredHeight = _settings.WindowHeight;
+        var previousWindowSizeSettingsDirty = _windowSizeSettingsDirty;
+        var previousFitWindowActive = _fitWindowActive;
+        var previousWidth = Width;
+        var previousHeight = Height;
+        var previousLeft = Left;
+        var previousTop = Top;
+        var previousMaxWidth = MaxWidth;
+        var previousMaxHeight = MaxHeight;
 
         try
         {
+            _settings.WindowWidth = null;
+            _settings.WindowHeight = null;
+            _windowSizeSettingsDirty = false;
+            _windowSettingsTimer.Stop();
+
+            RestoreComfortableWindowSize();
+            _windowSettingsTimer.Stop();
+            _windowSizeSettingsDirty = false;
+
+            if (_settings.RememberWindowSize)
+            {
+                CaptureCurrentWindowSize();
+            }
+
             await _settingsStore.SaveAsync(_settings);
             SettingsStatusText.Text = _settingsDirty
                 ? "Window size reset. Other settings still have unsaved changes."
@@ -4073,8 +4118,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            SettingsStatusText.Text = SafeError(ex);
+            _settings.WindowWidth = previousStoredWidth;
+            _settings.WindowHeight = previousStoredHeight;
+            _windowSettingsTimer.Stop();
+
+            _fitWindowActive = true;
+            try
+            {
+                WindowState = WindowState.Normal;
+                MaxWidth = previousMaxWidth;
+                MaxHeight = previousMaxHeight;
+                Width = previousWidth;
+                Height = previousHeight;
+                Left = previousLeft;
+                Top = previousTop;
+            }
+            finally
+            {
+                _fitWindowActive = previousFitWindowActive;
+            }
+
+            _windowSizeSettingsDirty = previousWindowSizeSettingsDirty;
+            if (previousWindowSizeSettingsDirty && _settings.RememberWindowSize)
+            {
+                _windowSettingsTimer.Start();
+            }
+
+            ApplyResponsiveLayout();
+            SettingsStatusText.Text = $"Window layout reset failed: {SafeError(ex)}";
             StatusText.Text = "Window layout reset failed";
+        }
+        finally
+        {
+            _settingsSaveBusy = false;
+            ResetWindowLayoutButton.IsEnabled = true;
+            SaveSettingsButton.IsEnabled = _settingsDirty;
         }
     }
 
@@ -4707,6 +4785,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private bool TryAcquireProfileMutation(string message)
     {
+        if (Volatile.Read(ref _mutationActive) != 0)
+        {
+            StatusText.Text = "An administrative action is already running.";
+            return false;
+        }
+
         if (Volatile.Read(ref _fleetHistoryMutationActive) != 0)
         {
             StatusText.Text = "A Fleet history operation is already running.";
@@ -4719,10 +4803,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return false;
         }
 
-        if (Volatile.Read(ref _fleetHistoryMutationActive) != 0)
+        if (Volatile.Read(ref _mutationActive) != 0 ||
+            Volatile.Read(ref _fleetHistoryMutationActive) != 0)
         {
             Interlocked.Exchange(ref _profileMutationActive, 0);
-            StatusText.Text = "A Fleet history operation is already running.";
+            StatusText.Text = Volatile.Read(ref _mutationActive) != 0
+                ? "An administrative action is already running."
+                : "A Fleet history operation is already running.";
             return false;
         }
 

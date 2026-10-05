@@ -1344,7 +1344,7 @@
                                                   Checked="SettingsControl_Changed"
                                                   Unchecked="SettingsControl_Changed"/>
                                     </StackPanel>
-                                    <Button Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                    <Button x:Name="ResetWindowLayoutButton" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="0,0,0,8"
                                             Click="ResetWindowLayout_Click"
                                             AutomationProperties.Name="Reset window size">
                                         <StackPanel Orientation="Horizontal">
