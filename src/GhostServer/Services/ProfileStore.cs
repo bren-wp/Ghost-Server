@@ -3,10 +3,10 @@ using GhostServer.Models;
 
 namespace GhostServer.Services;
 
-public sealed class ProfileStore : IDisposable
+public sealed class ProfileStore
 {
     private readonly string _path;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private static readonly SemaphoreSlim Gate = new(1, 1);
 
     public ProfileStore()
     {
@@ -20,7 +20,7 @@ public sealed class ProfileStore : IDisposable
     public async Task<IReadOnlyList<ServerProfile>> LoadAsync(
         CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await Gate.WaitAsync(cancellationToken);
         try
         {
             var profiles = await JsonFileStore.LoadAsync<List<ServerProfile>>(
@@ -31,7 +31,7 @@ public sealed class ProfileStore : IDisposable
         }
         finally
         {
-            _gate.Release();
+            Gate.Release();
         }
     }
 
@@ -41,7 +41,7 @@ public sealed class ProfileStore : IDisposable
     {
         var validated = NormalizeAndValidate(profiles);
 
-        await _gate.WaitAsync(cancellationToken);
+        await Gate.WaitAsync(cancellationToken);
         try
         {
             await JsonFileStore.SaveAsync(
@@ -51,7 +51,7 @@ public sealed class ProfileStore : IDisposable
         }
         finally
         {
-            _gate.Release();
+            Gate.Release();
         }
     }
 
@@ -136,9 +136,4 @@ public sealed class ProfileStore : IDisposable
         return result;
     }
 
-    public void Dispose()
-    {
-        _gate.Dispose();
-        GC.SuppressFinalize(this);
-    }
 }
