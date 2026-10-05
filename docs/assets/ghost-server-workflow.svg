@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="250" viewBox="0 0 1200 250" role="img" aria-labelledby="title">
+  <title id="title">Ghost Server secure operations workflow</title>
+  <rect width="1200" height="250" rx="24" fill="#071522"/>
+  <g font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <g transform="translate(50 55)">
+      <rect width="220" height="140" rx="18" fill="#132D52" stroke="#274C78"/>
+      <text x="110" y="45" fill="#38ABFF" font-size="24">01</text>
+      <text x="110" y="77" fill="#EAF6FF" font-size="17" font-weight="600">Pin SSH identity</text>
+      <text x="110" y="104" fill="#9DB7D3" font-size="13">Explicit fingerprint approval</text>
+    </g>
+    <path d="M290 125h70" stroke="#38ABFF" stroke-width="3"/><path d="M350 115l12 10-12 10" fill="none" stroke="#38ABFF" stroke-width="3"/>
+    <g transform="translate(380 55)">
+      <rect width="220" height="140" rx="18" fill="#132D52" stroke="#274C78"/>
+      <text x="110" y="45" fill="#38ABFF" font-size="24">02</text>
+      <text x="110" y="77" fill="#EAF6FF" font-size="17" font-weight="600">Inspect first</text>
+      <text x="110" y="104" fill="#9DB7D3" font-size="13">Health, services, logs, updates</text>
+    </g>
+    <path d="M620 125h70" stroke="#38ABFF" stroke-width="3"/><path d="M680 115l12 10-12 10" fill="none" stroke="#38ABFF" stroke-width="3"/>
+    <g transform="translate(710 55)">
+      <rect width="220" height="140" rx="18" fill="#132D52" stroke="#274C78"/>
+      <text x="110" y="45" fill="#38ABFF" font-size="24">03</text>
+      <text x="110" y="77" fill="#EAF6FF" font-size="17" font-weight="600">Confirm changes</text>
+      <text x="110" y="104" fill="#9DB7D3" font-size="13">Guarded remote mutations</text>
+    </g>
+    <path d="M950 125h70" stroke="#38ABFF" stroke-width="3"/><path d="M1010 115l12 10-12 10" fill="none" stroke="#38ABFF" stroke-width="3"/>
+    <g transform="translate(1040 55)">
+      <rect width="110" height="140" rx="18" fill="#0B1E36" stroke="#38ABFF"/>
+      <text x="55" y="53" fill="#38ABFF" font-size="28">✓</text>
+      <text x="55" y="84" fill="#EAF6FF" font-size="15" font-weight="600">Verify</text>
+      <text x="55" y="108" fill="#9DB7D3" font-size="12">Health</text>
+    </g>
+  </g>
+</svg>
