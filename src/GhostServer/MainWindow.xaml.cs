@@ -4717,6 +4717,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _retiredRemoteCancellations.Clear();
         _activeUiOperations.Clear();
         _terminalSession.Dispose();
+        _fleetHistoryStore.Dispose();
+        _profileStore.Dispose();
+        _settingsStore.Dispose();
         GC.SuppressFinalize(this);
     }
 
