@@ -4465,6 +4465,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         if (e.Key == Key.Escape)
         {
+            if (GhostConfirmationOverlay.Visibility == Visibility.Visible)
+            {
+                CancelGhostConfirmation_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            }
+
             if (UnsavedSettingsOverlay.Visibility == Visibility.Visible)
             {
                 CancelUnsavedSettingsClose_Click(sender, new RoutedEventArgs());
@@ -4487,7 +4494,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
         }
 
-        if (UnsavedSettingsOverlay.Visibility == Visibility.Visible ||
+        if (GhostConfirmationOverlay.Visibility == Visibility.Visible ||
+            UnsavedSettingsOverlay.Visibility == Visibility.Visible ||
             ConfirmOverlay.Visibility == Visibility.Visible ||
             AddServerOverlay.Visibility == Visibility.Visible)
         {
@@ -4869,6 +4877,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         if (_allowCloseAfterSettingsFlush || !_settingsLoaded)
         {
+            return;
+        }
+
+        if (GhostConfirmationOverlay.Visibility == Visibility.Visible)
+        {
+            e.Cancel = true;
+            CompleteGhostConfirmation(false);
+            StatusText.Text = "Confirmation cancelled";
             return;
         }
 
