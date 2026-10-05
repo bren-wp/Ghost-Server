@@ -1294,7 +1294,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void UploadFile_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             FilesStatusText.Text = "Select a server first.";
             return;
@@ -1312,21 +1313,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (!TryBeginUiOperation("file-upload", "A file upload is already running."))
+        {
+            return;
+        }
+
         try
         {
             FilesStatusText.Text = $"Uploading {Path.GetFileName(dialog.FileName)}…";
             await SshServerClient.UploadFileAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 dialog.FileName,
-                RemotePathBox.Text);
+                RemotePathBox.Text,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             StatusText.Text = $"Uploaded {Path.GetFileName(dialog.FileName)}";
             await RefreshFilesAsync();
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            FilesStatusText.Text = SafeError(ex);
-            StatusText.Text = "Upload failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                FilesStatusText.Text = SafeError(ex);
+                StatusText.Text = "Upload failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("file-upload");
         }
     }
 
@@ -1349,7 +1372,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task DownloadSelectedRemoteFileAsync(RemoteFileItem item)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             FilesStatusText.Text = "Select a server first.";
             return;
@@ -1367,21 +1391,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (!TryBeginUiOperation("file-download", "A file download is already running."))
+        {
+            return;
+        }
+
         try
         {
             FilesStatusText.Text = $"Downloading {item.Name}…";
             await SshServerClient.DownloadFileAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 item.FullPath,
-                dialog.FileName);
+                dialog.FileName,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             FilesStatusText.Text = $"Downloaded {item.Name}";
             StatusText.Text = $"Downloaded {item.Name}";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            FilesStatusText.Text = SafeError(ex);
-            StatusText.Text = "Download failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                FilesStatusText.Text = SafeError(ex);
+                StatusText.Text = "Download failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("file-download");
         }
     }
 
@@ -1654,7 +1700,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RunServiceActionAsync(string action)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             SelectedServiceText.Text = "Select a server on Dashboard first.";
             return;
@@ -1669,7 +1716,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         if (action is "stop" or "restart" &&
             !ConfirmAdministrativeAction(
                 $"{char.ToUpperInvariant(action[0])}{action[1..]} service?",
-                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {SelectedProfile.Name}?"))
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} {service.Name} on {operation.Profile.Name}?"))
         {
             return;
         }
@@ -1683,18 +1730,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             StatusText.Text = $"{char.ToUpperInvariant(action[0])}{action[1..]}ing {service.Name}…";
             var output = await SshServerClient.ServiceActionAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 service.Name,
-                action);
+                action,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             StatusText.Text = $"{service.Name}: {output}";
             await RefreshManagerServicesAsync();
             await RefreshServicesAsync();
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            SelectedServiceText.Text = SafeError(ex);
-            StatusText.Text = $"Service {action} failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                SelectedServiceText.Text = SafeError(ex);
+                StatusText.Text = $"Service {action} failed";
+            }
         }
         finally
         {
@@ -1704,7 +1764,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void ServiceLogs_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             SelectedServiceText.Text = "Select a server first.";
             return;
@@ -1716,23 +1777,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (!TryBeginUiOperation("service-logs", "Service logs are already loading."))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"Loading logs for {service.Name}…";
-            _rawLogs = await SshServerClient.GetServiceLogsAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
-                service.Name);
+            var logs = await SshServerClient.GetServiceLogsAsync(
+                operation.Profile,
+                operation.Secret,
+                service.Name,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            _rawLogs = logs;
             LogsFilterBox.Clear();
             ApplyLogFilter();
             SetActiveNavigation(LogsNavButton);
             ShowPage(LogsPage, "Logs", $"Recent logs for {service.Name}");
             StatusText.Text = $"Loaded logs for {service.Name}";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            SelectedServiceText.Text = SafeError(ex);
-            StatusText.Text = "Service log load failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                SelectedServiceText.Text = SafeError(ex);
+                StatusText.Text = "Service log load failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("service-logs");
         }
     }
 
@@ -1807,7 +1891,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task RunDockerActionAsync(string action)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             SelectedDockerText.Text = "Select a server on Dashboard first.";
             return;
@@ -1822,7 +1907,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         if (action is "stop" or "restart" &&
             !ConfirmAdministrativeAction(
                 $"{char.ToUpperInvariant(action[0])}{action[1..]} container?",
-                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {SelectedProfile.Name}?"))
+                $"{char.ToUpperInvariant(action[0])}{action[1..]} Docker container {container.Name} on {operation.Profile.Name}?"))
         {
             return;
         }
@@ -1836,17 +1921,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             StatusText.Text = $"Docker {action}: {container.Name}…";
             var output = await SshServerClient.DockerActionAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 container.Id,
-                action);
+                action,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             StatusText.Text = $"Docker {container.Name}: {output}";
             await RefreshDockerAsync();
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            SelectedDockerText.Text = SafeError(ex);
-            StatusText.Text = $"Docker {action} failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                SelectedDockerText.Text = SafeError(ex);
+                StatusText.Text = $"Docker {action} failed";
+            }
         }
         finally
         {
@@ -1856,7 +1954,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void DockerLogs_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             SelectedDockerText.Text = "Select a server first.";
             return;
@@ -1868,23 +1967,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (!TryBeginUiOperation("docker-logs", "Docker logs are already loading."))
+        {
+            return;
+        }
+
         try
         {
             StatusText.Text = $"Loading logs for {container.Name}…";
-            _rawLogs = await SshServerClient.GetDockerLogsAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
-                container.Id);
+            var logs = await SshServerClient.GetDockerLogsAsync(
+                operation.Profile,
+                operation.Secret,
+                container.Id,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
+            _rawLogs = logs;
             LogsFilterBox.Clear();
             ApplyLogFilter();
             SetActiveNavigation(LogsNavButton);
             ShowPage(LogsPage, "Logs", $"Recent logs for Docker container {container.Name}");
             StatusText.Text = $"Loaded Docker logs for {container.Name}";
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            SelectedDockerText.Text = SafeError(ex);
-            StatusText.Text = "Docker log load failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                SelectedDockerText.Text = SafeError(ex);
+                StatusText.Text = "Docker log load failed";
+            }
+        }
+        finally
+        {
+            EndUiOperation("docker-logs");
         }
     }
 
@@ -1941,7 +2063,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void AllowFirewallPort_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var operation = CaptureRemoteOperation();
+        if (operation is null)
         {
             NetworkOutput.Text = "Select a server on Dashboard first.";
             return;
@@ -1956,7 +2079,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var protocol = (FirewallProtocolBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "tcp";
         var confirmed = MessageBox.Show(
             this,
-            $"Allow inbound {protocol.ToUpperInvariant()} port {port} on {SelectedProfile.Name}?\n\nThis changes the remote firewall and requires passwordless sudo for the connected account.",
+            $"Allow inbound {protocol.ToUpperInvariant()} port {port} on {operation.Profile.Name}?\n\nThis changes the remote firewall and requires passwordless sudo for the connected account.",
             "Confirm firewall change",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -1976,18 +2099,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             StatusText.Text = $"Allowing firewall port {port}/{protocol}…";
             var output = await SshServerClient.AllowFirewallPortAsync(
-                SelectedProfile,
-                SessionSecretBox.Password,
+                operation.Profile,
+                operation.Secret,
                 port,
-                protocol);
+                protocol,
+                operation.CancellationToken);
+
+            if (!IsRemoteOperationCurrent(operation))
+            {
+                return;
+            }
+
             NetworkOutput.Text = output;
             StatusText.Text = $"Firewall rule added: {port}/{protocol}";
             await RefreshNetworkAsync();
         }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            NetworkOutput.Text = SafeError(ex);
-            StatusText.Text = "Firewall change failed";
+            if (IsRemoteOperationCurrent(operation))
+            {
+                NetworkOutput.Text = SafeError(ex);
+                StatusText.Text = "Firewall change failed";
+            }
         }
         finally
         {
