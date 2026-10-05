@@ -49,6 +49,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private int _windowDisposed;
     private bool _windowStateCorrection;
     private bool _fitWindowActive;
+    private int _responsiveLayoutSignature = -1;
+    private IInputElement? _focusBeforeOverlay;
     private const double StandardWindowWidth = 1180;
     private const double StandardWindowHeight = 760;
     private const double CompactSidebarBreakpoint = 1040;
@@ -3486,6 +3488,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void OpenAddServer_Click(object sender, RoutedEventArgs e)
     {
+        CaptureOverlayFocus();
         _editingProfile = null;
         AddServerTitle.Text = "Add server";
         SaveServerButton.Content = "Save server";
@@ -3507,6 +3510,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        CaptureOverlayFocus();
         _editingProfile = SelectedProfile;
         AddServerTitle.Text = "Edit server";
         SaveServerButton.Content = "Save changes";
@@ -3531,6 +3535,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         AddServerOverlay.Visibility = Visibility.Collapsed;
         _editingProfile = null;
+        RestoreOverlayFocus();
     }
 
     private void AddAuthentication_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -3647,8 +3652,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             await _profileStore.SaveAsync(Profiles);
             AddServerOverlay.Visibility = Visibility.Collapsed;
             _editingProfile = null;
+            _focusBeforeOverlay = null;
             ServerList.SelectedItem = profile;
             ServerList.ScrollIntoView(profile);
+            ServerList.Focus();
             StatusText.Text = editedExisting
                 ? $"Updated {profile.Name}."
                 : $"Saved {profile.Name}. Approve the SSH host key before first connection.";
@@ -3676,15 +3683,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        CaptureOverlayFocus();
         _pendingDeleteProfile = SelectedProfile;
         ConfirmMessage.Text = $"Delete local profile “{SelectedProfile.Name}” ({SelectedProfile.Endpoint})?";
         ConfirmOverlay.Visibility = Visibility.Visible;
+        ConfirmCancelButton.Focus();
     }
 
     private void CancelDelete_Click(object sender, RoutedEventArgs e)
     {
         ConfirmOverlay.Visibility = Visibility.Collapsed;
         _pendingDeleteProfile = null;
+        RestoreOverlayFocus();
     }
 
     private async void ConfirmDelete_Click(object sender, RoutedEventArgs e)
@@ -3692,6 +3702,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         if (_pendingDeleteProfile is null)
         {
             ConfirmOverlay.Visibility = Visibility.Collapsed;
+            RestoreOverlayFocus();
             return;
         }
 
@@ -3713,11 +3724,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             await _profileStore.SaveAsync(Profiles);
             ConfirmOverlay.Visibility = Visibility.Collapsed;
             _pendingDeleteProfile = null;
+            _focusBeforeOverlay = null;
             SelectedProfile = null;
             ServerList.SelectedItem = null;
             SessionSecretBox.Clear();
             EmptyState.Visibility = Visibility.Visible;
             ServerDetail.Visibility = Visibility.Collapsed;
+            ServerList.Focus();
             StatusText.Text = $"Deleted local profile {profile.Name}";
         }
         catch (Exception ex)
@@ -3736,6 +3749,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             ConfirmOverlay.Visibility = Visibility.Collapsed;
             _pendingDeleteProfile = null;
+            RestoreOverlayFocus();
             StatusText.Text = SafeError(ex);
         }
     }
@@ -4067,6 +4081,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void DashboardTimer_Tick(object? sender, EventArgs e)
     {
+        if (WindowState == WindowState.Minimized || !IsVisible)
+        {
+            return;
+        }
+
         var operation = CaptureRemoteOperation();
         if (_autoRefreshBusy ||
             operation is null ||
@@ -4389,6 +4408,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         Top = workArea.Top + Math.Max(0, (workArea.Height - Height) / 2);
     }
 
+    private void CaptureOverlayFocus()
+    {
+        if (AddServerOverlay.Visibility != Visibility.Visible &&
+            ConfirmOverlay.Visibility != Visibility.Visible)
+        {
+            _focusBeforeOverlay = Keyboard.FocusedElement;
+        }
+    }
+
+    private void RestoreOverlayFocus()
+    {
+        var target = _focusBeforeOverlay;
+        _focusBeforeOverlay = null;
+
+        _ = Dispatcher.InvokeAsync(
+            () =>
+            {
+                if (target is UIElement element && element.IsVisible && element.IsEnabled)
+                {
+                    Keyboard.Focus(element);
+                    return;
+                }
+
+                DashboardNavButton.Focus();
+            },
+            DispatcherPriority.Input);
+    }
+
     private void ApplyResponsiveLayout()
     {
         if (!IsLoaded)
@@ -4399,6 +4446,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var compactSidebar = ActualWidth < CompactSidebarBreakpoint;
         var tightLayout = ActualWidth < TightLayoutBreakpoint;
         var reducedHeight = ActualHeight < 700;
+        var narrowDashboard = ActualWidth < 760;
+
+        // Modal cards track the live window size continuously. The heavier workspace
+        // layout work below only runs when a responsive breakpoint actually changes.
+        AddServerCard.Width = Math.Min(560, Math.Max(320, ActualWidth - 48));
+        AddServerCard.MaxHeight = Math.Max(300, ActualHeight - 48);
+        ConfirmCard.Width = Math.Min(470, Math.Max(300, ActualWidth - 48));
+
+        var signature =
+            (compactSidebar ? 1 : 0) |
+            (tightLayout ? 2 : 0) |
+            (reducedHeight ? 4 : 0) |
+            (narrowDashboard ? 8 : 0);
+
+        if (_responsiveLayoutSignature == signature)
+        {
+            return;
+        }
+
+        _responsiveLayoutSignature = signature;
 
         SidebarColumn.Width = new GridLength(compactSidebar ? 72 : 198);
         SidebarInnerGrid.Margin = new Thickness(compactSidebar ? 8 : 12);
@@ -4422,7 +4489,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             navGrid.ColumnDefinitions[0].Width = compactSidebar
                 ? new GridLength(1, GridUnitType.Star)
-                : new GridLength(30);
+                : new GridLength(32);
             navGrid.ColumnDefinitions[1].Width = compactSidebar
                 ? new GridLength(0)
                 : new GridLength(1, GridUnitType.Star);
@@ -4440,7 +4507,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             : Visibility.Visible;
 
         DashboardServerColumn.Width = new GridLength(
-            ActualWidth < 760
+            narrowDashboard
                 ? 190
                 : compactSidebar
                     ? 235
@@ -4453,10 +4520,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         SettingsPage.Margin = workspaceMargin;
-
-        AddServerCard.Width = Math.Min(560, Math.Max(320, ActualWidth - 48));
-        AddServerCard.MaxHeight = Math.Max(300, ActualHeight - 48);
-        ConfirmCard.Width = Math.Min(470, Math.Max(300, ActualWidth - 48));
     }
 
     private IEnumerable<FrameworkElement> GetResponsiveWorkspacePages()
