@@ -57,6 +57,8 @@ Ghost Server 0.20.0 focuses on **local-state reliability and interaction polish*
 - 🔒 Settings, profile and Fleet-history stores use process-lifetime per-store serialization to prevent overlapping atomic-write races without shutdown disposal hazards.
 - 💾 Settings now exposes an explicit unsaved-changes state and only enables Save settings when needed.
 - 🛑 Closing with pending Settings now uses a Ghost-styled Save, Discard or Cancel workflow.
+- 💬 All in-app confirmations now use Ghost-styled modals; platform-default confirmation boxes are gone.
+- ↩️ Fleet history clear and alert acknowledgement roll back automatically if local persistence fails.
 - 🧱 Failed Settings writes cannot leak rejected form values into later background persistence.
 - 🧭 Pending Settings edits survive navigation away from and back to the Settings page.
 - 🚦 Windows CI now cancels stale grouped runs after newer commits on the same PR.
