@@ -4015,7 +4015,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             await ProfileStore.ExportAsync(dialog.FileName, Profiles);
-            SettingsStatusText.Text = $"Exported {Profiles.Count} profile(s). No passwords or passphrases were included.";
+            SettingsStatusText.Text = $"Exported {Profiles.Count} portable profile(s). Session secrets, pinned SSH trust and connection history were not included.";
             StatusText.Text = "Profiles exported";
         }
         catch (Exception ex)
@@ -4057,7 +4057,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             if (!await ShowGhostConfirmationAsync(
                     "Import server profiles",
-                    $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
+                    $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets, pinned SSH trust and connection history are not imported.",
                     "Import profiles",
                     danger: false))
             {
