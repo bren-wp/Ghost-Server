@@ -256,3 +256,9 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - explicit Settings save must stage form values in a candidate model and update persisted in-memory state only after a successful write;
 - Escape on the unsaved-settings overlay maps to Cancel and focus remains trapped in the active overlay;
 - window-geometry persistence remains independent from unsaved form persistence.
+- application confirmations must use the shared Ghost modal system rather than platform-default MessageBox chrome;
+- confirmation modals default focus to Cancel, trap focus, map Escape to Cancel and block background shortcuts;
+- dangerous remote mutations use Danger confirmation styling while non-destructive confirmations may use Accent styling;
+- closing the window while an async confirmation is pending cancels the confirmation before any close flow continues;
+- local UI must not report successful history mutation when persistence failed;
+- destructive local-history mutations must roll back in-memory state when their durable write fails.
