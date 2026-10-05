@@ -91,3 +91,13 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - Fleet exposes no bulk restart, update, terminate or firewall mutation actions;
 - "Open on Dashboard" moves the user into the existing single-server workflow before any broader administration;
 - filtering covers server name, endpoint, username, health and operating system.
+
+
+## v0.10 Terminal polish
+
+- Terminal exposes a compact Quick Commands selector below the normal command editor;
+- presets are read-only inspection commands and never execute on selection;
+- Insert preset copies the command into the existing editor so the user can review or modify it first;
+- manual Run remains the single execution action;
+- preset guidance is visible directly under the selector to avoid ambiguity;
+- README visuals use the same Electric Blue / Deep Navy / Slate Blue / Ice White product system without pretending to be application screenshots.

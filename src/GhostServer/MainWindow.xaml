@@ -775,6 +775,31 @@
                                         <TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}"/>
                                     </Button>
                                 </Grid>
+
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="QuickCommandBox" Style="{StaticResource GhostComboBox}" SelectedIndex="0"
+                                              ToolTip="Read-only command presets. Insert first, then review and run manually.">
+                                        <ComboBoxItem Content="System summary" Tag="uptime; printf '\nMemory\n'; free -h; printf '\nRoot filesystem\n'; df -h /"/>
+                                        <ComboBoxItem Content="Top processes" Tag="ps -eo pid,user,pcpu,pmem,etime,comm --sort=-pcpu | head -n 20"/>
+                                        <ComboBoxItem Content="Listening sockets" Tag="ss -lntup 2>/dev/null || netstat -lntup 2>/dev/null"/>
+                                        <ComboBoxItem Content="Disk usage" Tag="df -hPT"/>
+                                        <ComboBoxItem Content="Docker containers" Tag="docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'"/>
+                                        <ComboBoxItem Content="Recent errors" Tag="journalctl -p err -n 80 --no-pager"/>
+                                    </ComboBox>
+                                    <Button Grid.Column="1" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                            Click="InsertQuickCommand_Click" ToolTip="Insert preset into the command editor without running it">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE8B5;" Style="{StaticResource FluentIcon}"/>
+                                            <TextBlock Text="Insert preset" Margin="7,0,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <TextBlock Text="Quick Commands are read-only presets. Ghost Server never runs a preset until you press Run."
+                                           Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="2,7,0,0"/>
                             </StackPanel>
                         </Border>
 

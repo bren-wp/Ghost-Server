@@ -1,93 +1,393 @@
+<div align="center">
+
+<img src="docs/assets/ghost-server-hero.svg" alt="Ghost Server — secure Windows control for SSH-connected Linux infrastructure" width="100%">
+
+<br>
+
+[![Latest Release](https://img.shields.io/github/v/release/bren-wp/Ghost-Server?display_name=tag&sort=semver&style=for-the-badge&label=Release)](https://github.com/bren-wp/Ghost-Server/releases/latest)
+[![Windows CI](https://img.shields.io/github/actions/workflow/status/bren-wp/Ghost-Server/ci.yml?branch=main&style=for-the-badge&label=Windows%20CI)](https://github.com/bren-wp/Ghost-Server/actions/workflows/ci.yml)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](https://www.microsoft.com/windows/)
+[![License](https://img.shields.io/github/license/bren-wp/Ghost-Server?style=for-the-badge)](LICENSE)
+
 # Ghost Server
 
-**Ghost Server** is a Windows desktop application for managing SSH-connected Linux servers through a focused graphical interface.
+### Secure Windows control for SSH-connected Linux infrastructure.
 
-The project follows the established **Ghost FTP** visual system: Electric Blue `#38ABFF`, Deep Navy `#0B1E36`, Slate Blue `#132D52`, Ice White `#EAF6FF`, a 51 px custom title bar and a 216 px navigation rail.
+Manage servers, services, Docker, files, logs, updates, scheduled tasks and fleet health from one focused Windows desktop application — without turning routine operations into a terminal-only workflow.
 
-## Current release — 0.9.0
+[**Download Setup**](https://github.com/bren-wp/Ghost-Server/releases/latest/download/GhostServer-Setup.exe)
+&nbsp;&nbsp;•&nbsp;&nbsp;
+[**Download Portable**](https://github.com/bren-wp/Ghost-Server/releases/latest/download/GhostServer-Portable.exe)
+&nbsp;&nbsp;•&nbsp;&nbsp;
+[**View Releases**](https://github.com/bren-wp/Ghost-Server/releases)
 
-This development milestone contains real application code rather than seeded demo data:
+</div>
 
-- add, edit and delete SSH server profiles;
-- password or private-key authentication;
-- session secrets stay in memory and are not written to the profile store;
-- SHA-256 SSH host-key pinning with explicit first-connection approval;
-- live hostname, OS, kernel, uptime, load, CPU, RAM, disk and Docker discovery;
-- running systemd service list;
-- Services workspace with start, stop and restart actions;
-- Docker container discovery and start/stop/restart actions;
-- recent server, service and Docker log viewer with client-side filtering;
-- secure SFTP file browser with upload and download;
-- Network workspace for interfaces, routes, listening sockets and supported firewall state;
-- validated UFW/firewalld allow-port workflow with explicit confirmation;
-- Safe Update preview and guarded package upgrades for APT, DNF, YUM, Zypper and pacman;
-- mandatory downloaded configuration snapshot before Safe Update changes;
-- post-update health verification with no automatic reboot;
-- validated configuration restore for allowlisted Ghost Server snapshot paths;
-- Scheduled Operations workspace for isolated Ghost Server systemd timers;
-- System workspace with top process inventory, filesystem/mount overview and logged-in users;
-- Fleet workspace with filterable multi-server inventory and summary KPIs;
-- parallel read-only health probes for trusted private-key profiles that do not require a passphrase;
-- selected-server Fleet probe with a session-only secret and fast Dashboard jump;
-- guarded SIGTERM action for the explicitly selected PID;
-- Hourly/Daily/Weekly scheduled task creation with validated names and base64-transferred task scripts;
-- read-only current-user crontab visibility without editing unrelated cron configuration;
-- configuration snapshot workflow with SFTP download and temporary-archive cleanup;
-- configurable 15/30/60/120-second dashboard auto-refresh;
-- terminal command history and keyboard shortcuts;
-- explicit session lock that clears the in-memory secret;
-- resettable SSH host-key trust for deliberate re-pinning;
-- command terminal against the selected server;
-- read-only baseline security scan;
-- dark Ghost UI implemented in WPF with Fluent iconography, branded executable/installer icon and no browser/WebView application shell;
-- Windows CI build with verified `GhostServer-Portable.exe` and `GhostServer-Setup.exe` artifacts;
-- portable launch smoke test plus Setup silent install/launch/uninstall smoke test;
-- atomic profile/settings persistence with `.bak` recovery;
-- Settings & About workspace with default backup folder and profile import/export;
-- bounded local crash diagnostics for unexpected failures;
-- .NET analyzers enabled with warnings treated as build errors;
-- source-hygiene CI audit blocking TODO/FIXME/NotImplementedException leftovers;
-- release-notes CI gate for every declared version;
-- automatic GitHub Release publication only after a successful main CI run;
-- SHA-256 checksum manifest published with every Windows release.
+---
 
-## Technology
+## ✨ Why Ghost Server?
 
-- C# / .NET 10
-- WPF
-- SSH.NET 2026.0.0
-- Windows 10/11
+Ghost Server is built for people who manage Linux servers from Windows and want **direct control without sacrificing visibility or safety**.
 
-## Build
+Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the connection model explicit:
+
+- 🔐 **Pinned SSH identity** — first connection requires fingerprint approval.
+- 🧠 **Session-only secrets** — passwords and passphrases are not stored in server profiles.
+- 🖥️ **Focused Windows UI** — native WPF application, no browser shell and no WebView application layer.
+- ⚡ **Fast operations** — jump from Fleet health to a single server, inspect state, then act.
+- 🛡️ **Guarded mutations** — disruptive actions require explicit confirmation.
+- 📦 **Real release artifacts** — every release ships both Portable and Setup builds.
+- ✅ **Production QA gates** — analyzers, source hygiene, installer verification and runtime smoke tests are mandatory.
+
+---
+
+## 🚀 Current release — 0.10.0
+
+Ghost Server 0.10.0 combines the operational feature set built through the previous releases with additional product polish and **Terminal Quick Commands**.
+
+### New in 0.10.0
+
+- ⚡ Read-only Terminal Quick Command presets.
+- 🧩 Presets for system summary, top processes, sockets, disks, Docker and recent errors.
+- 👀 Presets are inserted into the command editor first — **nothing runs automatically**.
+- 🎨 Branded project artwork and a complete public-facing README redesign.
+- 📚 Clearer product, security, architecture and release documentation.
+
+---
+
+## 🧭 Product workspaces
+
+| Workspace | What it does | Mutation level |
+|---|---|---|
+| 🏠 **Dashboard** | Live host health, OS, kernel, uptime, CPU, RAM, disk, load and running services | Read-only |
+| 🌐 **Fleet** | Multi-server inventory, filtering, trust state, live health probes and fast Dashboard jump | Read-only |
+| 📁 **Files** | Browse, upload and download over verified SFTP | Controlled file transfer |
+| ⚙️ **Services** | Inspect, start, stop and restart systemd services | Confirmed remote change |
+| 🐳 **Docker** | Inspect containers and start/stop/restart selected workloads | Confirmed remote change |
+| 🔌 **Network** | Interfaces, routes, listening sockets and firewall state | Read-only + explicit allow rule |
+| 🛡️ **Safe Update** | Preview updates, create config backup, upgrade and verify host health | Guarded maintenance flow |
+| 💾 **Backup** | Create and download allowlisted configuration snapshots | Guarded snapshot workflow |
+| 🕒 **Tasks** | Manage isolated Ghost Server systemd timers and inspect current-user crontab | Guarded scheduler changes |
+| 🧠 **System** | Process inventory, filesystems, block devices, sessions and load | Read-only + confirmed SIGTERM |
+| 📜 **Logs** | Server, service and Docker logs with client-side filtering | Read-only |
+| ⌨️ **Terminal** | Run explicit SSH commands with history and read-only presets | User-controlled |
+| 🔒 **Security** | Baseline read-only server security checks | Read-only |
+| 🛠️ **Settings** | Monitoring cadence, backup folder, profile import/export and app data | Local settings |
+
+---
+
+## 🌐 Fleet management
+
+Fleet gives you one place to review every saved server profile without introducing dangerous bulk administration.
+
+- Filter by server name, endpoint, username, health or operating system.
+- See **Saved / Trusted / Healthy / Attention** counters immediately.
+- Run parallel read-only probes against trusted private-key profiles.
+- Probe a selected password/passphrase-protected server using a **session-only secret**.
+- Jump directly from a Fleet row to the normal single-server Dashboard workflow.
+
+> Ghost Server deliberately does **not** expose bulk restart, update, firewall or terminate actions in Fleet.
+
+---
+
+## 🛡️ Safe Update
+
+Package maintenance is treated as a workflow, not a single dangerous button.
+
+1. Preview available updates.
+2. Create and download a configuration snapshot.
+3. Run the supported package-manager update.
+4. Re-check health after the update.
+5. Keep reboot decisions explicit.
+
+Supported discovery/update paths cover common Linux package managers including **APT, DNF, YUM, Zypper and pacman**.
+
+Ghost Server does not silently reboot a server after updates.
+
+---
+
+## 🔐 Security model
+
+<img src="docs/assets/ghost-server-workflow.svg" alt="Ghost Server secure operations workflow" width="100%">
+
+### SSH identity
+
+Ghost Server fails closed around server identity:
+
+- unknown host keys require explicit approval;
+- pinned SHA-256 fingerprints are stored with the profile;
+- a changed fingerprint blocks remote operations;
+- resetting trust is an explicit local action.
+
+### Secrets
+
+Passwords and private-key passphrases are **session-only**.
+
+Ghost Server profile export/import contains connection metadata, but not session secrets.
+
+### Remote administration
+
+Administrative changes are intentionally narrow:
+
+- service and Docker stop/restart actions require confirmation;
+- firewall mutations validate TCP/UDP and port range;
+- process termination accepts the selected numeric PID and sends **SIGTERM only**;
+- Ghost Server never escalates automatically to SIGKILL;
+- read-only discovery remains separate from mutation controls.
+
+### Local diagnostics
+
+Unexpected runtime failures can write bounded local crash diagnostics under the Ghost Server app-data directory. Crash logging is best-effort and does not replace the original failure path.
+
+See [SECURITY.md](SECURITY.md) for the current security boundaries.
+
+---
+
+## ⌨️ Terminal Quick Commands
+
+0.10.0 adds a small read-only preset library for common inspection tasks:
+
+- **System summary**
+- **Top processes**
+- **Listening sockets**
+- **Disk usage**
+- **Docker containers**
+- **Recent journal errors**
+
+Selecting a preset only inserts the command into the command box. You can review or edit it before pressing **Run**.
+
+The normal command history remains available with **↑ / ↓**.
+
+---
+
+## ⚡ Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| **Ctrl + N** | Add server |
+| **Ctrl + L** | Lock session and clear the active session secret |
+| **F5** | Refresh the active workspace where supported |
+| **Esc** | Close the active confirmation/add-server overlay |
+| **↑ / ↓** | Browse Terminal command history |
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    UI["Windows WPF UI"] --> Profiles["Profiles + Settings"]
+    UI --> SSH["Verified SSH transport"]
+    UI --> SFTP["Verified SFTP transport"]
+
+    Profiles --> Local["%LocalAppData% / GhostServer"]
+    SSH --> Linux["Linux server"]
+    SFTP --> Linux
+
+    Linux --> Health["Health & discovery"]
+    Linux --> Services["systemd"]
+    Linux --> Docker["Docker"]
+    Linux --> Network["Network / firewall"]
+    Linux --> Updates["Safe Update"]
+    Linux --> Tasks["systemd timers"]
+    Linux --> Logs["journald / logs"]
+    Linux --> Files["Files / backups"]
+```
+
+### Technology
+
+- **C# / .NET 10**
+- **WPF**
+- **SSH.NET 2026.0.0**
+- **Inno Setup**
+- **GitHub Actions**
+- **Windows 10 / 11**
+
+No browser application shell is used.
+
+---
+
+## 🎨 Ghost visual system
+
+Ghost Server follows the visual language established across the Ghost product family:
+
+| Token | Value |
+|---|---|
+| Electric Blue | `#38ABFF` |
+| Deep Navy | `#0B1E36` |
+| Slate Blue | `#132D52` |
+| Ice White | `#EAF6FF` |
+| Title bar | 51 px |
+| Navigation rail | 216 px |
+
+The UI uses dark navy surfaces, restrained blue emphasis, thin borders, Fluent iconography and readable high-contrast text.
+
+---
+
+## 📦 Download
+
+### Installer
+
+Recommended for normal Windows use.
+
+**[Download GhostServer-Setup.exe](https://github.com/bren-wp/Ghost-Server/releases/latest/download/GhostServer-Setup.exe)**
+
+The Setup build is validated in CI through:
+
+- silent installation;
+- installed executable discovery;
+- launch smoke test;
+- silent uninstall.
+
+### Portable
+
+Runs as a self-contained Windows x64 executable.
+
+**[Download GhostServer-Portable.exe](https://github.com/bren-wp/Ghost-Server/releases/latest/download/GhostServer-Portable.exe)**
+
+### Verify downloads
+
+Every release publishes:
+
+**[SHA256SUMS.txt](https://github.com/bren-wp/Ghost-Server/releases/latest/download/SHA256SUMS.txt)**
+
+Use PowerShell:
 
 ```powershell
+Get-FileHash .\GhostServer-Setup.exe -Algorithm SHA256
+Get-FileHash .\GhostServer-Portable.exe -Algorithm SHA256
+```
+
+Compare the result with the checksum manifest from the same GitHub release.
+
+---
+
+## 🧪 Release quality gate
+
+A Ghost Server release is not considered deliverable until the validated `main` commit passes the Windows pipeline.
+
+The mandatory gate includes:
+
+1. version metadata consistency;
+2. release-notes presence;
+3. source-hygiene audit for unfinished markers;
+4. package restore;
+5. .NET analyzers with warnings treated as errors;
+6. Release build;
+7. self-contained Windows x64 publish;
+8. Portable EXE creation and verification;
+9. Inno Setup installer creation and verification;
+10. Portable launch smoke test;
+11. Setup install → launch → uninstall smoke test;
+12. final GitHub Release publication from the validated commit;
+13. SHA-256 checksum manifest generation.
+
+The release workflow is triggered only after a successful `main` CI run.
+
+---
+
+## 🧰 Build from source
+
+### Requirements
+
+- Windows 10 or Windows 11
+- .NET 10 SDK
+
+### Build
+
+```powershell
+git clone https://github.com/bren-wp/Ghost-Server.git
+cd Ghost-Server
+
 dotnet restore GhostServer.sln
 dotnet build GhostServer.sln -c Release
 dotnet run --project src/GhostServer/GhostServer.csproj
 ```
 
-Self-contained Windows publish:
+### Self-contained publish
 
 ```powershell
-dotnet publish src/GhostServer/GhostServer.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish src/GhostServer/GhostServer.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-## Security principles
+---
 
-Ghost Server is designed to fail closed around SSH identity:
+## 🗂️ Project structure
 
-- a server host key is never silently trusted;
-- a changed fingerprint blocks connection;
-- passwords/passphrases are not persisted by the current profile store;
-- routine UI errors must not expose secrets;
-- security scan operations in this milestone are read-only.
+```text
+Ghost-Server/
+├─ .github/workflows/       Windows CI + release publication
+├─ build/                   build-time branding helpers
+├─ docs/
+│  ├─ assets/               README/product artwork
+│  └─ releases/             versioned release notes
+├─ installer/               Inno Setup definition
+├─ src/GhostServer/
+│  ├─ Models/
+│  ├─ Services/
+│  ├─ Themes/
+│  ├─ App.xaml
+│  ├─ MainWindow.xaml
+│  └─ MainWindow.xaml.cs
+├─ SECURITY.md
+├─ version.json
+└─ GhostServer.sln
+```
 
-See [SECURITY.md](SECURITY.md).
+---
 
-## Product direction
+## 🧭 Product direction
 
-Next milestones focus on database tooling, notification channels, richer fleet alerting and signed Windows packaging.
+Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-## License
+Current priorities after 0.10.0:
+
+- 🗄️ database inspection and guarded maintenance tooling;
+- 🔔 optional notification channels and fleet alerting;
+- 📊 richer Fleet history and health comparison;
+- 🔏 signed Windows distribution;
+- 🧪 broader automated operational regression tests.
+
+The product direction stays conservative around dangerous bulk operations: **visibility first, confirmation before mutation, verification after change**.
+
+---
+
+## 🤝 Contributing
+
+Pull requests should keep the existing product constraints intact:
+
+- no fake production metrics or seeded demo servers;
+- no persisted server passwords or passphrases;
+- no silent SSH trust;
+- no weakening analyzer or CI gates to make a build pass;
+- no release that only changes the version number;
+- no merge while required Windows CI is failing.
+
+Please keep changes focused and include release documentation when behavior changes.
+
+---
+
+## 📄 License
 
 See [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+**Ghost Server**  
+Windows control. Linux infrastructure. Explicit trust.
+
+[Releases](https://github.com/bren-wp/Ghost-Server/releases)
+&nbsp;•&nbsp;
+[Security](SECURITY.md)
+&nbsp;•&nbsp;
+[UI / UX](docs/UI_UX.md)
+
+</div>
