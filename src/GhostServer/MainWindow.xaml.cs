@@ -1070,14 +1070,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private static double AverageMetric(
-        IReadOnlyCollection<FleetHealthRecord> records,
+        FleetHealthRecord[] records,
         Func<FleetHealthRecord, double> selector) =>
-        records.Count == 0 ? 0.0 : records.Average(selector);
+        records.Length == 0 ? 0.0 : records.Average(selector);
 
     private static double MaxMetric(
-        IReadOnlyCollection<FleetHealthRecord> records,
+        FleetHealthRecord[] records,
         Func<FleetHealthRecord, double> selector) =>
-        records.Count == 0 ? 0.0 : records.Max(selector);
+        records.Length == 0 ? 0.0 : records.Max(selector);
 
     private static int TrendRiskRank(string status) =>
         status switch
