@@ -40,6 +40,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private readonly DispatcherTimer _windowSettingsTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
     private int _mutationActive;
+    private int _profileMutationActive;
+    private int _fleetHistoryMutationActive;
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
     private CancellationTokenSource? _terminalConnectCancellation;
@@ -498,61 +500,88 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        FleetStatusText.Text = $"Probing {candidates.Length} trusted private-key profile(s)…";
-        StatusText.Text = "Running Fleet health probes…";
-
-        using var concurrency = new SemaphoreSlim(4, 4);
-        var tasks = candidates.Select(async profile =>
+        if (!TryAcquireFleetHistoryMutation("Running Fleet health probes…"))
         {
-            await concurrency.WaitAsync();
-            try
-            {
-                var snapshot = await SshServerClient.GetSnapshotAsync(profile, null);
-                return (profile.Id, Snapshot: snapshot, Error: (string?)null);
-            }
-            catch (Exception ex)
-            {
-                return (profile.Id, Snapshot: (ServerSnapshot?)null, Error: SafeFleetError(ex));
-            }
-            finally
-            {
-                concurrency.Release();
-            }
-        });
+            FleetStatusText.Text = "Another local profile or Fleet history operation is already running.";
+            return;
+        }
 
-        var results = await Task.WhenAll(tasks);
-        foreach (var result in results)
+        var previousHistory = _fleetHistory.ToArray();
+        try
         {
-            var row = _fleetRows.FirstOrDefault(item => item.ProfileId == result.Id);
-            if (row is null)
+            FleetStatusText.Text = $"Probing {candidates.Length} trusted private-key profile(s)…";
+            StatusText.Text = "Running Fleet health probes…";
+
+            using var concurrency = new SemaphoreSlim(4, 4);
+            var tasks = candidates.Select(async profile =>
             {
-                continue;
+                await concurrency.WaitAsync();
+                try
+                {
+                    var snapshot = await SshServerClient.GetSnapshotAsync(profile, null);
+                    return (profile.Id, Snapshot: snapshot, Error: (string?)null);
+                }
+                catch (Exception ex)
+                {
+                    return (profile.Id, Snapshot: (ServerSnapshot?)null, Error: SafeFleetError(ex));
+                }
+                finally
+                {
+                    concurrency.Release();
+                }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            foreach (var result in results)
+            {
+                var row = _fleetRows.FirstOrDefault(item => item.ProfileId == result.Id);
+                if (row is null)
+                {
+                    continue;
+                }
+
+                if (result.Snapshot is not null)
+                {
+                    _fleetHistory.Add(ApplyFleetSnapshot(row, result.Snapshot));
+                }
+                else
+                {
+                    row.Health = result.Error ?? "Probe failed";
+                    _fleetHistory.Add(CreateFleetFailureRecord(row.ProfileId, row.Health));
+                }
             }
 
-            if (result.Snapshot is not null)
+            var historySaved = await PersistFleetHistoryAsync();
+            if (!historySaved)
             {
-                _fleetHistory.Add(ApplyFleetSnapshot(row, result.Snapshot));
+                RestoreFleetHistory(previousHistory);
+            }
+
+            ApplyFleetFilter();
+            UpdateFleetSummary();
+
+            if (historySaved)
+            {
+                FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
+                StatusText.Text = "Fleet health probes completed";
             }
             else
             {
-                row.Health = result.Error ?? "Probe failed";
-                _fleetHistory.Add(CreateFleetFailureRecord(row.ProfileId, row.Health));
+                FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s), but local health history could not be saved. In-memory history was restored.";
+                StatusText.Text = "Fleet probes completed; history save failed";
             }
         }
-
-        var historySaved = await PersistFleetHistoryAsync();
-        ApplyFleetFilter();
-        UpdateFleetSummary();
-
-        if (historySaved)
+        catch (Exception ex)
         {
-            FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
-            StatusText.Text = "Fleet health probes completed";
+            RestoreFleetHistory(previousHistory);
+            ApplyFleetFilter();
+            UpdateFleetSummary();
+            FleetStatusText.Text = $"Fleet probe failed: {SafeError(ex)}";
+            StatusText.Text = "Fleet health probe failed";
         }
-        else
+        finally
         {
-            FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s), but local health history could not be saved.";
-            StatusText.Text = "Fleet probes completed; history save failed";
+            ReleaseFleetHistoryMutation();
         }
     }
 
@@ -581,39 +610,58 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var secret = FleetSecretBox.Password;
-        FleetStatusText.Text = $"Probing {profile.Name}…";
-        StatusText.Text = $"Fleet probe: {profile.Name}";
+        if (!TryAcquireFleetHistoryMutation($"Probing {profile.Name}…"))
+        {
+            FleetStatusText.Text = "Another local profile or Fleet history operation is already running.";
+            return;
+        }
 
+        var previousHistory = _fleetHistory.ToArray();
+        var secret = FleetSecretBox.Password;
         try
         {
-            var snapshot = await SshServerClient.GetSnapshotAsync(profile, secret);
-            _fleetHistory.Add(ApplyFleetSnapshot(row, snapshot));
-            FleetStatusText.Text = row.Health == "Attention"
-                ? $"{profile.Name} responded, but local utilization thresholds need attention."
-                : $"{profile.Name} responded successfully.";
-            StatusText.Text = $"Fleet probe {row.Health.ToLowerInvariant()}: {profile.Name}";
-        }
-        catch (Exception ex)
-        {
-            row.Health = SafeFleetError(ex);
-            _fleetHistory.Add(CreateFleetFailureRecord(row.ProfileId, row.Health));
-            FleetStatusText.Text = $"{profile.Name}: {row.Health}";
-            StatusText.Text = $"Fleet probe failed: {profile.Name}";
+            FleetStatusText.Text = $"Probing {profile.Name}…";
+            StatusText.Text = $"Fleet probe: {profile.Name}";
+
+            try
+            {
+                var snapshot = await SshServerClient.GetSnapshotAsync(profile, secret);
+                _fleetHistory.Add(ApplyFleetSnapshot(row, snapshot));
+                FleetStatusText.Text = row.Health == "Attention"
+                    ? $"{profile.Name} responded, but local utilization thresholds need attention."
+                    : $"{profile.Name} responded successfully.";
+                StatusText.Text = $"Fleet probe {row.Health.ToLowerInvariant()}: {profile.Name}";
+            }
+            catch (Exception ex)
+            {
+                row.Health = SafeFleetError(ex);
+                _fleetHistory.Add(CreateFleetFailureRecord(row.ProfileId, row.Health));
+                FleetStatusText.Text = $"{profile.Name}: {row.Health}";
+                StatusText.Text = $"Fleet probe failed: {profile.Name}";
+            }
+            finally
+            {
+                FleetSecretBox.Clear();
+            }
+
+            var selectedHistorySaved = await PersistFleetHistoryAsync();
+            if (!selectedHistorySaved)
+            {
+                RestoreFleetHistory(previousHistory);
+            }
+
+            ApplyFleetFilter();
+            UpdateFleetSummary();
+
+            if (!selectedHistorySaved)
+            {
+                FleetStatusText.Text = $"{profile.Name} probe completed, but local health history could not be saved. In-memory history was restored.";
+                StatusText.Text = "Fleet probe completed; history save failed";
+            }
         }
         finally
         {
-            FleetSecretBox.Clear();
-        }
-
-        var selectedHistorySaved = await PersistFleetHistoryAsync();
-        ApplyFleetFilter();
-        UpdateFleetSummary();
-
-        if (!selectedHistorySaved)
-        {
-            FleetStatusText.Text = $"{profile.Name} probe completed, but local health history could not be saved.";
-            StatusText.Text = "Fleet probe completed; history save failed";
+            ReleaseFleetHistoryMutation();
         }
     }
 
@@ -659,31 +707,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!await ShowGhostConfirmationAsync(
-                "Clear Fleet health history",
-                $"Delete {count} local Fleet health record(s) for {row.Name}?\n\nThis does not change the remote server.",
-                "Clear history",
-                danger: true))
+        if (!TryAcquireFleetHistoryMutation("Preparing Fleet history clear…"))
         {
+            FleetStatusText.Text = "Another local profile or Fleet history operation is already running.";
             return;
         }
 
-        var previousHistory = _fleetHistory.ToArray();
-        _fleetHistory.RemoveAll(record => record.ProfileId == row.ProfileId);
-
-        if (!await PersistFleetHistoryAsync())
+        try
         {
-            _fleetHistory.Clear();
-            _fleetHistory.AddRange(previousHistory);
+            if (!await ShowGhostConfirmationAsync(
+                    "Clear Fleet health history",
+                    $"Delete {count} local Fleet health record(s) for {row.Name}?\n\nThis does not change the remote server.",
+                    "Clear history",
+                    danger: true))
+            {
+                return;
+            }
+
+            var previousHistory = _fleetHistory.ToArray();
+            _fleetHistory.RemoveAll(record => record.ProfileId == row.ProfileId);
+
+            if (!await PersistFleetHistoryAsync())
+            {
+                RestoreFleetHistory(previousHistory);
+                RefreshFleetInventory();
+                FleetStatusText.Text = $"Could not clear local Fleet health history for {row.Name}. The previous history was restored.";
+                StatusText.Text = "Fleet history clear failed";
+                return;
+            }
+
             RefreshFleetInventory();
-            FleetStatusText.Text = $"Could not clear local Fleet health history for {row.Name}. The previous history was restored.";
-            StatusText.Text = "Fleet history clear failed";
-            return;
+            FleetStatusText.Text = $"Cleared local Fleet health history for {row.Name}.";
+            StatusText.Text = "Fleet history cleared";
         }
-
-        RefreshFleetInventory();
-        FleetStatusText.Text = $"Cleared local Fleet health history for {row.Name}.";
-        StatusText.Text = "Fleet history cleared";
+        finally
+        {
+            ReleaseFleetHistoryMutation();
+        }
     }
 
     private void OpenFleetServer_Click(object sender, RoutedEventArgs e)
@@ -776,11 +836,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task<bool> PersistFleetHistoryAsync()
     {
-        TrimFleetHistory();
+        var trimmed = CreateTrimmedFleetHistorySnapshot();
 
         try
         {
-            await _fleetHistoryStore.SaveAsync(_fleetHistory);
+            await _fleetHistoryStore.SaveAsync(trimmed);
+            _fleetHistory.Clear();
+            _fleetHistory.AddRange(trimmed);
             UpdateFleetHistoryView();
             return true;
         }
@@ -793,9 +855,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void TrimFleetHistory()
+    private FleetHealthRecord[] CreateTrimmedFleetHistorySnapshot()
     {
-        var trimmed = _fleetHistory
+        return _fleetHistory
             .GroupBy(record => record.ProfileId)
             .SelectMany(group => group
                 .OrderByDescending(record => record.RecordedUtc)
@@ -803,9 +865,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             .OrderByDescending(record => record.RecordedUtc)
             .Take(FleetHistoryTotalLimit)
             .ToArray();
+    }
 
+    private void RestoreFleetHistory(IEnumerable<FleetHealthRecord> history)
+    {
         _fleetHistory.Clear();
-        _fleetHistory.AddRange(trimmed);
+        _fleetHistory.AddRange(history);
+        UpdateFleetHistoryView();
     }
 
     private void UpdateFleetSummary()
@@ -922,21 +988,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var previousAcknowledgement = item.Record.AcknowledgedUtc;
-        item.Record.AcknowledgedUtc = DateTimeOffset.UtcNow;
-
-        if (!await PersistFleetHistoryAsync())
+        if (!TryAcquireFleetHistoryMutation("Acknowledging local Fleet alert…"))
         {
-            item.Record.AcknowledgedUtc = previousAcknowledgement;
-            RefreshAlertCenter();
-            AlertsStatusText.Text = $"Could not acknowledge the local alert for {item.ServerName}. The alert remains active.";
-            StatusText.Text = "Alert acknowledgement failed";
+            AlertsStatusText.Text = "Another local profile or Fleet history operation is already running.";
             return;
         }
 
-        RefreshAlertCenter();
-        AlertsStatusText.Text = $"Acknowledged local alert for {item.ServerName}.";
-        StatusText.Text = "Local alert acknowledged";
+        var previousAcknowledgement = item.Record.AcknowledgedUtc;
+        try
+        {
+            item.Record.AcknowledgedUtc = DateTimeOffset.UtcNow;
+
+            if (!await PersistFleetHistoryAsync())
+            {
+                item.Record.AcknowledgedUtc = previousAcknowledgement;
+                RefreshAlertCenter();
+                AlertsStatusText.Text = $"Could not acknowledge the local alert for {item.ServerName}. The alert remains active.";
+                StatusText.Text = "Alert acknowledgement failed";
+                return;
+            }
+
+            RefreshAlertCenter();
+            AlertsStatusText.Text = $"Acknowledged local alert for {item.ServerName}.";
+            StatusText.Text = "Local alert acknowledged";
+        }
+        finally
+        {
+            ReleaseFleetHistoryMutation();
+        }
     }
 
     private void OpenAlertServer_Click(object sender, RoutedEventArgs e)
@@ -1561,10 +1640,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
 
             ApplySnapshot(snapshot);
-            if (SelectedProfile is not null)
+
+            string? metadataWarning = null;
+            if (SelectedProfile is { } currentProfile &&
+                currentProfile.Id == operation.Profile.Id)
             {
-                SelectedProfile.LastConnectedUtc = DateTimeOffset.UtcNow;
-                await _profileStore.SaveAsync(Profiles);
+                if (TryAcquireProfileMutation("Saving connection metadata…"))
+                {
+                    var previousLastConnected = currentProfile.LastConnectedUtc;
+                    currentProfile.LastConnectedUtc = DateTimeOffset.UtcNow;
+                    try
+                    {
+                        await _profileStore.SaveAsync(Profiles);
+                    }
+                    catch (Exception ex)
+                    {
+                        currentProfile.LastConnectedUtc = previousLastConnected;
+                        metadataWarning = SafeError(ex);
+                    }
+                    finally
+                    {
+                        ReleaseProfileMutation();
+                    }
+                }
+                else
+                {
+                    metadataWarning = "another local profile or Fleet history operation is active";
+                }
             }
 
             if (!IsRemoteOperationCurrent(operation))
@@ -1574,7 +1676,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             ConnectionStatus.Text = "Connected";
             ConnectionStatus.Foreground = (Brush)FindResource("GhostSuccess");
-            StatusText.Text = $"Connected to {operation.Profile.Name}";
+            StatusText.Text = metadataWarning is null
+                ? $"Connected to {operation.Profile.Name}"
+                : $"Connected to {operation.Profile.Name}; local connection metadata was not saved: {metadataWarning}";
             await RefreshServicesAsync();
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
@@ -1606,25 +1710,53 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void TrustHostKey_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null || string.IsNullOrWhiteSpace(_pendingFingerprint))
+        var profile = SelectedProfile;
+        var fingerprint = _pendingFingerprint;
+        if (profile is null || string.IsNullOrWhiteSpace(fingerprint))
         {
             return;
         }
 
-        SelectedProfile.HostKeyFingerprint = _pendingFingerprint;
-        _pendingFingerprint = null;
-        _pendingAlgorithm = null;
-        HostKeyPanel.Visibility = Visibility.Collapsed;
+        if (!TryAcquireProfileMutation($"Saving SSH trust for {profile.Name}…"))
+        {
+            return;
+        }
+
+        var previousFingerprint = profile.HostKeyFingerprint;
+        TrustHostKeyButton.IsEnabled = false;
+        RejectHostKeyButton.IsEnabled = false;
 
         try
         {
+            profile.HostKeyFingerprint = fingerprint;
             await _profileStore.SaveAsync(Profiles);
-            StatusText.Text = "Host key pinned. Connecting…";
-            Connect_Click(sender, e);
+            RefreshFleetInventory();
+
+            if (SelectedProfile?.Id == profile.Id &&
+                string.Equals(_pendingFingerprint, fingerprint, StringComparison.Ordinal))
+            {
+                _pendingFingerprint = null;
+                _pendingAlgorithm = null;
+                HostKeyPanel.Visibility = Visibility.Collapsed;
+                StatusText.Text = "Host key pinned. Connecting…";
+                Connect_Click(sender, e);
+            }
+            else
+            {
+                StatusText.Text = $"Host key pinned for {profile.Name}.";
+            }
         }
         catch (Exception ex)
         {
-            StatusText.Text = SafeError(ex);
+            profile.HostKeyFingerprint = previousFingerprint;
+            RefreshFleetInventory();
+            StatusText.Text = $"Could not pin the host key for {profile.Name}: {SafeError(ex)}";
+        }
+        finally
+        {
+            TrustHostKeyButton.IsEnabled = true;
+            RejectHostKeyButton.IsEnabled = true;
+            ReleaseProfileMutation();
         }
     }
 
@@ -3646,6 +3778,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (!TryAcquireProfileMutation("Saving server profile…"))
+        {
+            ShowAddError("Another local profile or Fleet history operation is already running.");
+            return;
+        }
+
+        SaveServerButton.IsEnabled = false;
+        AddServerCancelButton.IsEnabled = false;
+
         var editedExisting = _editingProfile is not null;
         var oldProfile = _editingProfile;
         var profile = new ServerProfile
@@ -3666,24 +3807,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         };
 
         var replaceIndex = oldProfile is null ? -1 : Profiles.IndexOf(oldProfile);
-
-        if (editedExisting && oldProfile is not null)
-        {
-            CancelRemoteOperations();
-        }
-
-        if (editedExisting &&
-            oldProfile is not null &&
-            _terminalSession.ProfileId == oldProfile.Id)
-        {
-            _terminalConnectCancellation?.Cancel();
-            await DisconnectTerminalAsync(
-                "Terminal disconnected because the active server profile was edited.",
-                appendMessage: true);
-        }
+        var collectionChanged = false;
 
         try
         {
+            if (editedExisting && oldProfile is not null)
+            {
+                CancelRemoteOperations();
+            }
+
+            if (editedExisting &&
+                oldProfile is not null &&
+                _terminalSession.ProfileId == oldProfile.Id)
+            {
+                _terminalConnectCancellation?.Cancel();
+                await DisconnectTerminalAsync(
+                    "Terminal disconnected because the active server profile was edited.",
+                    appendMessage: true);
+            }
+
             if (editedExisting && replaceIndex >= 0)
             {
                 Profiles[replaceIndex] = profile;
@@ -3693,7 +3835,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 Profiles.Add(profile);
             }
 
+            collectionChanged = true;
             await _profileStore.SaveAsync(Profiles);
+            RefreshFleetInventory();
+
             AddServerOverlay.Visibility = Visibility.Collapsed;
             _editingProfile = null;
             _focusBeforeOverlay = null;
@@ -3706,17 +3851,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            if (editedExisting && replaceIndex >= 0 && oldProfile is not null)
+            if (collectionChanged)
             {
-                Profiles[replaceIndex] = oldProfile;
-                ServerList.SelectedItem = oldProfile;
-            }
-            else
-            {
-                Profiles.Remove(profile);
+                if (editedExisting && replaceIndex >= 0 && oldProfile is not null)
+                {
+                    Profiles[replaceIndex] = oldProfile;
+                    ServerList.SelectedItem = oldProfile;
+                }
+                else
+                {
+                    Profiles.Remove(profile);
+                }
             }
 
+            RefreshFleetInventory();
             ShowAddError(SafeError(ex));
+        }
+        finally
+        {
+            SaveServerButton.IsEnabled = true;
+            AddServerCancelButton.IsEnabled = true;
+            ReleaseProfileMutation();
         }
     }
 
@@ -3750,8 +3905,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (!TryAcquireProfileMutation("Deleting local server profile…"))
+        {
+            StatusText.Text = "Another local profile or Fleet history operation is already running.";
+            return;
+        }
+
+        ConfirmDeleteButton.IsEnabled = false;
+        ConfirmCancelButton.IsEnabled = false;
+
         var profile = _pendingDeleteProfile;
         var index = Profiles.IndexOf(profile);
+        var removed = false;
+
         try
         {
             CancelRemoteOperations();
@@ -3764,8 +3930,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     appendMessage: true);
             }
 
-            Profiles.Remove(profile);
+            removed = Profiles.Remove(profile);
             await _profileStore.SaveAsync(Profiles);
+            RefreshFleetInventory();
+
             ConfirmOverlay.Visibility = Visibility.Collapsed;
             _pendingDeleteProfile = null;
             _focusBeforeOverlay = null;
@@ -3779,7 +3947,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            if (!Profiles.Contains(profile))
+            if (removed && !Profiles.Contains(profile))
             {
                 if (index >= 0 && index <= Profiles.Count)
                 {
@@ -3791,37 +3959,72 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
             }
 
+            RefreshFleetInventory();
             ConfirmOverlay.Visibility = Visibility.Collapsed;
             _pendingDeleteProfile = null;
             RestoreOverlayFocus();
             StatusText.Text = SafeError(ex);
         }
+        finally
+        {
+            ConfirmDeleteButton.IsEnabled = true;
+            ConfirmCancelButton.IsEnabled = true;
+            ReleaseProfileMutation();
+        }
     }
 
     private async void ResetHostKey_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProfile is null)
+        var profile = SelectedProfile;
+        if (profile is null)
         {
             return;
         }
 
-        CancelRemoteOperations();
-        await DisconnectTerminalAsync(
-            "Terminal disconnected because SSH trust was reset.",
-            appendMessage: true);
-        SelectedProfile.HostKeyFingerprint = null;
+        if (!TryAcquireProfileMutation($"Resetting SSH trust for {profile.Name}…"))
+        {
+            return;
+        }
+
+        var previousFingerprint = profile.HostKeyFingerprint;
+        ResetHostKeyButton.IsEnabled = false;
+
         try
         {
+            CancelRemoteOperations();
+
+            if (_terminalSession.ProfileId == profile.Id)
+            {
+                _terminalConnectCancellation?.Cancel();
+                await DisconnectTerminalAsync(
+                    "Terminal disconnected because SSH trust was reset.",
+                    appendMessage: true);
+            }
+
+            profile.HostKeyFingerprint = null;
             await _profileStore.SaveAsync(Profiles);
-            ConnectionStatus.Text = "Host key not approved";
-            ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
-            HostKeyPanel.Visibility = Visibility.Collapsed;
-            StatusText.Text = $"SSH trust reset for {SelectedProfile.Name}";
-            UpdateTerminalSessionUi();
+            RefreshFleetInventory();
+
+            if (SelectedProfile?.Id == profile.Id)
+            {
+                ConnectionStatus.Text = "Host key not approved";
+                ConnectionStatus.Foreground = (Brush)FindResource("GhostWarning");
+                HostKeyPanel.Visibility = Visibility.Collapsed;
+                UpdateTerminalSessionUi();
+            }
+
+            StatusText.Text = $"SSH trust reset for {profile.Name}";
         }
         catch (Exception ex)
         {
-            StatusText.Text = SafeError(ex);
+            profile.HostKeyFingerprint = previousFingerprint;
+            RefreshFleetInventory();
+            StatusText.Text = $"Could not reset SSH trust for {profile.Name}: {SafeError(ex)}";
+        }
+        finally
+        {
+            ResetHostKeyButton.IsEnabled = true;
+            ReleaseProfileMutation();
         }
     }
 
@@ -4040,27 +4243,103 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            foreach (var incoming in imported)
+            if (!TryAcquireProfileMutation("Importing server profiles…"))
             {
-                var existing = Profiles.FirstOrDefault(profile =>
-                    profile.Id == incoming.Id ||
-                    (string.Equals(profile.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
-                     profile.Port == incoming.Port &&
-                     string.Equals(profile.Username, incoming.Username, StringComparison.OrdinalIgnoreCase)));
-
-                if (existing is null)
-                {
-                    Profiles.Add(incoming);
-                    continue;
-                }
-
-                var index = Profiles.IndexOf(existing);
-                Profiles[index] = incoming;
+                SettingsStatusText.Text = "Another local profile or Fleet history operation is already running.";
+                return;
             }
 
-            await _profileStore.SaveAsync(Profiles);
-            SettingsStatusText.Text = $"Imported and validated {imported.Count} profile(s).";
-            StatusText.Text = "Profiles imported";
+            var previousProfiles = Profiles.ToArray();
+            var previousSelectedId = SelectedProfile?.Id;
+
+            try
+            {
+                var replacedProfileIds = new HashSet<Guid>();
+                foreach (var incoming in imported)
+                {
+                    var existing = previousProfiles.FirstOrDefault(profile =>
+                        profile.Id == incoming.Id ||
+                        (string.Equals(profile.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
+                         profile.Port == incoming.Port &&
+                         string.Equals(profile.Username, incoming.Username, StringComparison.OrdinalIgnoreCase)));
+
+                    if (existing is not null)
+                    {
+                        replacedProfileIds.Add(existing.Id);
+                    }
+                }
+
+                if (previousSelectedId is Guid selectedId &&
+                    replacedProfileIds.Contains(selectedId))
+                {
+                    CancelRemoteOperations();
+                }
+
+                if (_terminalSession.ProfileId is Guid terminalProfileId &&
+                    replacedProfileIds.Contains(terminalProfileId))
+                {
+                    _terminalConnectCancellation?.Cancel();
+                    await DisconnectTerminalAsync(
+                        "Terminal disconnected because its server profile is being replaced by import.",
+                        appendMessage: true);
+                }
+
+                foreach (var incoming in imported)
+                {
+                    var existing = Profiles.FirstOrDefault(profile =>
+                        profile.Id == incoming.Id ||
+                        (string.Equals(profile.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
+                         profile.Port == incoming.Port &&
+                         string.Equals(profile.Username, incoming.Username, StringComparison.OrdinalIgnoreCase)));
+
+                    if (existing is null)
+                    {
+                        Profiles.Add(incoming);
+                        continue;
+                    }
+
+                    var index = Profiles.IndexOf(existing);
+                    Profiles[index] = incoming;
+                }
+
+                await _profileStore.SaveAsync(Profiles);
+                RefreshFleetInventory();
+
+                if (previousSelectedId is Guid restoreSelectionId)
+                {
+                    var currentSelection = Profiles.FirstOrDefault(profile => profile.Id == restoreSelectionId);
+                    if (currentSelection is not null)
+                    {
+                        SelectedProfile = currentSelection;
+                        ServerList.SelectedItem = currentSelection;
+                    }
+                }
+
+                SettingsStatusText.Text = $"Imported and validated {imported.Count} profile(s).";
+                StatusText.Text = "Profiles imported";
+            }
+            catch
+            {
+                Profiles.Clear();
+                foreach (var previousProfile in previousProfiles)
+                {
+                    Profiles.Add(previousProfile);
+                }
+
+                if (previousSelectedId is Guid selectedId)
+                {
+                    var restoredSelection = Profiles.FirstOrDefault(profile => profile.Id == selectedId);
+                    SelectedProfile = restoredSelection;
+                    ServerList.SelectedItem = restoredSelection;
+                }
+
+                RefreshFleetInventory();
+                throw;
+            }
+            finally
+            {
+                ReleaseProfileMutation();
+            }
         }
         catch (Exception ex)
         {
@@ -4426,11 +4705,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         completion.TrySetResult(result);
     }
 
+    private bool TryAcquireProfileMutation(string message)
+    {
+        if (Volatile.Read(ref _fleetHistoryMutationActive) != 0)
+        {
+            StatusText.Text = "A Fleet history operation is already running.";
+            return false;
+        }
+
+        if (Interlocked.CompareExchange(ref _profileMutationActive, 1, 0) != 0)
+        {
+            StatusText.Text = "Another profile change is already running.";
+            return false;
+        }
+
+        if (Volatile.Read(ref _fleetHistoryMutationActive) != 0)
+        {
+            Interlocked.Exchange(ref _profileMutationActive, 0);
+            StatusText.Text = "A Fleet history operation is already running.";
+            return false;
+        }
+
+        StatusText.Text = message;
+        return true;
+    }
+
+    private void ReleaseProfileMutation() =>
+        Interlocked.Exchange(ref _profileMutationActive, 0);
+
+    private bool TryAcquireFleetHistoryMutation(string message)
+    {
+        if (Volatile.Read(ref _profileMutationActive) != 0)
+        {
+            StatusText.Text = "A local profile change is already running.";
+            return false;
+        }
+
+        if (Interlocked.CompareExchange(ref _fleetHistoryMutationActive, 1, 0) != 0)
+        {
+            StatusText.Text = "Another Fleet history operation is already running.";
+            return false;
+        }
+
+        if (Volatile.Read(ref _profileMutationActive) != 0)
+        {
+            Interlocked.Exchange(ref _fleetHistoryMutationActive, 0);
+            StatusText.Text = "A local profile change is already running.";
+            return false;
+        }
+
+        StatusText.Text = message;
+        return true;
+    }
+
+    private void ReleaseFleetHistoryMutation() =>
+        Interlocked.Exchange(ref _fleetHistoryMutationActive, 0);
+
     private bool TryAcquireMutation(string message)
     {
+        if (Volatile.Read(ref _profileMutationActive) != 0)
+        {
+            StatusText.Text = "A local profile change is already running.";
+            return false;
+        }
+
         if (Interlocked.CompareExchange(ref _mutationActive, 1, 0) != 0)
         {
             StatusText.Text = "Another administrative action is already running.";
+            return false;
+        }
+
+        if (Volatile.Read(ref _profileMutationActive) != 0)
+        {
+            Interlocked.Exchange(ref _mutationActive, 0);
+            StatusText.Text = "A local profile change is already running.";
             return false;
         }
 

@@ -301,7 +301,7 @@
                                                 <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="OpenEditServer_Click" Margin="0,0,7,7" ToolTip="Edit selected server">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE70F;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Edit" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,7" ToolTip="Forget pinned SSH host key">
+                                                <Button x:Name="ResetHostKeyButton" Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,7" ToolTip="Forget pinned SSH host key">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Reset trust" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
                                                 <Button Style="{StaticResource DangerButton}" Padding="10,6" Click="DeleteServer_Click" Margin="0,0,0,7" ToolTip="Delete selected server">
@@ -348,9 +348,9 @@
                                                        TextWrapping="Wrap"/>
                                             <TextBlock x:Name="HostKeyAlgorithm" Foreground="{StaticResource GhostMuted}" Margin="0,5,0,10"/>
                                             <WrapPanel>
-                                                <Button Content="Trust fingerprint" Style="{StaticResource AccentButton}"
+                                                <Button x:Name="TrustHostKeyButton" Content="Trust fingerprint" Style="{StaticResource AccentButton}"
                                                         Click="TrustHostKey_Click" Margin="0,0,8,8"/>
-                                                <Button Content="Reject" Style="{StaticResource GhostButton}" Click="RejectHostKey_Click" Margin="0,0,0,8"/>
+                                                <Button x:Name="RejectHostKeyButton" Content="Reject" Style="{StaticResource GhostButton}" Click="RejectHostKey_Click" Margin="0,0,0,8"/>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
@@ -1499,7 +1499,7 @@
                                    AutomationProperties.LiveSetting="Assertive"/>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                            <Button x:Name="AddServerCancelButton" Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                                     Click="CloseAddServer_Click" IsCancel="True"/>
                             <Button x:Name="SaveServerButton" Content="Save server" Style="{StaticResource AccentButton}"
                                     Click="SaveServer_Click" IsDefault="True"/>
@@ -1598,7 +1598,7 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="ConfirmCancelButton" Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                                 Click="CancelDelete_Click" IsCancel="True"/>
-                        <Button Content="Delete profile" Style="{StaticResource DangerButton}" Click="ConfirmDelete_Click"/>
+                        <Button x:Name="ConfirmDeleteButton" Content="Delete profile" Style="{StaticResource DangerButton}" Click="ConfirmDelete_Click"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
