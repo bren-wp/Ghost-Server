@@ -3875,11 +3875,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void SaveSettings_Click(object sender, RoutedEventArgs e)
+    private async void SaveSettings_Click(object sender, RoutedEventArgs e) =>
+        await SaveSettingsAsync();
+
+    private async Task<bool> SaveSettingsAsync()
     {
-        if (_settingsSaveBusy || !_settingsDirty)
+        if (_settingsSaveBusy)
         {
-            return;
+            return false;
+        }
+
+        if (!_settingsDirty)
+        {
+            return true;
         }
 
         _settingsSaveBusy = true;
@@ -3912,21 +3920,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (saveGeneration == _settingsEditGeneration)
             {
                 _settingsDirty = false;
+                _windowSizeSettingsDirty = false;
+                _windowSettingsTimer.Stop();
                 SettingsStatusText.Text = "Settings saved.";
-            }
-            else
-            {
-                _settingsDirty = true;
-                SettingsStatusText.Text = "Settings saved. New changes are still unsaved.";
+                StatusText.Text = "Settings saved";
+                return true;
             }
 
+            _settingsDirty = true;
+            SettingsStatusText.Text = "Settings saved. New changes are still unsaved.";
             StatusText.Text = "Settings saved";
+            return false;
         }
         catch (Exception ex)
         {
             _settingsDirty = true;
             SettingsStatusText.Text = SafeError(ex);
             StatusText.Text = "Settings save failed";
+            return false;
         }
         finally
         {
@@ -4647,6 +4658,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         AddServerCard.Width = Math.Min(560, Math.Max(320, ActualWidth - 48));
         AddServerCard.MaxHeight = Math.Max(300, ActualHeight - 48);
         ConfirmCard.Width = Math.Min(470, Math.Max(300, ActualWidth - 48));
+        UnsavedSettingsCard.Width = Math.Min(500, Math.Max(300, ActualWidth - 48));
 
         var signature =
             (compactSidebar ? 1 : 0) |
