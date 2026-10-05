@@ -245,3 +245,8 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - optional backup-folder configuration must support both setting and clearing the path;
 - settings, profile and Fleet-history load/save operations are serialized by process-lifetime per-store gates so atomic temp/backup writes cannot overlap and shutdown cannot dispose a gate underneath a late async completion;
 - the additional local-state persistence must never store passwords or private-key passphrases.
+- Settings must clearly distinguish persisted values from unsaved form changes;
+- Save settings stays disabled until a user-visible setting changes and returns to disabled after a successful save;
+- navigating away from Settings must not silently discard pending Settings edits when returning to the page;
+- immediate actions such as Reset window size must not silently persist unrelated pending form values;
+- Settings change events raised during XAML initialization must not create a false dirty state.
