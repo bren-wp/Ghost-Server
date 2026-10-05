@@ -44,7 +44,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _terminalTransitionBusy;
     private CancellationTokenSource? _terminalConnectCancellation;
     private CancellationTokenSource _remoteOperationsCancellation = new();
-    private readonly HashSet<string> _activeUiOperations = [];
+    private readonly List<CancellationTokenSource> _retiredRemoteCancellations = [];
+    private readonly Dictionary<string, int> _activeUiOperations = [];
     private int _remoteOperationGeneration;
     private int _windowDisposed;
     private const int TerminalOutputMaxCharacters = 500_000;
@@ -1205,7 +1206,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("files-refresh", "Remote files are already refreshing."))
+        if (!TryBeginUiOperation(operation, "files-refresh", "Remote files are already refreshing."))
         {
             return;
         }
@@ -1246,7 +1247,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("files-refresh");
+            EndUiOperation(operation, "files-refresh");
         }
     }
 
@@ -1313,7 +1314,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("file-upload", "A file upload is already running."))
+        if (!TryBeginUiOperation(operation, "file-upload", "A file upload is already running."))
         {
             return;
         }
@@ -1349,7 +1350,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("file-upload");
+            EndUiOperation(operation, "file-upload");
         }
     }
 
@@ -1391,7 +1392,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("file-download", "A file download is already running."))
+        if (!TryBeginUiOperation(operation, "file-download", "A file download is already running."))
         {
             return;
         }
@@ -1427,7 +1428,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("file-download");
+            EndUiOperation(operation, "file-download");
         }
     }
 
@@ -1460,7 +1461,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("dashboard-connect", "A Dashboard connection operation is already running."))
+        if (!TryBeginUiOperation(operation, "dashboard-connect", "A Dashboard connection operation is already running."))
         {
             return;
         }
@@ -1545,7 +1546,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("dashboard-connect");
+            EndUiOperation(operation, "dashboard-connect");
         }
     }
 
@@ -1592,7 +1593,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("dashboard-services-refresh", "Dashboard services are already refreshing."))
+        if (!TryBeginUiOperation(operation, "dashboard-services-refresh", "Dashboard services are already refreshing."))
         {
             return;
         }
@@ -1625,7 +1626,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("dashboard-services-refresh");
+            EndUiOperation(operation, "dashboard-services-refresh");
         }
     }
 
@@ -1642,7 +1643,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("services-refresh", "Services are already refreshing."))
+        if (!TryBeginUiOperation(operation, "services-refresh", "Services are already refreshing."))
         {
             return;
         }
@@ -1678,7 +1679,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("services-refresh");
+            EndUiOperation(operation, "services-refresh");
         }
     }
 
@@ -1777,7 +1778,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("service-logs", "Service logs are already loading."))
+        if (!TryBeginUiOperation(operation, "service-logs", "Service logs are already loading."))
         {
             return;
         }
@@ -1816,7 +1817,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("service-logs");
+            EndUiOperation(operation, "service-logs");
         }
     }
 
@@ -1833,7 +1834,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("docker-refresh", "Docker containers are already refreshing."))
+        if (!TryBeginUiOperation(operation, "docker-refresh", "Docker containers are already refreshing."))
         {
             return;
         }
@@ -1869,7 +1870,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("docker-refresh");
+            EndUiOperation(operation, "docker-refresh");
         }
     }
 
@@ -1967,7 +1968,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("docker-logs", "Docker logs are already loading."))
+        if (!TryBeginUiOperation(operation, "docker-logs", "Docker logs are already loading."))
         {
             return;
         }
@@ -2006,7 +2007,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("docker-logs");
+            EndUiOperation(operation, "docker-logs");
         }
     }
 
@@ -2022,7 +2023,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("network-refresh", "Network state is already refreshing."))
+        if (!TryBeginUiOperation(operation, "network-refresh", "Network state is already refreshing."))
         {
             return;
         }
@@ -2057,7 +2058,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("network-refresh");
+            EndUiOperation(operation, "network-refresh");
         }
     }
 
@@ -2143,7 +2144,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("updates-refresh", "Safe Update preview is already running."))
+        if (!TryBeginUiOperation(operation, "updates-refresh", "Safe Update preview is already running."))
         {
             return;
         }
@@ -2180,7 +2181,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("updates-refresh");
+            EndUiOperation(operation, "updates-refresh");
         }
     }
 
@@ -2578,7 +2579,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("tasks-refresh", "Scheduled operations are already refreshing."))
+        if (!TryBeginUiOperation(operation, "tasks-refresh", "Scheduled operations are already refreshing."))
         {
             return;
         }
@@ -2625,7 +2626,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("tasks-refresh");
+            EndUiOperation(operation, "tasks-refresh");
         }
     }
 
@@ -2745,7 +2746,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("system-refresh", "System state is already refreshing."))
+        if (!TryBeginUiOperation(operation, "system-refresh", "System state is already refreshing."))
         {
             return;
         }
@@ -2792,7 +2793,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("system-refresh");
+            EndUiOperation(operation, "system-refresh");
         }
     }
 
@@ -2870,7 +2871,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("databases-refresh", "Database discovery is already running."))
+        if (!TryBeginUiOperation(operation, "databases-refresh", "Database discovery is already running."))
         {
             return;
         }
@@ -2928,7 +2929,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("databases-refresh");
+            EndUiOperation(operation, "databases-refresh");
         }
     }
 
@@ -2958,7 +2959,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("logs-refresh", "Logs are already refreshing."))
+        if (!TryBeginUiOperation(operation, "logs-refresh", "Logs are already refreshing."))
         {
             return;
         }
@@ -2995,7 +2996,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("logs-refresh");
+            EndUiOperation(operation, "logs-refresh");
         }
     }
 
@@ -3405,7 +3406,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (!TryBeginUiOperation("security-scan", "Security scan is already running."))
+        if (!TryBeginUiOperation(operation, "security-scan", "Security scan is already running."))
         {
             return;
         }
@@ -3439,7 +3440,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            EndUiOperation("security-scan");
+            EndUiOperation(operation, "security-scan");
         }
     }
 
@@ -3967,31 +3968,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var previous = _remoteOperationsCancellation;
         _remoteOperationsCancellation = new CancellationTokenSource();
-
-        try
-        {
-            previous.Cancel();
-        }
-        finally
-        {
-            previous.Dispose();
-        }
-
-        _activeUiOperations.Clear();
+        previous.Cancel();
+        _retiredRemoteCancellations.Add(previous);
     }
 
-    private bool TryBeginUiOperation(string key, string duplicateMessage)
+    private bool TryBeginUiOperation(
+        RemoteOperationSnapshot operation,
+        string key,
+        string duplicateMessage)
     {
-        if (!_activeUiOperations.Add(key))
+        if (_activeUiOperations.TryGetValue(key, out var generation) &&
+            generation == operation.Generation)
         {
             StatusText.Text = duplicateMessage;
             return false;
         }
 
+        _activeUiOperations[key] = operation.Generation;
         return true;
     }
 
-    private void EndUiOperation(string key) => _activeUiOperations.Remove(key);
+    private void EndUiOperation(RemoteOperationSnapshot operation, string key)
+    {
+        if (_activeUiOperations.TryGetValue(key, out var generation) &&
+            generation == operation.Generation)
+        {
+            _activeUiOperations.Remove(key);
+        }
+    }
 
     private static ServerProfile CloneServerProfile(ServerProfile source) =>
         new()
@@ -4274,6 +4278,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _terminalConnectCancellation = null;
         _remoteOperationsCancellation.Cancel();
         _remoteOperationsCancellation.Dispose();
+        foreach (var retiredCancellation in _retiredRemoteCancellations)
+        {
+            retiredCancellation.Dispose();
+        }
+
+        _retiredRemoteCancellations.Clear();
         _activeUiOperations.Clear();
         _terminalSession.Dispose();
         GC.SuppressFinalize(this);
