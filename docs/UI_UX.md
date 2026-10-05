@@ -124,3 +124,15 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - history shows recorded time, status, CPU, RAM, disk, load and a concise reason;
 - history clearing requires explicit confirmation and affects local state only;
 - the UI states that history is local-only and does not contain session secrets.
+
+
+## v0.13 Alert Center UX
+
+- Alerts is a dedicated navigation destination next to Fleet;
+- the workspace opens on Active alerts so unresolved local incidents are visible first;
+- acknowledgement is an explicit action on one selected incident and does not alter remote state;
+- the KPI row shows active, acknowledged, threshold-attention and failure totals;
+- Open server transfers the user into the existing single-server Dashboard workflow;
+- CSV export covers the full local alert history rather than only the visible filter;
+- deleted server profiles remain visible in historical alerts as "(deleted profile)" but cannot be opened;
+- F5 refreshes the local Alert Center without contacting remote servers.
