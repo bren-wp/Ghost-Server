@@ -7,6 +7,7 @@ public sealed class FleetTrendItem
     public Guid ProfileId { get; init; }
     public string ServerName { get; init; } = string.Empty;
     public int SampleCount { get; init; }
+    public bool HasMetrics { get; init; }
     public int HealthyCount { get; init; }
     public int AttentionCount { get; init; }
     public int FailureCount { get; init; }
@@ -25,8 +26,8 @@ public sealed class FleetTrendItem
     public string AverageDiskLabel => FormatPercent(AverageDiskPercent);
     public string MaxDiskLabel => FormatPercent(MaxDiskPercent);
 
-    private static string FormatPercent(double value) =>
-        value > 0
+    private string FormatPercent(double value) =>
+        HasMetrics
             ? value.ToString("0.0", CultureInfo.InvariantCulture) + "%"
             : "—";
 }
