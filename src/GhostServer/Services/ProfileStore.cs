@@ -60,10 +60,10 @@ public sealed class ProfileStore
         IEnumerable<ServerProfile> profiles,
         CancellationToken cancellationToken = default)
     {
-        var validated = NormalizeAndValidate(profiles);
+        var portable = NormalizePortableProfiles(profiles);
         return JsonFileStore.SaveExternalAsync(
             destinationPath,
-            validated,
+            portable,
             cancellationToken);
     }
 
@@ -75,7 +75,23 @@ public sealed class ProfileStore
             sourcePath,
             cancellationToken) ?? [];
 
-        return NormalizeAndValidate(imported);
+        return NormalizePortableProfiles(imported);
+    }
+
+    private static List<ServerProfile> NormalizePortableProfiles(
+        IEnumerable<ServerProfile> profiles)
+    {
+        var portable = NormalizeAndValidate(profiles);
+
+        foreach (var profile in portable)
+        {
+            // SSH trust and connection history are local machine state. An external
+            // profile file must never pre-approve a host key on another installation.
+            profile.HostKeyFingerprint = null;
+            profile.LastConnectedUtc = null;
+        }
+
+        return portable;
     }
 
     private static List<ServerProfile> NormalizeAndValidate(
