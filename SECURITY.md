@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.10.x`
+The active development line is `0.11.x`
 
 ## SSH trust model
 
@@ -123,3 +123,19 @@ Fleet health collection is read-only and uses the same verified SSH host identit
 Quick Commands are convenience presets for read-only inspection. Selecting a preset only copies the command into the Terminal command editor. Ghost Server does not execute the preset until the user explicitly presses Run.
 
 The preset library is intentionally limited to inspection-oriented commands such as system summary, process listing, listening sockets, disk usage, Docker container listing and recent journal errors. It does not include destructive shell commands.
+
+
+## Database discovery
+
+The Database workspace is read-only in 0.11.x.
+
+Ghost Server detects PostgreSQL, MySQL/MariaDB and SQLite clients over the already verified SSH connection. It may list database names only when the remote host already permits non-interactive local authentication for the connected account or through an existing passwordless sudo/socket policy.
+
+Ghost Server does not:
+- store database passwords;
+- read remote database credential files;
+- prompt for or cache database-specific credentials;
+- inspect table contents or row data;
+- expose CREATE, ALTER, DROP, INSERT, UPDATE, DELETE or other SQL mutation actions.
+
+SQLite discovery reports the installed client version only. Ghost Server does not crawl the remote filesystem for SQLite database files.
