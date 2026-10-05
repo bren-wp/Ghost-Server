@@ -42,18 +42,18 @@ Instead of hiding SSH behind a generic web dashboard, Ghost Server keeps the con
 
 ---
 
-## 🚀 Current release — 0.12.0
+## 🚀 Current release — 0.13.0
 
-Ghost Server 0.12.0 adds **local Fleet health history and attention detection** while keeping health data private on the Windows machine running Ghost Server.
+Ghost Server 0.13.0 adds a dedicated **local Alert Center** on top of Fleet health history.
 
-### New in 0.12.0
+### New in 0.13.0
 
-- 📈 Persistent local Fleet health timeline for successful and failed probes.
-- 🚨 Local Attention state when CPU, RAM or disk reaches 90% or higher.
-- 💾 Last known Fleet health restored after application restart.
-- 🧹 Explicit per-server history clearing with confirmation.
-- 🔐 No credentials or session secrets are written to Fleet history.
-- 🌐 No health history is uploaded or sent to a third-party service.
+- 🔔 Dedicated Alert Center workspace for Fleet incidents.
+- ✅ Active / acknowledged / all alert filters.
+- 🧭 Fast jump from an alert to the matching server on Dashboard.
+- 📤 CSV export for local operational review.
+- 🔐 Acknowledgement is local-only and never changes the remote server.
+- 🌐 Alert data stays on the Windows machine running Ghost Server.
 
 ---
 
@@ -63,6 +63,7 @@ Ghost Server 0.12.0 adds **local Fleet health history and attention detection** 
 |---|---|---|
 | 🏠 **Dashboard** | Live host health, OS, kernel, uptime, CPU, RAM, disk, load and running services | Read-only |
 | 🌐 **Fleet** | Multi-server inventory, filtering, trust state, live health probes and fast Dashboard jump | Read-only |
+| 🔔 **Alerts** | Local Fleet incidents, acknowledgement, server jump and CSV export | Local-only |
 | 📁 **Files** | Browse, upload and download over verified SFTP | Controlled file transfer |
 | ⚙️ **Services** | Inspect, start, stop and restart systemd services | Confirmed remote change |
 | 🐳 **Docker** | Inspect containers and start/stop/restart selected workloads | Confirmed remote change |
@@ -352,11 +353,11 @@ Ghost-Server/
 
 Ghost Server is moving toward a complete Windows operations console for SSH-managed Linux infrastructure.
 
-Current priorities after 0.11.0:
+Current priorities after 0.13.0:
 
-- 🗄️ guarded database maintenance tooling built on top of the new read-only discovery layer;
-- 🔔 optional notification channels and fleet alerting;
-- 📊 richer Fleet comparison, trends and export;
+- 🗄️ guarded database maintenance tooling built on top of the read-only discovery layer;
+- 🔔 optional user-configured notification channels built on the local Alert Center;
+- 📊 richer Fleet comparison and trend visualization;
 - 🔏 signed Windows distribution;
 - 🧪 broader automated operational regression tests.
 
