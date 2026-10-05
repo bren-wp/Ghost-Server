@@ -262,3 +262,6 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - closing the window while an async confirmation is pending cancels the confirmation before any close flow continues;
 - local UI must not report successful history mutation when persistence failed;
 - destructive local-history mutations must roll back in-memory state when their durable write fails.
+- Dashboard server cards must stretch to the available server-column width and must not keep a fixed card width when responsive breakpoints narrow the column;
+- workspace toolbars containing descriptive text and controls must wrap instead of squeezing intermediate content to zero width on narrow windows;
+- dense GridView data may remain horizontally scrollable, but ordinary page chrome must prefer wrapping over clipping.
