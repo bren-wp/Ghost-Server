@@ -110,9 +110,15 @@ jobs:
           $tag = "v$env:VERSION"
           $notes = "docs/releases/$env:VERSION.md"
 
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          $existingJson = gh release view $tag --repo $env:GITHUB_REPOSITORY --json targetCommitish 2>$null
           if ($LASTEXITCODE -eq 0) {
-            throw "Release $tag already exists. Refusing to overwrite immutable release assets."
+            $existing = $existingJson | ConvertFrom-Json
+            if ($existing.targetCommitish -ne $env:VALIDATED_SHA) {
+              throw "Release $tag already exists for $($existing.targetCommitish), expected $env:VALIDATED_SHA. Refusing to overwrite immutable release assets."
+            }
+
+            Write-Host "Release $tag already exists for the validated commit. Leaving immutable assets unchanged."
+            exit 0
           }
 
           gh release create $tag artifacts/release/GhostServer-Portable.exe artifacts/release/GhostServer-Setup.exe artifacts/release/SHA256SUMS.txt artifacts/release/BUILD-PROVENANCE.txt --target $env:VALIDATED_SHA --title "Ghost Server $env:VERSION" --notes-file $notes --repo $env:GITHUB_REPOSITORY
