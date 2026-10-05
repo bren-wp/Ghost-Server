@@ -83,6 +83,7 @@
                                       Background="{TemplateBinding Background}"
                                       BorderBrush="{TemplateBinding BorderBrush}"
                                       BorderThickness="{TemplateBinding BorderThickness}"
+                                      Padding="{TemplateBinding Padding}"
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
@@ -100,9 +101,9 @@
                                                               Margin="{TemplateBinding Padding}"
                                                               VerticalAlignment="Center"
                                                               HorizontalAlignment="Left"
-                                                              Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                                              ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                                              ContentTemplateSelector="{Binding ItemTemplateSelector, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>
+                                                              Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}"
+                                                              ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}"
+                                                              ContentTemplateSelector="{Binding ItemTemplateSelector, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}"/>
                                             <Border Grid.Column="1"
                                                     BorderBrush="{StaticResource GhostBorder}"
                                                     BorderThickness="1,0,0,0"
@@ -356,6 +357,13 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="#071522"/>
+        <Setter Property="Foreground" Value="{StaticResource GhostBorder}"/>
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="Height" Value="10"/>
     </Style>
 
     <Style x:Key="ServerListItemStyle" TargetType="ListBoxItem">
