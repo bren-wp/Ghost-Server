@@ -27,6 +27,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private ServerProfile? _editingProfile;
     private ServerProfile? _pendingDeleteProfile;
     private readonly List<string> _commandHistory = [];
+    private readonly List<FleetServerStatus> _fleetRows = [];
     private int _commandHistoryIndex;
     private string _rawLogs = string.Empty;
     private Button? _activeNavButton;
@@ -99,6 +100,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         SetActiveNavigation(DashboardNavButton);
         ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
+    }
+
+    private void FleetNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(FleetNavButton);
+        ShowPage(FleetPage, "Fleet", "Review saved servers and run safe read-only health probes.");
+        RefreshFleetInventory();
     }
 
     private async void FilesNav_Click(object sender, RoutedEventArgs e)
@@ -189,6 +197,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var nav in new[]
                  {
                      DashboardNavButton,
+                     FleetNavButton,
                      FilesNavButton,
                      ServicesNavButton,
                      DockerNavButton,
@@ -215,6 +224,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ShowPage(UIElement page, string title, string subtitle)
     {
         DashboardPage.Visibility = Visibility.Collapsed;
+        FleetPage.Visibility = Visibility.Collapsed;
         FilesPage.Visibility = Visibility.Collapsed;
         ServicesPage.Visibility = Visibility.Collapsed;
         DockerPage.Visibility = Visibility.Collapsed;
@@ -288,6 +298,261 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         TerminalServerLabel.Text = SelectedProfile is null
             ? "Select a server on Dashboard before running commands."
             : $"Target: {SelectedProfile.Username}@{SelectedProfile.Endpoint}";
+    }
+
+    private void RefreshFleetInventory_Click(object sender, RoutedEventArgs e) =>
+        RefreshFleetInventory();
+
+    private void RefreshFleetInventory()
+    {
+        _fleetRows.Clear();
+
+        foreach (var profile in Profiles.OrderBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            _fleetRows.Add(new FleetServerStatus
+            {
+                ProfileId = profile.Id,
+                Name = profile.Name,
+                Endpoint = profile.Endpoint,
+                Username = profile.Username,
+                Authentication = string.Equals(profile.Authentication, "PrivateKey", StringComparison.OrdinalIgnoreCase)
+                    ? "Private key"
+                    : "Password",
+                Trust = string.IsNullOrWhiteSpace(profile.HostKeyFingerprint) ? "Not trusted" : "Trusted",
+                Health = string.IsNullOrWhiteSpace(profile.HostKeyFingerprint)
+                    ? "Trust required"
+                    : string.Equals(profile.Authentication, "Password", StringComparison.OrdinalIgnoreCase)
+                        ? "Session secret required"
+                        : "Ready to probe",
+                LastConnected = profile.LastConnectedUtc is null
+                    ? "Never"
+                    : profile.LastConnectedUtc.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
+            });
+        }
+
+        ApplyFleetFilter();
+        UpdateFleetSummary();
+        FleetStatusText.Text = _fleetRows.Count == 0
+            ? "No saved server profiles."
+            : "Fleet inventory refreshed. Bulk probes only use trusted private-key profiles.";
+    }
+
+    private void FleetFilterBox_TextChanged(object sender, TextChangedEventArgs e) =>
+        ApplyFleetFilter();
+
+    private void ApplyFleetFilter()
+    {
+        if (FleetList is null)
+        {
+            return;
+        }
+
+        var filter = FleetFilterBox?.Text?.Trim();
+        IEnumerable<FleetServerStatus> rows = _fleetRows;
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            rows = rows.Where(row =>
+                row.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                row.Endpoint.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                row.Username.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                row.Health.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                row.OperatingSystem.Contains(filter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        FleetList.ItemsSource = rows
+            .OrderBy(row => FleetHealthRank(row.Health))
+            .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private async void ProbeFleetKeyProfiles_Click(object sender, RoutedEventArgs e)
+    {
+        if (_fleetRows.Count == 0)
+        {
+            RefreshFleetInventory();
+        }
+
+        var candidates = Profiles
+            .Where(profile =>
+                !string.IsNullOrWhiteSpace(profile.HostKeyFingerprint) &&
+                string.Equals(profile.Authentication, "PrivateKey", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (candidates.Length == 0)
+        {
+            FleetStatusText.Text = "No trusted private-key profiles are available for a session-secret-free probe.";
+            return;
+        }
+
+        FleetStatusText.Text = $"Probing {candidates.Length} trusted private-key profile(s)…";
+        StatusText.Text = "Running Fleet health probes…";
+
+        using var concurrency = new SemaphoreSlim(4, 4);
+        var tasks = candidates.Select(async profile =>
+        {
+            await concurrency.WaitAsync();
+            try
+            {
+                var snapshot = await SshServerClient.GetSnapshotAsync(profile, null);
+                return (profile.Id, Snapshot: snapshot, Error: (string?)null);
+            }
+            catch (Exception ex)
+            {
+                return (profile.Id, Snapshot: (ServerSnapshot?)null, Error: SafeFleetError(ex));
+            }
+            finally
+            {
+                concurrency.Release();
+            }
+        });
+
+        var results = await Task.WhenAll(tasks);
+        foreach (var result in results)
+        {
+            var row = _fleetRows.FirstOrDefault(item => item.ProfileId == result.Id);
+            if (row is null)
+            {
+                continue;
+            }
+
+            if (result.Snapshot is not null)
+            {
+                ApplyFleetSnapshot(row, result.Snapshot);
+            }
+            else
+            {
+                row.Health = result.Error ?? "Probe failed";
+            }
+        }
+
+        ApplyFleetFilter();
+        UpdateFleetSummary();
+        FleetStatusText.Text = $"Fleet probe finished for {results.Length} profile(s). Password profiles were not contacted.";
+        StatusText.Text = "Fleet health probes completed";
+    }
+
+    private async void ProbeSelectedFleet_Click(object sender, RoutedEventArgs e)
+    {
+        if (FleetList.SelectedItem is not FleetServerStatus row)
+        {
+            FleetStatusText.Text = "Select a Fleet row first.";
+            return;
+        }
+
+        var profile = Profiles.FirstOrDefault(item => item.Id == row.ProfileId);
+        if (profile is null)
+        {
+            FleetStatusText.Text = "The selected profile no longer exists.";
+            RefreshFleetInventory();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.HostKeyFingerprint))
+        {
+            row.Health = "Trust required";
+            FleetStatusText.Text = "Approve this server's SSH host key on Dashboard before probing it.";
+            ApplyFleetFilter();
+            UpdateFleetSummary();
+            return;
+        }
+
+        var secret = FleetSecretBox.Password;
+        FleetStatusText.Text = $"Probing {profile.Name}…";
+        StatusText.Text = $"Fleet probe: {profile.Name}";
+
+        try
+        {
+            var snapshot = await SshServerClient.GetSnapshotAsync(profile, secret);
+            ApplyFleetSnapshot(row, snapshot);
+            FleetStatusText.Text = $"{profile.Name} responded successfully.";
+            StatusText.Text = $"Fleet probe healthy: {profile.Name}";
+        }
+        catch (Exception ex)
+        {
+            row.Health = SafeFleetError(ex);
+            FleetStatusText.Text = $"{profile.Name}: {row.Health}";
+            StatusText.Text = $"Fleet probe failed: {profile.Name}";
+        }
+        finally
+        {
+            FleetSecretBox.Clear();
+            ApplyFleetFilter();
+            UpdateFleetSummary();
+        }
+    }
+
+    private void OpenFleetServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (FleetList.SelectedItem is not FleetServerStatus row)
+        {
+            FleetStatusText.Text = "Select a Fleet row first.";
+            return;
+        }
+
+        var profile = Profiles.FirstOrDefault(item => item.Id == row.ProfileId);
+        if (profile is null)
+        {
+            FleetStatusText.Text = "The selected profile no longer exists.";
+            RefreshFleetInventory();
+            return;
+        }
+
+        ServerList.SelectedItem = profile;
+        ServerList.ScrollIntoView(profile);
+        SetActiveNavigation(DashboardNavButton);
+        ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
+    }
+
+    private static void ApplyFleetSnapshot(FleetServerStatus row, ServerSnapshot snapshot)
+    {
+        row.Health = "Healthy";
+        row.OperatingSystem = snapshot.OperatingSystem;
+        row.Uptime = snapshot.Uptime;
+        row.Load = snapshot.Load;
+        row.Cpu = snapshot.CpuPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%";
+        row.Memory = snapshot.MemoryTotalMb > 0
+            ? $"{snapshot.MemoryUsedMb:N0}/{snapshot.MemoryTotalMb:N0} MB"
+            : "—";
+    }
+
+    private void UpdateFleetSummary()
+    {
+        FleetSavedValue.Text = _fleetRows.Count.ToString(CultureInfo.InvariantCulture);
+        FleetTrustedValue.Text = _fleetRows.Count(row => row.Trust == "Trusted").ToString(CultureInfo.InvariantCulture);
+        FleetHealthyValue.Text = _fleetRows.Count(row => row.Health == "Healthy").ToString(CultureInfo.InvariantCulture);
+        FleetAttentionValue.Text = _fleetRows.Count(row =>
+                row.Trust != "Trusted" ||
+                row.Health is "Probe failed" or "Authentication failed" or "Private key missing")
+            .ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static int FleetHealthRank(string health) =>
+        health switch
+        {
+            "Healthy" => 0,
+            "Ready to probe" => 1,
+            "Session secret required" => 2,
+            "Trust required" => 3,
+            _ => 4
+        };
+
+    private static string SafeFleetError(Exception exception)
+    {
+        if (exception is FileNotFoundException)
+        {
+            return "Private key missing";
+        }
+
+        if (exception is SecurityException)
+        {
+            return "Trust failed";
+        }
+
+        return exception.Message.Contains("passphrase", StringComparison.OrdinalIgnoreCase) ||
+               exception.Message.Contains("authentication", StringComparison.OrdinalIgnoreCase)
+            ? "Authentication failed"
+            : "Probe failed";
     }
 
     private async void RefreshFiles_Click(object sender, RoutedEventArgs e) =>
@@ -2298,7 +2563,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         e.Handled = true;
 
-        if (_activeNavButton == FilesNavButton)
+        if (_activeNavButton == FleetNavButton)
+        {
+            RefreshFleetInventory();
+        }
+        else if (_activeNavButton == FilesNavButton)
         {
             await RefreshFilesAsync();
         }
