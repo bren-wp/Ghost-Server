@@ -778,9 +778,9 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Margin="0,0,0,10">
                             <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshManagerServices_Click" Margin="0,0,8,8"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,8"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,8"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StartServiceButton" Content="Start" Style="{StaticResource GhostButton}" Click="StartService_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StopServiceButton" Content="Stop" Style="{StaticResource GhostButton}" Click="StopService_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="RestartServiceButton" Content="Restart" Style="{StaticResource GhostButton}" Click="RestartService_Click" Margin="0,0,8,8"/>
                             <Button Style="{StaticResource GhostButton}" Click="ServiceLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected service">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
@@ -809,9 +809,9 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Margin="0,0,0,10">
                             <Button Content="Refresh" Style="{StaticResource AccentButton}" Click="RefreshDocker_Click" Margin="0,0,8,8"/>
-                            <Button Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,8"/>
-                            <Button Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,8"/>
-                            <Button Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StartDockerButton" Content="Start" Style="{StaticResource GhostButton}" Click="StartDocker_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="StopDockerButton" Content="Stop" Style="{StaticResource GhostButton}" Click="StopDocker_Click" Margin="0,0,8,8"/>
+                            <Button x:Name="RestartDockerButton" Content="Restart" Style="{StaticResource GhostButton}" Click="RestartDocker_Click" Margin="0,0,8,8"/>
                             <Button Style="{StaticResource GhostButton}" Click="DockerLogs_Click" Margin="0,0,0,8" ToolTip="Open recent logs for the selected container">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xF000;" Style="{StaticResource FluentIcon}"/><TextBlock Text="View logs" Margin="7,0,0,0"/></StackPanel>
                             </Button>
@@ -862,7 +862,7 @@
                                              ToolTip="Command runs as root through a dedicated Ghost Server oneshot service"/>
                                 </StackPanel>
 
-                                <Button Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
+                                <Button x:Name="CreateTaskButton" Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
                                         Click="CreateTask_Click" Margin="0,20,0,8">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE710;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
@@ -876,7 +876,7 @@
                             <Button Style="{StaticResource GhostButton}" Click="RefreshTasks_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Refresh" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <Button Style="{StaticResource DangerButton}" Click="DeleteTask_Click" Margin="0,0,12,8">
+                            <Button x:Name="DeleteTaskButton" Style="{StaticResource DangerButton}" Click="DeleteTask_Click" Margin="0,0,12,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostDanger}"/><TextBlock Text="Delete selected" Margin="7,0,0,0"/></StackPanel>
                             </Button>
                             <TextBlock x:Name="TasksStatusText" Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="0,0,0,8"
@@ -927,7 +927,7 @@
                                     <TextBlock Text="Refresh system" Margin="7,0,0,0" Foreground="#06121E"/>
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource DangerButton}" Click="TerminateProcess_Click" Margin="0,0,8,8">
+                            <Button x:Name="TerminateProcessButton" Style="{StaticResource DangerButton}" Click="TerminateProcess_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE711;" Style="{StaticResource FluentIcon}" Foreground="{StaticResource GhostDanger}"/>
                                     <TextBlock Text="Terminate selected" Margin="7,0,0,0"/>
@@ -1187,7 +1187,7 @@
                                     <ComboBoxItem Content="TCP" Tag="tcp"/>
                                     <ComboBoxItem Content="UDP" Tag="udp"/>
                                 </ComboBox>
-                                <Button Style="{StaticResource GhostButton}" Click="AllowFirewallPort_Click" Margin="0,0,0,8">
+                                <Button x:Name="AllowFirewallPortButton" Style="{StaticResource GhostButton}" Click="AllowFirewallPort_Click" Margin="0,0,0,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8FB;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Allow port" Margin="7,0,0,0"/></StackPanel>
                                 </Button>
                             </WrapPanel>
@@ -1209,10 +1209,10 @@
                             <Button Style="{StaticResource GhostButton}" Click="RefreshUpdates_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Preview updates" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <Button Style="{StaticResource AccentButton}" Click="RunSafeUpdate_Click" Margin="0,0,8,8">
+                            <Button x:Name="RunSafeUpdateButton" Style="{StaticResource AccentButton}" Click="RunSafeUpdate_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Run Safe Update" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                             </Button>
-                            <Button Style="{StaticResource GhostButton}" Click="RestoreConfigSnapshot_Click" Margin="0,0,8,8">
+                            <Button x:Name="RestoreConfigSnapshotButton" Style="{StaticResource GhostButton}" Click="RestoreConfigSnapshot_Click" Margin="0,0,8,8">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE777;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Restore config snapshot" Margin="7,0,0,0"/></StackPanel>
                             </Button>
                             <Button Style="{StaticResource SubNavButton}" Click="BackupNav_Click">
@@ -1254,7 +1254,7 @@
                                     <TextBlock Text="Creates a temporary .tar.gz containing detected SSH, web server, systemd, Docker, Fail2ban and firewall configuration, downloads it over SFTP, then removes the temporary remote archive."
                                                Foreground="{StaticResource GhostMuted}" TextWrapping="Wrap" Margin="0,7,18,0" MaxWidth="720"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Style="{StaticResource AccentButton}" Click="CreateConfigBackup_Click" VerticalAlignment="Center">
+                                <Button x:Name="CreateConfigBackupButton" Grid.Column="1" Style="{StaticResource AccentButton}" Click="CreateConfigBackup_Click" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C7;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/><TextBlock Text="Create &amp; download" Margin="7,0,0,0" Foreground="#06121E"/></StackPanel>
                                 </Button>
                             </Grid>
