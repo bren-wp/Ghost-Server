@@ -61,6 +61,40 @@
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
     </Style>
 
+    <Style x:Key="GhostFocusVisual" TargetType="{x:Type Control}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border BorderBrush="{StaticResource GhostBlue}"
+                            BorderThickness="2"
+                            CornerRadius="9"
+                            Margin="1"
+                            Opacity="0.95"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ListView">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+    </Style>
+
+    <Style TargetType="ListBox">
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+    </Style>
+
     <Style TargetType="Label">
         <Setter Property="Foreground" Value="{StaticResource GhostMuted}"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
@@ -75,6 +109,7 @@
         <Setter Property="Padding" Value="10,8"/>
         <Setter Property="CaretBrush" Value="{StaticResource GhostBlue}"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
     </Style>
 
     <Style x:Key="GhostPasswordBox" TargetType="PasswordBox">
@@ -84,6 +119,7 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="10,8"/>
         <Setter Property="CaretBrush" Value="{StaticResource GhostBlue}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
     </Style>
 
     <Style x:Key="GhostComboBox" TargetType="ComboBox">
@@ -94,6 +130,7 @@
         <Setter Property="Padding" Value="10,7"/>
         <Setter Property="MinHeight" Value="36"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
@@ -214,6 +251,7 @@
         <Setter Property="Padding" Value="14,9"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -287,6 +325,7 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="6,5"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListViewItem">
@@ -341,6 +380,7 @@
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{StaticResource GhostIce}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
@@ -485,6 +525,7 @@
         <Setter Property="Margin" Value="0,0,0,8"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource GhostFocusVisual}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
