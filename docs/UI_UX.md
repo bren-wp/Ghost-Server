@@ -112,3 +112,15 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - access limitations are stated directly in the workspace instead of prompting for database-specific credentials;
 - no SQL editor or mutation action is exposed in this milestone;
 - F5 refreshes the Database workspace using the selected server and current session secret.
+
+
+## v0.12 Fleet history UX
+
+- the Fleet workspace keeps the inventory and probe controls unchanged at the top;
+- a dedicated lower history panel appears below the Fleet table rather than adding another navigation destination;
+- selecting a Fleet row updates the timeline for that server only;
+- Attention is raised locally at 90% CPU, RAM or disk utilization;
+- Attention rows sort ahead of healthy rows so current risk is visible first;
+- history shows recorded time, status, CPU, RAM, disk, load and a concise reason;
+- history clearing requires explicit confirmation and affects local state only;
+- the UI states that history is local-only and does not contain session secrets.

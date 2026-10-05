@@ -382,6 +382,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="2*"/>
+                            <RowDefinition Height="12"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
@@ -448,7 +450,7 @@
 
                         <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8">
                             <ListView x:Name="FleetList" Background="Transparent" BorderThickness="0"
-                                      Foreground="{StaticResource GhostIce}">
+                                      Foreground="{StaticResource GhostIce}" SelectionChanged="FleetList_SelectionChanged">
                                 <ListView.View>
                                     <GridView>
                                         <GridViewColumn Header="Server" DisplayMemberBinding="{Binding Name}" Width="150"/>
@@ -465,6 +467,49 @@
                                     </GridView>
                                 </ListView.View>
                             </ListView>
+                        </Border>
+
+                        <Border Grid.Row="5" Style="{StaticResource CardBorder}" Padding="8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid Margin="4,0,4,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock x:Name="FleetHistoryTitle" Text="Health history" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Local-only probe history. CPU, RAM or disk at 90%+ is marked Attention."
+                                                   Foreground="{StaticResource GhostMuted}" FontSize="11" Margin="0,3,0,0"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Style="{StaticResource GhostButton}"
+                                            Click="ClearFleetHistory_Click" ToolTip="Clear local history for the selected Fleet server">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}"/>
+                                            <TextBlock Text="Clear selected history" Margin="7,0,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <ListView Grid.Row="1" x:Name="FleetHistoryList"
+                                          Background="Transparent" BorderThickness="0"
+                                          Foreground="{StaticResource GhostIce}">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Recorded" DisplayMemberBinding="{Binding RecordedLocal}" Width="145"/>
+                                            <GridViewColumn Header="Status" DisplayMemberBinding="{Binding Status}" Width="110"/>
+                                            <GridViewColumn Header="CPU" DisplayMemberBinding="{Binding CpuLabel}" Width="70"/>
+                                            <GridViewColumn Header="RAM" DisplayMemberBinding="{Binding MemoryLabel}" Width="70"/>
+                                            <GridViewColumn Header="Disk" DisplayMemberBinding="{Binding DiskLabel}" Width="70"/>
+                                            <GridViewColumn Header="Load" DisplayMemberBinding="{Binding Load}" Width="90"/>
+                                            <GridViewColumn Header="Details" DisplayMemberBinding="{Binding Message}" Width="290"/>
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </Grid>
                         </Border>
                     </Grid>
 
