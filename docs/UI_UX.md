@@ -243,5 +243,5 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - pending normal-window size persistence is flushed before close when necessary;
 - Settings must expose both Remember normal window size and Reset window size;
 - optional backup-folder configuration must support both setting and clearing the path;
-- settings, profile and Fleet-history load/save operations are serialized per store so atomic temp/backup writes cannot overlap;
+- settings, profile and Fleet-history load/save operations are serialized by process-lifetime per-store gates so atomic temp/backup writes cannot overlap and shutdown cannot dispose a gate underneath a late async completion;
 - the additional local-state persistence must never store passwords or private-key passphrases.
