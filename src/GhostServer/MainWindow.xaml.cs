@@ -5395,6 +5395,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         ContentHeaderRow.Height = new GridLength(reducedHeight ? 68 : 84);
         ContentHeaderGrid.Margin = new Thickness(compactSidebar ? 14 : 24, 0, compactSidebar ? 14 : 24, 0);
         PageTitle.FontSize = compactSidebar ? 20 : 24;
+
+        var summaryColumns = tightLayout ? 2 : 4;
+        FleetSummaryGrid.Columns = summaryColumns;
+        AlertsSummaryGrid.Columns = summaryColumns;
+        TrendsSummaryGrid.Columns = summaryColumns;
         PageSubtitle.Visibility = tightLayout || reducedHeight
             ? Visibility.Collapsed
             : Visibility.Visible;
