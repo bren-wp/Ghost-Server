@@ -4059,9 +4059,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             LastConnectedUtc = source.LastConnectedUtc
         };
 
-    private static bool IsOperationCancellation(Exception exception) =>
-        exception is OperationCanceledException;
-
     private void AutoRefresh_Changed(object sender, RoutedEventArgs e)
     {
         if (AutoRefreshToggle.IsChecked == true)
