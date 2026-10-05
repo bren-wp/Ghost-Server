@@ -749,15 +749,15 @@
                             </Grid>
                         </Border>
 
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Style="{StaticResource GhostButton}" Click="UploadFile_Click" Margin="0,0,8,0" ToolTip="Upload a local file to this folder">
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,2">
+                            <Button Style="{StaticResource GhostButton}" Click="UploadFile_Click" Margin="0,0,8,8" ToolTip="Upload a local file to this folder">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE898;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Upload" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <Button Style="{StaticResource GhostButton}" Click="DownloadFile_Click" ToolTip="Download the selected remote file">
+                            <Button Style="{StaticResource GhostButton}" Click="DownloadFile_Click" Margin="0,0,8,8" ToolTip="Download the selected remote file">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource FluentIcon}"/><TextBlock Text="Download" Margin="7,0,0,0"/></StackPanel>
                             </Button>
-                            <TextBlock x:Name="FilesStatusText" Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                        </StackPanel>
+                            <TextBlock x:Name="FilesStatusText" Foreground="{StaticResource GhostMuted}" VerticalAlignment="Center" Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="420"/>
+                        </WrapPanel>
 
                         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
                             <ListView x:Name="RemoteFilesList" Background="Transparent" BorderThickness="0"
@@ -1433,8 +1433,9 @@
         <Border Grid.Row="2" Background="#08182B" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,1,0,0">
             <Grid Margin="14,0">
                 <TextBlock x:Name="StatusText" Text="Ready" Foreground="{StaticResource GhostMuted}"
-                           VerticalAlignment="Center" FontSize="11"/>
-                <TextBlock Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
+                           VerticalAlignment="Center" FontSize="11" Margin="0,0,12,0"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="StatusShortcutText" Text="Ctrl+N Add  •  Ctrl+L Lock  •  F5 Refresh" Foreground="{StaticResource GhostMuted}"
                            VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="11"/>
             </Grid>
         </Border>
