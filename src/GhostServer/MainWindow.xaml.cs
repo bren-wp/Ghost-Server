@@ -990,14 +990,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 !string.Equals(item.LatestStatus, "Healthy", StringComparison.Ordinal))
             .ToString(CultureInfo.InvariantCulture);
 
-        TrendsCpuValue.Text = items.Length == 0
+        var metricItems = items.Where(item => item.HasMetrics).ToArray();
+
+        TrendsCpuValue.Text = metricItems.Length == 0
             ? "—"
-            : items.Max(item => item.AverageCpuPercent)
+            : metricItems.Max(item => item.AverageCpuPercent)
                 .ToString("0.0", CultureInfo.InvariantCulture) + "%";
 
-        TrendsDiskValue.Text = items.Length == 0
+        TrendsDiskValue.Text = metricItems.Length == 0
             ? "—"
-            : items.Max(item => item.AverageDiskPercent)
+            : metricItems.Max(item => item.AverageDiskPercent)
                 .ToString("0.0", CultureInfo.InvariantCulture) + "%";
 
         TrendsStatusText.Text = items.Length == 0
@@ -1033,6 +1035,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                         ? name
                         : "(deleted profile)",
                     SampleCount = samples.Length,
+                    HasMetrics = metricSamples.Length > 0,
                     HealthyCount = samples.Count(record =>
                         string.Equals(record.Status, "Healthy", StringComparison.Ordinal)),
                     AttentionCount = samples.Count(record =>
