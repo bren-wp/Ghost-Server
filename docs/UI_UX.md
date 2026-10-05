@@ -101,3 +101,14 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - manual Run remains the single execution action;
 - preset guidance is visible directly under the selector to avoid ambiguity;
 - README visuals use the same Electric Blue / Deep Navy / Slate Blue / Ice White product system without pretending to be application screenshots.
+
+
+## v0.11 Database workspace
+
+- Databases is a dedicated read-only workspace placed next to other host-inspection tools;
+- the primary action is a single Refresh databases control;
+- the engine table shows engine, version, service state, access state and discovered database count;
+- the details pane shows database names only for the selected engine;
+- access limitations are stated directly in the workspace instead of prompting for database-specific credentials;
+- no SQL editor or mutation action is exposed in this milestone;
+- F5 refreshes the Database workspace using the selected server and current session secret.
