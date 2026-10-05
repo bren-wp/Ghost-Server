@@ -2,7 +2,7 @@
 
 ## Supported development line
 
-The active development line is `0.13.x`
+The active development line is `0.14.x`
 
 ## SSH trust model
 
@@ -171,3 +171,16 @@ Acknowledging an alert:
 CSV export may contain server profile name, timestamps, local status, acknowledgement time, CPU/RAM/disk percentages, load text and the local attention/failure summary. It never includes passwords, passphrases, private-key material, database credentials or remote command output.
 
 Ghost Server does not upload Alert Center data or send it to a third-party service.
+
+
+## Fleet Trends
+
+Fleet Trends is calculated entirely from the bounded local Fleet health history already stored by Ghost Server. It does not contact remote servers when refreshing or exporting the comparison.
+
+Trend CSV export contains server profile name, sample counts, local Healthy/Attention/failure counts, aggregate CPU/RAM/disk percentages and latest local status. It does not contain passwords, passphrases, private-key material, database credentials or remote command output.
+
+## Release artifact provenance
+
+Starting with 0.14.x, GitHub Release publication consumes the `GhostServer-windows-release` artifact from the exact successful main Windows CI run that triggered the release workflow.
+
+The release workflow does not rebuild Portable or Setup binaries. Published binaries are therefore the same bytes that passed the main CI Portable launch and Setup install/launch/uninstall smoke tests. SHA-256 and build-provenance manifests are generated from those validated binaries.
