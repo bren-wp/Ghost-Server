@@ -37,7 +37,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private const int FleetHistoryTotalLimit = 2000;
     private int _commandHistoryIndex;
     private string _rawLogs = string.Empty;
-    private Button? _activeNavButton;
     private readonly DispatcherTimer _dashboardTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private int _mutationActive;
     private bool _autoRefreshBusy;
@@ -249,18 +248,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                  {
                      DashboardNavButton,
                      FleetNavButton,
-                     AlertsNavButton,
-                     TrendsNavButton,
                      FilesNavButton,
                      ServicesNavButton,
                      DockerNavButton,
                      NetworkNavButton,
                      UpdatesNavButton,
-                     BackupNavButton,
-                     TasksNavButton,
                      SystemNavButton,
-                     DatabasesNavButton,
-                     LogsNavButton,
                      TerminalNavButton,
                      SecurityNavButton,
                      SettingsNavButton
@@ -272,7 +265,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         button.Background = (Brush)FindResource("GhostSelectedSurface");
         button.BorderBrush = (Brush)FindResource("GhostBlue");
-        _activeNavButton = button;
     }
 
     private void ShowPage(UIElement page, string title, string subtitle)
@@ -1809,7 +1801,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _rawLogs = logs;
             LogsFilterBox.Clear();
             ApplyLogFilter();
-            SetActiveNavigation(LogsNavButton);
+            SetActiveNavigation(SystemNavButton);
             ShowPage(LogsPage, "Logs", $"Recent logs for {service.Name}");
             StatusText.Text = $"Loaded logs for {service.Name}";
         }
@@ -1999,7 +1991,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _rawLogs = logs;
             LogsFilterBox.Clear();
             ApplyLogFilter();
-            SetActiveNavigation(LogsNavButton);
+            SetActiveNavigation(SystemNavButton);
             ShowPage(LogsPage, "Logs", $"Recent logs for Docker container {container.Name}");
             StatusText.Text = $"Loaded Docker logs for {container.Name}";
         }
