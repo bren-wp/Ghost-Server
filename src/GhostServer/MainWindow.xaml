@@ -298,13 +298,13 @@
                                             <TextBlock x:Name="SelectedEndpoint" Foreground="{StaticResource GhostMuted}" Margin="0,4,0,0"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <WrapPanel Margin="0,10,0,0">
-                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="OpenEditServer_Click" Margin="0,0,7,7" ToolTip="Edit selected server">
+                                                <Button x:Name="EditServerButton" Style="{StaticResource GhostButton}" Padding="10,6" Click="OpenEditServer_Click" Margin="0,0,7,7" ToolTip="Edit selected server">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE70F;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Edit" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,7" ToolTip="Forget pinned SSH host key">
+                                                <Button x:Name="ResetHostKeyButton" Style="{StaticResource GhostButton}" Padding="10,6" Click="ResetHostKey_Click" Margin="0,0,7,7" ToolTip="Forget pinned SSH host key">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="13"/><TextBlock Text="Reset trust" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource DangerButton}" Padding="10,6" Click="DeleteServer_Click" Margin="0,0,0,7" ToolTip="Delete selected server">
+                                                <Button x:Name="DeleteServerButton" Style="{StaticResource DangerButton}" Padding="10,6" Click="DeleteServer_Click" Margin="0,0,0,7" ToolTip="Delete selected server">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE74D;" Style="{StaticResource FluentIcon}" FontSize="13" Foreground="{StaticResource GhostDanger}"/><TextBlock Text="Delete" Margin="6,0,0,0"/></StackPanel>
                                                 </Button>
                                             </WrapPanel>
