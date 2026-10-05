@@ -4,6 +4,11 @@ using Renci.SshNet;
 
 namespace GhostServer.Services;
 
+public sealed class TerminalOutputEventArgs(string text) : EventArgs
+{
+    public string Text { get; } = text;
+}
+
 public sealed class InteractiveSshTerminalSession : IDisposable
 {
     private readonly SemaphoreSlim _operationGate = new(1, 1);
@@ -15,7 +20,7 @@ public sealed class InteractiveSshTerminalSession : IDisposable
     private Guid? _profileId;
     private int _disposed;
 
-    public event EventHandler<string>? OutputReceived;
+    public event EventHandler<TerminalOutputEventArgs>? OutputReceived;
 
     public event EventHandler? Disconnected;
 
@@ -199,7 +204,7 @@ public sealed class InteractiveSshTerminalSession : IDisposable
 
         client?.Dispose();
         cancellation?.Dispose();
-        _operationGate.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private async Task DisconnectCoreAsync(bool raiseEvent)
@@ -241,6 +246,10 @@ public sealed class InteractiveSshTerminalSession : IDisposable
             {
                 client.Disconnect();
             }
+        }
+        catch
+        {
+            // The transport is disposed below even if the remote side disappeared mid-disconnect.
         }
         finally
         {
@@ -304,7 +313,8 @@ public sealed class InteractiveSshTerminalSession : IDisposable
                 {
                     OutputReceived?.Invoke(
                         this,
-                        new string(characters, 0, characterCount));
+                        new TerminalOutputEventArgs(
+                            new string(characters, 0, characterCount)));
                 }
             }
         }
@@ -318,7 +328,8 @@ public sealed class InteractiveSshTerminalSession : IDisposable
         {
             OutputReceived?.Invoke(
                 this,
-                $"{Environment.NewLine}[terminal disconnected] {SafeMessage(ex)}{Environment.NewLine}");
+                new TerminalOutputEventArgs(
+                    $"{Environment.NewLine}[terminal disconnected] {SafeMessage(ex)}{Environment.NewLine}"));
         }
         finally
         {
