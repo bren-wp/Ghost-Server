@@ -125,6 +125,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshAlertCenter();
     }
 
+    private void TrendsNav_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(TrendsNavButton);
+        ShowPage(TrendsPage, "Trends", "Compare recent local Fleet health across saved servers.");
+        RefreshTrends();
+    }
+
     private async void FilesNav_Click(object sender, RoutedEventArgs e)
     {
         SetActiveNavigation(FilesNavButton);
@@ -222,6 +229,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                      DashboardNavButton,
                      FleetNavButton,
                      AlertsNavButton,
+                     TrendsNavButton,
                      FilesNavButton,
                      ServicesNavButton,
                      DockerNavButton,
@@ -251,6 +259,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DashboardPage.Visibility = Visibility.Collapsed;
         FleetPage.Visibility = Visibility.Collapsed;
         AlertsPage.Visibility = Visibility.Collapsed;
+        TrendsPage.Visibility = Visibility.Collapsed;
         FilesPage.Visibility = Visibility.Collapsed;
         ServicesPage.Visibility = Visibility.Collapsed;
         DockerPage.Visibility = Visibility.Collapsed;
@@ -953,6 +962,206 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+    }
+
+    private void TrendSampleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (IsLoaded)
+        {
+            RefreshTrends();
+        }
+    }
+
+    private void RefreshTrends_Click(object sender, RoutedEventArgs e) =>
+        RefreshTrends();
+
+    private void RefreshTrends()
+    {
+        if (TrendsList is null)
+        {
+            return;
+        }
+
+        var items = BuildTrendItems(GetTrendSampleLimit());
+        TrendsList.ItemsSource = items;
+
+        TrendsServersValue.Text = items.Length.ToString(CultureInfo.InvariantCulture);
+        TrendsRisksValue.Text = items.Count(item =>
+                !string.Equals(item.LatestStatus, "Healthy", StringComparison.Ordinal))
+            .ToString(CultureInfo.InvariantCulture);
+
+        TrendsCpuValue.Text = items.Length == 0
+            ? "—"
+            : items.Max(item => item.AverageCpuPercent)
+                .ToString("0.0", CultureInfo.InvariantCulture) + "%";
+
+        TrendsDiskValue.Text = items.Length == 0
+            ? "—"
+            : items.Max(item => item.AverageDiskPercent)
+                .ToString("0.0", CultureInfo.InvariantCulture) + "%";
+
+        TrendsStatusText.Text = items.Length == 0
+            ? "No local Fleet health history is available yet."
+            : $"Comparing up to {GetTrendSampleLimit()} recent local probe record(s) per server.";
+    }
+
+    private FleetTrendItem[] BuildTrendItems(int sampleLimit)
+    {
+        var names = Profiles.ToDictionary(
+            profile => profile.Id,
+            profile => profile.Name);
+
+        return _fleetHistory
+            .GroupBy(record => record.ProfileId)
+            .Select(group =>
+            {
+                var samples = group
+                    .OrderByDescending(record => record.RecordedUtc)
+                    .Take(sampleLimit)
+                    .ToArray();
+
+                var metricSamples = samples
+                    .Where(record =>
+                        string.Equals(record.Status, "Healthy", StringComparison.Ordinal) ||
+                        string.Equals(record.Status, "Attention", StringComparison.Ordinal))
+                    .ToArray();
+
+                return new FleetTrendItem
+                {
+                    ProfileId = group.Key,
+                    ServerName = names.TryGetValue(group.Key, out var name)
+                        ? name
+                        : "(deleted profile)",
+                    SampleCount = samples.Length,
+                    HealthyCount = samples.Count(record =>
+                        string.Equals(record.Status, "Healthy", StringComparison.Ordinal)),
+                    AttentionCount = samples.Count(record =>
+                        string.Equals(record.Status, "Attention", StringComparison.Ordinal)),
+                    FailureCount = samples.Count(record =>
+                        !string.Equals(record.Status, "Healthy", StringComparison.Ordinal) &&
+                        !string.Equals(record.Status, "Attention", StringComparison.Ordinal)),
+                    AverageCpuPercent = AverageMetric(metricSamples, record => record.CpuPercent),
+                    MaxCpuPercent = MaxMetric(metricSamples, record => record.CpuPercent),
+                    AverageMemoryPercent = AverageMetric(metricSamples, record => record.MemoryPercent),
+                    MaxMemoryPercent = MaxMetric(metricSamples, record => record.MemoryPercent),
+                    AverageDiskPercent = AverageMetric(metricSamples, record => record.DiskPercent),
+                    MaxDiskPercent = MaxMetric(metricSamples, record => record.DiskPercent),
+                    LatestStatus = samples.Length == 0 ? "No data" : samples[0].Status
+                };
+            })
+            .OrderBy(item => TrendRiskRank(item.LatestStatus))
+            .ThenByDescending(item => item.FailureCount)
+            .ThenByDescending(item => item.AttentionCount)
+            .ThenByDescending(item => item.MaxDiskPercent)
+            .ThenBy(item => item.ServerName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private int GetTrendSampleLimit()
+    {
+        var raw = (TrendSampleBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) &&
+               value is 10 or 25 or 50
+            ? value
+            : 25;
+    }
+
+    private static double AverageMetric(
+        IReadOnlyCollection<FleetHealthRecord> records,
+        Func<FleetHealthRecord, double> selector) =>
+        records.Count == 0 ? 0.0 : records.Average(selector);
+
+    private static double MaxMetric(
+        IReadOnlyCollection<FleetHealthRecord> records,
+        Func<FleetHealthRecord, double> selector) =>
+        records.Count == 0 ? 0.0 : records.Max(selector);
+
+    private static int TrendRiskRank(string status) =>
+        status switch
+        {
+            "Attention" => 0,
+            "Healthy" => 2,
+            _ => 1
+        };
+
+    private void OpenTrendServer_Click(object sender, RoutedEventArgs e)
+    {
+        if (TrendsList.SelectedItem is not FleetTrendItem item)
+        {
+            TrendsStatusText.Text = "Select a trend row first.";
+            return;
+        }
+
+        var profile = Profiles.FirstOrDefault(profile => profile.Id == item.ProfileId);
+        if (profile is null)
+        {
+            TrendsStatusText.Text = "This trend belongs to a server profile that no longer exists.";
+            return;
+        }
+
+        ServerList.SelectedItem = profile;
+        ServerList.ScrollIntoView(profile);
+        SetActiveNavigation(DashboardNavButton);
+        ShowPage(DashboardPage, "Dashboard", "Server health, services and connection state.");
+    }
+
+    private async void ExportTrendsCsv_Click(object sender, RoutedEventArgs e)
+    {
+        var items = BuildTrendItems(GetTrendSampleLimit());
+        if (items.Length == 0)
+        {
+            TrendsStatusText.Text = "There is no local trend data to export.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export Ghost Server Fleet trends",
+            FileName = $"GhostServer-Fleet-Trends-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+            Filter = "CSV files (*.csv)|*.csv|All files|*.*",
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var csv = new StringBuilder();
+        csv.AppendLine("Server,Samples,Healthy,Attention,Failures,AverageCpuPercent,MaxCpuPercent,AverageMemoryPercent,MaxMemoryPercent,AverageDiskPercent,MaxDiskPercent,LatestStatus");
+
+        foreach (var item in items)
+        {
+            csv.Append(CsvValue(item.ServerName)).Append(',')
+                .Append(item.SampleCount.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.HealthyCount.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.AttentionCount.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.FailureCount.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.AverageCpuPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.MaxCpuPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.AverageMemoryPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.MaxMemoryPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.AverageDiskPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(item.MaxDiskPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                .Append(CsvValue(item.LatestStatus))
+                .AppendLine();
+        }
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                dialog.FileName,
+                csv.ToString(),
+                Encoding.UTF8);
+
+            TrendsStatusText.Text = $"Exported {items.Length} Fleet trend row(s).";
+            StatusText.Text = "Fleet trends CSV exported";
+        }
+        catch (Exception ex)
+        {
+            TrendsStatusText.Text = SafeError(ex);
+            StatusText.Text = "Fleet trends export failed";
+        }
     }
 
     private async void RefreshFiles_Click(object sender, RoutedEventArgs e) =>
@@ -3051,6 +3260,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else if (_activeNavButton == AlertsNavButton)
         {
             RefreshAlertCenter();
+        }
+        else if (_activeNavButton == TrendsNavButton)
+        {
+            RefreshTrends();
         }
         else if (_activeNavButton == FilesNavButton)
         {
