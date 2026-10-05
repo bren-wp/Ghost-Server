@@ -250,3 +250,9 @@ Ghost Server should feel like a member of the same product family: title-bar geo
 - navigating away from Settings must not silently discard pending Settings edits when returning to the page;
 - immediate actions such as Reset window size must not silently persist unrelated pending form values;
 - Settings change events raised during XAML initialization must not create a false dirty state.
+- closing the application with unsaved Settings must require an explicit Save, Discard or Cancel choice;
+- unsaved-settings confirmation must use Ghost modal styling rather than platform-default light dialog chrome;
+- Discard must never copy pending form values into the persisted settings model;
+- explicit Settings save must stage form values in a candidate model and update persisted in-memory state only after a successful write;
+- Escape on the unsaved-settings overlay maps to Cancel and focus remains trapped in the active overlay;
+- window-geometry persistence remains independent from unsaved form persistence.
