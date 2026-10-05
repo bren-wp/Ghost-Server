@@ -44,6 +44,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private int _fleetHistoryMutationActive;
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
+    private bool _sessionLockBusy;
     private CancellationTokenSource? _terminalConnectCancellation;
     private CancellationTokenSource _remoteOperationsCancellation = new();
     private readonly List<CancellationTokenSource> _retiredRemoteCancellations = [];
@@ -4030,6 +4031,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void LockSession_Click(object sender, RoutedEventArgs e)
     {
+        if (_sessionLockBusy)
+        {
+            StatusText.Text = "Session lock is already in progress.";
+            return;
+        }
+
+        _sessionLockBusy = true;
         CancelRemoteOperations();
         _terminalConnectCancellation?.Cancel();
         SessionSecretBox.Clear();
@@ -4042,18 +4050,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         ConnectionStatus.Text = SelectedProfile is null ? "Not connected" : "Session locked";
         ConnectionStatus.Foreground = (Brush)FindResource("GhostMuted");
-
-        if (_terminalTransitionBusy)
-        {
-            StatusText.Text = "Session secret cleared; terminal transition is being cancelled";
-            return;
-        }
-
-        _terminalTransitionBusy = true;
-        UpdateTerminalSessionUi();
+        StatusText.Text = "Locking session…";
 
         try
         {
+            while (_terminalTransitionBusy)
+            {
+                await Task.Delay(25);
+            }
+
+            _terminalTransitionBusy = true;
+            UpdateTerminalSessionUi();
+
             await DisconnectTerminalAsync(
                 "Terminal disconnected because the session was locked.",
                 appendMessage: true);
@@ -4067,6 +4075,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         finally
         {
             _terminalTransitionBusy = false;
+            _sessionLockBusy = false;
             UpdateTerminalSessionUi();
         }
     }
@@ -4822,6 +4831,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private bool TryAcquireFleetHistoryMutation(string message)
     {
+        if (Volatile.Read(ref _mutationActive) != 0)
+        {
+            StatusText.Text = "An administrative action is already running.";
+            return false;
+        }
+
         if (Volatile.Read(ref _profileMutationActive) != 0)
         {
             StatusText.Text = "A local profile change is already running.";
@@ -4834,10 +4849,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return false;
         }
 
-        if (Volatile.Read(ref _profileMutationActive) != 0)
+        if (Volatile.Read(ref _mutationActive) != 0 ||
+            Volatile.Read(ref _profileMutationActive) != 0)
         {
             Interlocked.Exchange(ref _fleetHistoryMutationActive, 0);
-            StatusText.Text = "A local profile change is already running.";
+            StatusText.Text = Volatile.Read(ref _mutationActive) != 0
+                ? "An administrative action is already running."
+                : "A local profile change is already running.";
             return false;
         }
 
@@ -4856,16 +4874,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return false;
         }
 
+        if (Volatile.Read(ref _fleetHistoryMutationActive) != 0)
+        {
+            StatusText.Text = "A Fleet history operation is already running.";
+            return false;
+        }
+
         if (Interlocked.CompareExchange(ref _mutationActive, 1, 0) != 0)
         {
             StatusText.Text = "Another administrative action is already running.";
             return false;
         }
 
-        if (Volatile.Read(ref _profileMutationActive) != 0)
+        if (Volatile.Read(ref _profileMutationActive) != 0 ||
+            Volatile.Read(ref _fleetHistoryMutationActive) != 0)
         {
             Interlocked.Exchange(ref _mutationActive, 0);
-            StatusText.Text = "A local profile change is already running.";
+            StatusText.Text = Volatile.Read(ref _profileMutationActive) != 0
+                ? "A local profile change is already running."
+                : "A Fleet history operation is already running.";
             return false;
         }
 
