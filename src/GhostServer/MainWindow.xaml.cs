@@ -4027,22 +4027,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async void ImportProfiles_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
-        {
-            Title = "Import Ghost Server profiles",
-            Filter = "JSON files (*.json)|*.json|All files|*.*",
-            CheckFileExists = true,
-            Multiselect = false
-        };
-
-        if (dialog.ShowDialog(this) != true)
+        if (!TryBeginProfileImport())
         {
             return;
         }
 
         try
         {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Import Ghost Server profiles",
+                Filter = "JSON files (*.json)|*.json|All files|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog(this) != true)
+            {
+                return;
+            }
+
             var imported = await ProfileStore.ImportAsync(dialog.FileName);
+            if (imported.Count == 0)
+            {
+                SettingsStatusText.Text = "The selected file contains no validated server profiles.";
+                StatusText.Text = "No profiles imported";
+                return;
+            }
+
             if (!await ShowGhostConfirmationAsync(
                     "Import server profiles",
                     $"Import {imported.Count} validated profile(s)? Existing profiles with the same ID or SSH endpoint will be replaced. Session secrets are not imported.",
@@ -4052,25 +4064,74 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 return;
             }
 
+            var selectedBefore = SelectedProfile;
+            var terminalProfile = _terminalSession.ProfileId is Guid terminalProfileId
+                ? Profiles.FirstOrDefault(profile => profile.Id == terminalProfileId)
+                : null;
+
+            var selectedReplacement = selectedBefore is null
+                ? null
+                : imported.LastOrDefault(incoming => ProfilesMatchImportIdentity(selectedBefore, incoming));
+            var terminalProfileAffected = terminalProfile is not null &&
+                                          imported.Any(incoming => ProfilesMatchImportIdentity(terminalProfile, incoming));
+
+            var candidate = Profiles
+                .Select(CloneServerProfile)
+                .ToList();
+
+            foreach (var incoming in imported)
+            {
+                var candidateIndex = candidate.FindIndex(existing =>
+                    ProfilesMatchImportIdentity(existing, incoming));
+                var importedClone = CloneServerProfile(incoming);
+
+                if (candidateIndex >= 0)
+                {
+                    candidate[candidateIndex] = importedClone;
+                }
+                else
+                {
+                    candidate.Add(importedClone);
+                }
+            }
+
+            await _profileStore.SaveAsync(candidate);
+
+            if (selectedReplacement is not null || terminalProfileAffected)
+            {
+                CancelRemoteOperations();
+            }
+
+            if (terminalProfileAffected)
+            {
+                _terminalConnectCancellation?.Cancel();
+                await DisconnectTerminalAsync(
+                    "Terminal disconnected because an imported profile replaced its server context.",
+                    appendMessage: true);
+            }
+
             foreach (var incoming in imported)
             {
                 var existing = Profiles.FirstOrDefault(profile =>
-                    profile.Id == incoming.Id ||
-                    (string.Equals(profile.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
-                     profile.Port == incoming.Port &&
-                     string.Equals(profile.Username, incoming.Username, StringComparison.OrdinalIgnoreCase)));
+                    ProfilesMatchImportIdentity(profile, incoming));
+                var importedClone = CloneServerProfile(incoming);
 
                 if (existing is null)
                 {
-                    Profiles.Add(incoming);
+                    Profiles.Add(importedClone);
                     continue;
                 }
 
-                var index = Profiles.IndexOf(existing);
-                Profiles[index] = incoming;
+                Profiles[Profiles.IndexOf(existing)] = importedClone;
             }
 
-            await _profileStore.SaveAsync(Profiles);
+            if (selectedReplacement is not null)
+            {
+                ServerList.SelectedItem = Profiles.FirstOrDefault(profile =>
+                    profile.Id == selectedReplacement.Id);
+            }
+
+            RefreshFleetInventory();
             SettingsStatusText.Text = $"Imported and validated {imported.Count} profile(s).";
             StatusText.Text = "Profiles imported";
         }
@@ -4079,7 +4140,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             SettingsStatusText.Text = SafeError(ex);
             StatusText.Text = "Profile import failed";
         }
+        finally
+        {
+            EndProfileImport();
+        }
     }
+
+    private bool TryBeginProfileImport()
+    {
+        if (Interlocked.CompareExchange(ref _profileImportActive, 1, 0) != 0)
+        {
+            SettingsStatusText.Text = "A profile import is already running.";
+            return false;
+        }
+
+        UpdateImportProfilesButtonState();
+        return true;
+    }
+
+    private void EndProfileImport()
+    {
+        Interlocked.Exchange(ref _profileImportActive, 0);
+        UpdateImportProfilesButtonState();
+    }
+
+    private void UpdateImportProfilesButtonState()
+    {
+        ImportProfilesButton.IsEnabled =
+            Volatile.Read(ref _profileImportActive) == 0 &&
+            Volatile.Read(ref _mutationActive) == 0;
+    }
+
+    private static bool ProfilesMatchImportIdentity(
+        ServerProfile existing,
+        ServerProfile incoming) =>
+        existing.Id == incoming.Id ||
+        (string.Equals(existing.Host, incoming.Host, StringComparison.OrdinalIgnoreCase) &&
+         existing.Port == incoming.Port &&
+         string.Equals(existing.Username, incoming.Username, StringComparison.OrdinalIgnoreCase));
 
     private void OpenAppData_Click(object sender, RoutedEventArgs e)
     {
