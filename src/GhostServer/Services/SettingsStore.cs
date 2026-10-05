@@ -3,10 +3,10 @@ using GhostServer.Models;
 
 namespace GhostServer.Services;
 
-public sealed class SettingsStore : IDisposable
+public sealed class SettingsStore
 {
     private readonly string _path;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private static readonly SemaphoreSlim Gate = new(1, 1);
 
     public SettingsStore()
     {
@@ -20,7 +20,7 @@ public sealed class SettingsStore : IDisposable
     public async Task<AppSettings> LoadAsync(
         CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await Gate.WaitAsync(cancellationToken);
         try
         {
             var settings = await JsonFileStore.LoadAsync<AppSettings>(
@@ -32,7 +32,7 @@ public sealed class SettingsStore : IDisposable
         }
         finally
         {
-            _gate.Release();
+            Gate.Release();
         }
     }
 
@@ -40,7 +40,7 @@ public sealed class SettingsStore : IDisposable
         AppSettings settings,
         CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await Gate.WaitAsync(cancellationToken);
         try
         {
             settings.Normalize();
@@ -51,13 +51,8 @@ public sealed class SettingsStore : IDisposable
         }
         finally
         {
-            _gate.Release();
+            Gate.Release();
         }
     }
 
-    public void Dispose()
-    {
-        _gate.Dispose();
-        GC.SuppressFinalize(this);
-    }
 }
