@@ -900,6 +900,145 @@ fi
         return ExecuteCheckedAsync(profile, secret, command, cancellationToken);
     }
 
+    public static async Task<IReadOnlyList<DatabaseEngineStatus>> GetDatabaseEnginesAsync(
+        ServerProfile profile,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        const string command = """
+safe() {
+  printf '%s' "$1" | tr '\t\r\n' '   '
+}
+
+emit_meta() {
+  printf 'META\t%s\t%s\t%s\t%s\n' "$(safe "$1")" "$(safe "$2")" "$(safe "$3")" "$(safe "$4")"
+}
+
+emit_db() {
+  printf 'DB\t%s\t%s\n' "$(safe "$1")" "$(safe "$2")"
+}
+
+if command -v psql >/dev/null 2>&1; then
+  pg_version="$(psql --version 2>/dev/null | head -n 1)"
+  pg_status="$(systemctl is-active postgresql 2>/dev/null || true)"
+  [ -n "$pg_status" ] || pg_status="unknown"
+  pg_access="no non-interactive access"
+  pg_sql='SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname;'
+
+  pg_dbs="$(psql -X -A -t -c "$pg_sql" 2>/dev/null)"
+  pg_rc=$?
+
+  if [ "$pg_rc" -eq 0 ]; then
+    pg_access="current user"
+  else
+    pg_dbs="$(sudo -n -u postgres psql -X -A -t -c "$pg_sql" 2>/dev/null)"
+    pg_rc=$?
+    if [ "$pg_rc" -eq 0 ]; then
+      pg_access="postgres socket via sudo"
+    fi
+  fi
+
+  emit_meta "PostgreSQL" "$pg_version" "$pg_status" "$pg_access"
+
+  if [ "$pg_rc" -eq 0 ] && [ -n "$pg_dbs" ]; then
+    printf '%s\n' "$pg_dbs" | while IFS= read -r db; do
+      [ -n "$db" ] && emit_db "PostgreSQL" "$db"
+    done
+  fi
+fi
+
+my_client=""
+if command -v mariadb >/dev/null 2>&1; then
+  my_client="$(command -v mariadb)"
+elif command -v mysql >/dev/null 2>&1; then
+  my_client="$(command -v mysql)"
+fi
+
+if [ -n "$my_client" ]; then
+  my_version="$("$my_client" --version 2>/dev/null | head -n 1)"
+  case "$my_version" in
+    *MariaDB*|*mariadb*) my_engine="MariaDB" ;;
+    *) my_engine="MySQL" ;;
+  esac
+
+  my_status="$(systemctl is-active mariadb 2>/dev/null || true)"
+  if [ -z "$my_status" ] || [ "$my_status" = "unknown" ]; then
+    my_status="$(systemctl is-active mysql 2>/dev/null || true)"
+  fi
+  [ -n "$my_status" ] || my_status="unknown"
+
+  my_access="no non-interactive access"
+  my_dbs="$("$my_client" --batch --skip-column-names --connect-timeout=5 -e 'SHOW DATABASES;' 2>/dev/null)"
+  my_rc=$?
+
+  if [ "$my_rc" -eq 0 ]; then
+    my_access="configured/socket auth"
+  else
+    my_dbs="$(sudo -n "$my_client" --batch --skip-column-names --connect-timeout=5 -e 'SHOW DATABASES;' 2>/dev/null)"
+    my_rc=$?
+    if [ "$my_rc" -eq 0 ]; then
+      my_access="local root socket via sudo"
+    fi
+  fi
+
+  emit_meta "$my_engine" "$my_version" "$my_status" "$my_access"
+
+  if [ "$my_rc" -eq 0 ] && [ -n "$my_dbs" ]; then
+    printf '%s\n' "$my_dbs" | while IFS= read -r db; do
+      [ -n "$db" ] && emit_db "$my_engine" "$db"
+    done
+  fi
+fi
+
+if command -v sqlite3 >/dev/null 2>&1; then
+  sqlite_version="$(sqlite3 --version 2>/dev/null | awk '{print $1}')"
+  emit_meta "SQLite" "$sqlite_version" "client only" "filesystem databases are not enumerated"
+fi
+""";
+
+        var output = await RunCommandAsync(
+            profile,
+            secret,
+            command,
+            cancellationToken);
+
+        var engines = new List<DatabaseEngineStatus>();
+        var byName = new Dictionary<string, DatabaseEngineStatus>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var rawLine in output.Split(
+                     '\n',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = rawLine.Split('\t');
+            if (parts.Length >= 5 &&
+                string.Equals(parts[0], "META", StringComparison.Ordinal))
+            {
+                var engine = new DatabaseEngineStatus
+                {
+                    Engine = parts[1],
+                    Version = parts[2],
+                    ServiceStatus = parts[3],
+                    Access = parts[4]
+                };
+
+                engines.Add(engine);
+                byName[engine.Engine] = engine;
+                continue;
+            }
+
+            if (parts.Length >= 3 &&
+                string.Equals(parts[0], "DB", StringComparison.Ordinal) &&
+                byName.TryGetValue(parts[1], out var target) &&
+                !string.IsNullOrWhiteSpace(parts[2]))
+            {
+                target.Databases.Add(parts[2]);
+            }
+        }
+
+        return engines;
+    }
+
     public static Task<string> GetRecentLogsAsync(
         ServerProfile profile,
         string? secret,
