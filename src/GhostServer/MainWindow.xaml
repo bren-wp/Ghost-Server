@@ -312,7 +312,7 @@
                                         <StackPanel Width="260" Margin="0,0,0,8">
                                             <Label Content="Session password / key passphrase"/>
                                             <PasswordBox x:Name="SessionSecretBox" Style="{StaticResource GhostPasswordBox}"/>
-                                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Padding="10,5"
+                                            <Button x:Name="LockSessionButton" Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Padding="10,5"
                                                     Margin="0,7,0,0" Click="LockSession_Click" ToolTip="Clear the in-memory session secret (Ctrl+L)">
                                                 <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" Style="{StaticResource FluentIcon}" FontSize="12"/><TextBlock Text="Lock session" Margin="6,0,0,0"/></StackPanel>
                                             </Button>
@@ -348,9 +348,9 @@
                                                        TextWrapping="Wrap"/>
                                             <TextBlock x:Name="HostKeyAlgorithm" Foreground="{StaticResource GhostMuted}" Margin="0,5,0,10"/>
                                             <WrapPanel>
-                                                <Button Content="Trust fingerprint" Style="{StaticResource AccentButton}"
+                                                <Button x:Name="TrustHostKeyButton" Content="Trust fingerprint" Style="{StaticResource AccentButton}"
                                                         Click="TrustHostKey_Click" Margin="0,0,8,8"/>
-                                                <Button Content="Reject" Style="{StaticResource GhostButton}" Click="RejectHostKey_Click" Margin="0,0,0,8"/>
+                                                <Button x:Name="RejectHostKeyButton" Content="Reject" Style="{StaticResource GhostButton}" Click="RejectHostKey_Click" Margin="0,0,0,8"/>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
@@ -1344,7 +1344,7 @@
                                                   Checked="SettingsControl_Changed"
                                                   Unchecked="SettingsControl_Changed"/>
                                     </StackPanel>
-                                    <Button Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                    <Button x:Name="ResetWindowLayoutButton" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="0,0,0,8"
                                             Click="ResetWindowLayout_Click"
                                             AutomationProperties.Name="Reset window size">
                                         <StackPanel Orientation="Horizontal">
@@ -1519,7 +1519,7 @@
                                    AutomationProperties.LiveSetting="Assertive"/>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                            <Button x:Name="AddServerCancelButton" Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                                     Click="CloseAddServer_Click" IsCancel="True"/>
                             <Button x:Name="SaveServerButton" Content="Save server" Style="{StaticResource AccentButton}"
                                     Click="SaveServer_Click" IsDefault="True"/>
@@ -1618,7 +1618,7 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="ConfirmCancelButton" Content="Cancel" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
                                 Click="CancelDelete_Click" IsCancel="True"/>
-                        <Button Content="Delete profile" Style="{StaticResource DangerButton}" Click="ConfirmDelete_Click"/>
+                        <Button x:Name="ConfirmDeleteButton" Content="Delete profile" Style="{StaticResource DangerButton}" Click="ConfirmDelete_Click"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
