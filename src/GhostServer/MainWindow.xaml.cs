@@ -56,6 +56,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _settingsDirty;
     private bool _settingsSaveBusy;
     private long _settingsEditGeneration;
+    private bool _mutationCloseApproved;
     private bool _allowCloseAfterSettingsFlush;
     private int _responsiveLayoutSignature = -1;
     private IInputElement? _focusBeforeOverlay;
@@ -4948,7 +4949,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            CancelRemoteOperations();
+            _mutationCloseApproved = true;
 
             if (_settingsDirty)
             {
@@ -4956,7 +4957,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            await FlushWindowSettingsAndCloseAsync();
+            await FinalizeApprovedCloseAsync();
             return;
         }
 
@@ -4989,6 +4990,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void CancelUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
     {
+        _mutationCloseApproved = false;
         UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
         RestoreOverlayFocus();
         StatusText.Text = "Close cancelled";
@@ -4999,7 +5001,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _settingsDirty = false;
         SaveSettingsButton.IsEnabled = false;
         UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
-        await FlushWindowSettingsAndCloseAsync();
+        await FinalizeApprovedCloseAsync();
     }
 
     private async void SaveUnsavedSettingsClose_Click(object sender, RoutedEventArgs e)
@@ -5011,6 +5013,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         UnsavedSettingsOverlay.Visibility = Visibility.Collapsed;
+        await FinalizeApprovedCloseAsync();
+    }
+
+    private async Task FinalizeApprovedCloseAsync()
+    {
+        if (_mutationCloseApproved &&
+            Volatile.Read(ref _mutationActive) != 0)
+        {
+            CancelRemoteOperations();
+        }
+
+        _mutationCloseApproved = false;
         await FlushWindowSettingsAndCloseAsync();
     }
 
