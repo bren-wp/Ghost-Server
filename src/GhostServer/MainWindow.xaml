@@ -3,14 +3,18 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Ghost Server"
-        Width="1290" Height="852"
-        MinWidth="900" MinHeight="620"
+        Width="1180" Height="760"
+        MinWidth="680" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Normal"
         WindowStyle="None"
         ResizeMode="CanResize"
         Background="{StaticResource GhostNavy}"
         Foreground="{StaticResource GhostIce}"
         Loaded="Window_Loaded"
         Closed="Window_Closed"
+        SizeChanged="Window_SizeChanged"
+        StateChanged="Window_StateChanged"
         PreviewKeyDown="Window_PreviewKeyDown"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
@@ -57,7 +61,7 @@
                     <TextBlock Text="&#xE921;" Style="{StaticResource FluentIcon}" FontSize="12"/>
                 </Button>
                 <Button Grid.Column="2" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
-                        Margin="0" Click="Maximize_Click" ToolTip="Maximize or restore" AutomationProperties.Name="Maximize or restore">
+                        Margin="0" Click="Maximize_Click" ToolTip="Fit window to screen" AutomationProperties.Name="Fit window to screen">
                     <TextBlock Text="&#xE922;" Style="{StaticResource FluentIcon}" FontSize="12"/>
                 </Button>
                 <Button Grid.Column="3" Style="{StaticResource NavButton}" HorizontalContentAlignment="Center"
@@ -69,25 +73,25 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="198"/>
+                <ColumnDefinition x:Name="SidebarColumn" Width="198"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Background="#0A1A2E" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,0,1,0">
-                <Grid Margin="12">
+            <Border x:Name="SidebarBorder" Grid.Column="0" Background="#0A1A2E" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,0,1,0">
+                <Grid x:Name="SidebarInnerGrid" Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="NAVIGATION" Foreground="{StaticResource GhostMuted}" FontSize="10"
+                    <TextBlock x:Name="SidebarTitle" Grid.Row="0" Text="NAVIGATION" Foreground="{StaticResource GhostMuted}" FontSize="10"
                                FontWeight="SemiBold" Margin="12,8,0,10"/>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                   Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="OVERVIEW" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
+                        <StackPanel x:Name="SidebarNavigationPanel">
+                            <TextBlock x:Name="SidebarOverviewHeading" Text="OVERVIEW" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
                                        FontWeight="SemiBold" Margin="9,2,0,6"/>
                             <Button x:Name="DashboardNavButton" Style="{StaticResource NavButton}" Click="DashboardNav_Click" ToolTip="Dashboard">
                                 <Grid>
@@ -104,7 +108,7 @@
                                 </Grid>
                             </Button>
 
-                            <TextBlock Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
+                            <TextBlock x:Name="SidebarManageHeading" Text="MANAGE" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
                                        FontWeight="SemiBold" Margin="9,10,0,6"/>
                             <Button x:Name="FilesNavButton" Style="{StaticResource NavButton}" Click="FilesNav_Click" ToolTip="SFTP files">
                                 <Grid>
@@ -135,7 +139,7 @@
                                 </Grid>
                             </Button>
 
-                            <TextBlock Text="OPERATIONS" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
+                            <TextBlock x:Name="SidebarOperationsHeading" Text="OPERATIONS" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
                                        FontWeight="SemiBold" Margin="9,10,0,6"/>
                             <Button x:Name="UpdatesNavButton" Style="{StaticResource NavButton}" Click="UpdatesNav_Click" ToolTip="Safe Update, backup and scheduled tasks">
                                 <Grid>
@@ -166,7 +170,7 @@
                                 </Grid>
                             </Button>
 
-                            <TextBlock Text="APP" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
+                            <TextBlock x:Name="SidebarAppHeading" Text="APP" Foreground="{StaticResource GhostMuted}" FontSize="9.5"
                                        FontWeight="SemiBold" Margin="9,10,0,6"/>
                             <Button x:Name="SettingsNavButton" Style="{StaticResource NavButton}" Click="SettingsNav_Click" ToolTip="Settings and about">
                                 <Grid>
@@ -185,7 +189,7 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <Border Grid.Row="2" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
+                    <Border x:Name="SidebarFooter" Grid.Row="2" Background="{StaticResource GhostPanel}" BorderBrush="{StaticResource GhostBorder}"
                             BorderThickness="1" CornerRadius="10" Padding="12">
                         <StackPanel>
                             <TextBlock Text="SSH-first" FontWeight="SemiBold"/>
@@ -199,12 +203,12 @@
 
             <Grid Grid.Column="1" Background="{StaticResource GhostNavy}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="84"/>
+                    <RowDefinition x:Name="ContentHeaderRow" Height="84"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" BorderBrush="{StaticResource GhostBorder}" BorderThickness="0,0,0,1">
-                    <Grid Margin="24,0">
+                    <Grid x:Name="ContentHeaderGrid" Margin="24,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -214,11 +218,11 @@
                             <TextBlock x:Name="PageSubtitle" Text="Server health, services and connection state."
                                        Foreground="{StaticResource GhostMuted}" Margin="0,5,0,0"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Style="{StaticResource AccentButton}"
+                        <Button x:Name="HeaderAddServerButton" Grid.Column="1" Style="{StaticResource AccentButton}"
                                 VerticalAlignment="Center" Click="OpenAddServer_Click" ToolTip="Add server (Ctrl+N)">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE710;" Style="{StaticResource FluentIcon}" Foreground="#06121E"/>
-                                <TextBlock Text="Add server" Margin="7,0,0,0" Foreground="#06121E" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="HeaderAddServerText" Text="Add server" Margin="7,0,0,0" Foreground="#06121E" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -227,7 +231,7 @@
                 <Grid Grid.Row="1">
                     <Grid x:Name="DashboardPage">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="300"/>
+                            <ColumnDefinition x:Name="DashboardServerColumn" Width="300"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
@@ -1473,8 +1477,8 @@
         </Border>
 
         <Grid x:Name="AddServerOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed">
-            <Border Width="560" MaxHeight="710" Style="{StaticResource CardBorder}"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+            <Border x:Name="AddServerCard" Width="560" MaxWidth="560" MaxHeight="710" Style="{StaticResource CardBorder}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" Margin="20">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <Grid Margin="0,0,0,18">
@@ -1545,8 +1549,8 @@
         </Grid>
 
         <Grid x:Name="ConfirmOverlay" Grid.RowSpan="3" Background="#D9071322" Visibility="Collapsed">
-            <Border Width="470" Style="{StaticResource CardBorder}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Padding="24" BorderBrush="{StaticResource GhostDanger}">
+            <Border x:Name="ConfirmCard" Width="470" MaxWidth="470" Style="{StaticResource CardBorder}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="24" Margin="20" BorderBrush="{StaticResource GhostDanger}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <Border Width="38" Height="38" CornerRadius="10" Background="{StaticResource GhostDangerSurface}" Margin="0,0,12,0">
