@@ -17,7 +17,7 @@ using Microsoft.Win32;
 
 namespace GhostServer;
 
-public partial class MainWindow : Window, INotifyPropertyChanged
+public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
     private readonly ProfileStore _profileStore = new();
     private readonly SettingsStore _settingsStore = new();
@@ -43,6 +43,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _autoRefreshBusy;
     private bool _terminalTransitionBusy;
     private CancellationTokenSource? _terminalConnectCancellation;
+    private int _windowDisposed;
     private const int TerminalOutputMaxCharacters = 500_000;
 
     public ObservableCollection<ServerProfile> Profiles { get; } = [];
@@ -3607,12 +3608,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void Window_Closed(object? sender, EventArgs e)
+    private void Window_Closed(object? sender, EventArgs e) => Dispose();
+
+    public void Dispose()
     {
+        if (Interlocked.Exchange(ref _windowDisposed, 1) != 0)
+        {
+            return;
+        }
+
         _terminalConnectCancellation?.Cancel();
         _terminalConnectCancellation?.Dispose();
         _terminalConnectCancellation = null;
         _terminalSession.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
